@@ -59,3 +59,8 @@ This project is licensed under the [MIT License](LICENSE).
 ## About
 
 Built by the [Relational Tech Project](https://relationaltechproject.org/) — exploring how technology can strengthen neighborhood connections.
+
+## Builder
+
+Josh Nesbit – co-founder of Relational Tech Project, building with neighbors in the Outer Sunset in SF.
+Reach me by email: josh@relationaltechproject.org
