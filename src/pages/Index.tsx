@@ -116,7 +116,7 @@ const Index = () => {
 
   return (
     <main className="min-h-screen flex flex-col">
-      <CatalogHeader onNavigate={setActiveTab} />
+      <CatalogHeader onNavigate={setActiveTab} onSearch={setSearchQuery} searchQuery={searchQuery} />
       <div className="flex-1">
         {renderContent()}
       </div>
