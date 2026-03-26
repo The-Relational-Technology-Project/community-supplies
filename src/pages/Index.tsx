@@ -90,7 +90,7 @@ const Index = () => {
       case 'browse':
         return (
           <AuthGuard requireVouched>
-            <BrowseSupplies />
+            <BrowseSupplies searchQuery={searchQuery} />
           </AuthGuard>
         );
       case 'add':
