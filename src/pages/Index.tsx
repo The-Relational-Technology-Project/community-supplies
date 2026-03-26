@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('browse');
+  const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -89,7 +90,7 @@ const Index = () => {
       case 'browse':
         return (
           <AuthGuard requireVouched>
-            <BrowseSupplies />
+            <BrowseSupplies searchQuery={searchQuery} />
           </AuthGuard>
         );
       case 'add':
@@ -107,7 +108,7 @@ const Index = () => {
       default:
         return (
           <AuthGuard requireVouched>
-            <BrowseSupplies />
+            <BrowseSupplies searchQuery={searchQuery} />
           </AuthGuard>
         );
     }
@@ -115,7 +116,7 @@ const Index = () => {
 
   return (
     <main className="min-h-screen flex flex-col">
-      <CatalogHeader onNavigate={setActiveTab} />
+      <CatalogHeader onNavigate={setActiveTab} onSearch={setSearchQuery} searchQuery={searchQuery} />
       <div className="flex-1">
         {renderContent()}
       </div>
