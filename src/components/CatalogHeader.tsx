@@ -46,8 +46,8 @@ export const CatalogHeader = ({ onSearch, searchQuery = "", onNavigate }: Catalo
         </button>
 
         {/* Desktop Search - hidden on mobile */}
-        <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-2xl mx-auto">
-          <div className="relative w-full">
+        <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-2xl mx-auto gap-2">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
@@ -57,6 +57,23 @@ export const CatalogHeader = ({ onSearch, searchQuery = "", onNavigate }: Catalo
               className="pl-10 bg-white border-border"
             />
           </div>
+          <Button type="submit" size="sm" className="h-10">
+            Search
+          </Button>
+          {localQuery && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-10"
+              onClick={() => {
+                setLocalQuery("");
+                onSearch?.("");
+              }}
+            >
+              Clear
+            </Button>
+          )}
         </form>
 
         {/* Mobile: Prominent Add Item Button */}
