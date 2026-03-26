@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('browse');
+  const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
