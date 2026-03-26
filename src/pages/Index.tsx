@@ -108,7 +108,7 @@ const Index = () => {
       default:
         return (
           <AuthGuard requireVouched>
-            <BrowseSupplies />
+            <BrowseSupplies searchQuery={searchQuery} />
           </AuthGuard>
         );
     }
