@@ -14,13 +14,21 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BookLibrary } from "./books/BookLibrary";
 
-export function BrowseSupplies() {
+interface BrowseSuppliesProps {
+  searchQuery?: string;
+}
+
+export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppliesProps) {
   const { supplies, loading } = useSupplies();
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [conditionFilter, setConditionFilter] = useState("all");
   const [availabilityFilter, setAvailabilityFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(externalQuery);
   const [selectedSupply, setSelectedSupply] = useState<Supply | null>(null);
+
+  useEffect(() => {
+    setSearchQuery(externalQuery);
+  }, [externalQuery]);
 
   // Check if a special category (like books) is selected
   const isSpecialCategorySelected = isSpecialCategory(categoryFilter);
