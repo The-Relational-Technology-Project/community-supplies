@@ -1,12 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Package, MessageSquare, Mail, Globe } from "lucide-react";
+import { Shield, Users, Package, MessageSquare, Mail, Globe, Link } from "lucide-react";
 import { CommunityOverview } from "./CommunityOverview";
 import { SupplyRequestsManager } from "./SupplyRequestsManager";
 import { AllSuppliesManager } from "./AllSuppliesManager";
 import { BulkEmailSender } from "./BulkEmailSender";
 import { RefreshIllustrations } from "./RefreshIllustrations";
 import { CommunityRequestsManager } from "./CommunityRequestsManager";
+import { NeighborCommunitiesManager } from "./NeighborCommunitiesManager";
 
 export function StewardDashboard() {
   return (

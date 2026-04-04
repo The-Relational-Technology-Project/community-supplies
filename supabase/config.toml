@@ -32,3 +32,9 @@ verify_jwt = true
 
 [functions.send-community-request-notification]
 verify_jwt = false
+
+[functions.search-public-catalog]
+verify_jwt = false
+
+[functions.cross-community-search]
+verify_jwt = false

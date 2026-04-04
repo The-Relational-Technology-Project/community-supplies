@@ -13,6 +13,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BookLibrary } from "./books/BookLibrary";
+import { CrossCommunityResults } from "./CrossCommunityResults";
+import { useCrossCommunitySearch } from "@/hooks/useCrossCommunitySearch";
 
 interface BrowseSuppliesProps {
   searchQuery?: string;
