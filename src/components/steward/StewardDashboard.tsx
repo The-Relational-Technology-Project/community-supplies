@@ -24,7 +24,7 @@ export function StewardDashboard() {
       </div>
 
       <Tabs defaultValue="members" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="members" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Members
@@ -40,6 +40,10 @@ export function StewardDashboard() {
           <TabsTrigger value="communities" className="flex items-center gap-2">
             <Globe className="h-4 w-4" />
             Communities
+          </TabsTrigger>
+          <TabsTrigger value="neighbors" className="flex items-center gap-2">
+            <Link className="h-4 w-4" />
+            Neighbors
           </TabsTrigger>
           <TabsTrigger value="email" className="flex items-center gap-2">
             <Mail className="h-4 w-4" />
