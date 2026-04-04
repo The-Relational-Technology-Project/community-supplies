@@ -11,7 +11,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -26,19 +25,15 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userId = claimsData.claims.sub;
-
-    // Check if user is vouched
-    const { data: vouchedData } = await supabase.rpc("is_user_vouched", { user_id: userId });
+    const { data: vouchedData } = await supabase.rpc("is_user_vouched", { user_id: user.id });
     if (!vouchedData) {
       return new Response(JSON.stringify({ error: "Not a vouched member" }), {
         status: 403,
@@ -54,7 +49,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get enabled neighbors
     const { data: neighbors, error: neighborsError } = await supabase
       .from("community_neighbors")
       .select("*")
@@ -67,7 +61,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fan out to each neighbor with 3-second timeout
     const results = await Promise.allSettled(
       neighbors.map(async (neighbor) => {
         const controller = new AbortController();
@@ -87,10 +80,13 @@ Deno.serve(async (req) => {
           if (!res.ok) return null;
 
           const data = await res.json();
+          const matchCount = data.match_count || 0;
+          if (matchCount === 0) return null;
+
           return {
             communityName: data.community_name || neighbor.name,
             joinUrl: neighbor.join_url,
-            categories: data.results || [],
+            matchCount,
           };
         } catch {
           return null;
@@ -102,8 +98,7 @@ Deno.serve(async (req) => {
 
     const successfulResults = results
       .filter((r) => r.status === "fulfilled" && r.value !== null)
-      .map((r) => (r as PromiseFulfilledResult<any>).value)
-      .filter((r) => r.categories.length > 0);
+      .map((r) => (r as PromiseFulfilledResult<any>).value);
 
     return new Response(JSON.stringify(successfulResults), {
       status: 200,

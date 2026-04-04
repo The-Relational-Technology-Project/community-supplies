@@ -25,7 +25,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Rate limit by IP
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
     if (isRateLimited(ip)) {
       return new Response(JSON.stringify({ error: "Rate limited" }), {
@@ -36,7 +35,6 @@ Deno.serve(async (req) => {
 
     const { query, federation_key } = await req.json();
 
-    // Validate federation key
     const expectedKey = Deno.env.get("FEDERATION_SECRET");
     if (!expectedKey || federation_key !== expectedKey) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -56,7 +54,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get community name from site_config
+    // Get community name
     const { data: configData } = await supabase
       .from("site_config")
       .select("value")
@@ -65,13 +63,10 @@ Deno.serve(async (req) => {
 
     const communityName = configData?.value || "Community Supplies";
 
-    // Search supplies by name/description, group by category, return counts only
-    const searchTerm = `%${query.trim()}%`;
-    const { data: supplies, error } = await supabase
-      .from("supplies")
-      .select("category")
-      .or(`name.ilike.${searchTerm},description.ilike.${searchTerm}`)
-      .eq("lent_out", false);
+    // Full-text search with stemming, return count only
+    const { data: matchCount, error } = await supabase.rpc("search_supplies_public", {
+      search_query: query.trim(),
+    });
 
     if (error) {
       console.error("Search error:", error);
@@ -81,19 +76,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Group by category and count
-    const categoryCounts: Record<string, number> = {};
-    for (const supply of supplies || []) {
-      categoryCounts[supply.category] = (categoryCounts[supply.category] || 0) + 1;
-    }
-
-    const results = Object.entries(categoryCounts).map(([category, count]) => ({
-      category,
-      count,
-    }));
-
     return new Response(
-      JSON.stringify({ community_name: communityName, results }),
+      JSON.stringify({ community_name: communityName, match_count: matchCount || 0 }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

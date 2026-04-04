@@ -492,6 +492,10 @@ export type Database = {
       }
       is_user_steward: { Args: { user_id: string }; Returns: boolean }
       is_user_vouched: { Args: { user_id: string }; Returns: boolean }
+      search_supplies_public: {
+        Args: { search_query: string }
+        Returns: number
+      }
     }
     Enums: {
       app_role: "member" | "steward"
