@@ -58,6 +58,9 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
     });
   }, [supplies, categoryFilter, conditionFilter, availabilityFilter, searchQuery, isSpecialCategorySelected]);
 
+  const { crossResults, isSearching: isCrossSearching, hasSearched: hasCrossSearched } =
+    useCrossCommunitySearch(searchQuery, filteredSupplies.length);
+
   // Don't show loading state for special categories (they have their own)
   if (loading && !isSpecialCategorySelected) {
     return (
