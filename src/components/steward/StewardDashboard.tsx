@@ -107,6 +107,20 @@ export function StewardDashboard() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="neighbors">
+          <Card>
+            <CardHeader>
+              <CardTitle>Nearby Communities</CardTitle>
+              <CardDescription>
+                Manage federated search connections with nearby sharing communities
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <NeighborCommunitiesManager />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="email">
           <Card>
             <CardHeader>

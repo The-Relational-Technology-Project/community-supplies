@@ -244,6 +244,11 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
               {filteredSupplies.length === 0 ? (
                 <div className="text-center py-16">
                   <p className="text-lg text-muted-foreground">No supplies found matching your criteria.</p>
+                  <CrossCommunityResults
+                    results={crossResults}
+                    isSearching={isCrossSearching}
+                    hasSearched={hasCrossSearched}
+                  />
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
