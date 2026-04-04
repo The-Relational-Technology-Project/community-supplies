@@ -1,12 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Package, MessageSquare, Mail, Globe } from "lucide-react";
+import { Shield, Users, Package, MessageSquare, Mail, Globe, Link } from "lucide-react";
 import { CommunityOverview } from "./CommunityOverview";
 import { SupplyRequestsManager } from "./SupplyRequestsManager";
 import { AllSuppliesManager } from "./AllSuppliesManager";
 import { BulkEmailSender } from "./BulkEmailSender";
 import { RefreshIllustrations } from "./RefreshIllustrations";
 import { CommunityRequestsManager } from "./CommunityRequestsManager";
+import { NeighborCommunitiesManager } from "./NeighborCommunitiesManager";
 
 export function StewardDashboard() {
   return (
@@ -23,7 +24,7 @@ export function StewardDashboard() {
       </div>
 
       <Tabs defaultValue="members" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="members" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Members
@@ -39,6 +40,10 @@ export function StewardDashboard() {
           <TabsTrigger value="communities" className="flex items-center gap-2">
             <Globe className="h-4 w-4" />
             Communities
+          </TabsTrigger>
+          <TabsTrigger value="neighbors" className="flex items-center gap-2">
+            <Link className="h-4 w-4" />
+            Neighbors
           </TabsTrigger>
           <TabsTrigger value="email" className="flex items-center gap-2">
             <Mail className="h-4 w-4" />
@@ -98,6 +103,20 @@ export function StewardDashboard() {
             </CardHeader>
             <CardContent>
               <CommunityRequestsManager />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="neighbors">
+          <Card>
+            <CardHeader>
+              <CardTitle>Nearby Communities</CardTitle>
+              <CardDescription>
+                Manage federated search connections with nearby sharing communities
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <NeighborCommunitiesManager />
             </CardContent>
           </Card>
         </TabsContent>

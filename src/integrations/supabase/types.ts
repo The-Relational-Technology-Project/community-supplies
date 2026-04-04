@@ -64,6 +64,39 @@ export type Database = {
           },
         ]
       }
+      community_neighbors: {
+        Row: {
+          created_at: string | null
+          enabled: boolean | null
+          federation_key: string
+          id: string
+          join_url: string
+          name: string
+          search_endpoint: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string | null
+          enabled?: boolean | null
+          federation_key: string
+          id?: string
+          join_url: string
+          name: string
+          search_endpoint: string
+          slug: string
+        }
+        Update: {
+          created_at?: string | null
+          enabled?: boolean | null
+          federation_key?: string
+          id?: string
+          join_url?: string
+          name?: string
+          search_endpoint?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       community_steward_requests: {
         Row: {
           co_stewards: Json | null

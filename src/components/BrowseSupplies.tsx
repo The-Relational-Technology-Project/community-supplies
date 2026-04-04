@@ -13,6 +13,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BookLibrary } from "./books/BookLibrary";
+import { CrossCommunityResults } from "./CrossCommunityResults";
+import { useCrossCommunitySearch } from "@/hooks/useCrossCommunitySearch";
 
 interface BrowseSuppliesProps {
   searchQuery?: string;
@@ -32,6 +34,8 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
 
   // Check if a special category (like books) is selected
   const isSpecialCategorySelected = isSpecialCategory(categoryFilter);
+
+  // Cross-community search hook is called below after filteredSupplies is computed
 
   const filteredSupplies = useMemo(() => {
     // Don't compute filtered supplies if viewing a special category
@@ -53,6 +57,9 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
       return matchesCategory && matchesCondition && matchesAvailability && matchesSearch;
     });
   }, [supplies, categoryFilter, conditionFilter, availabilityFilter, searchQuery, isSpecialCategorySelected]);
+
+  const { crossResults, isSearching: isCrossSearching, hasSearched: hasCrossSearched } =
+    useCrossCommunitySearch(searchQuery, filteredSupplies.length);
 
   // Don't show loading state for special categories (they have their own)
   if (loading && !isSpecialCategorySelected) {
@@ -239,6 +246,11 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
               {filteredSupplies.length === 0 ? (
                 <div className="text-center py-16">
                   <p className="text-lg text-muted-foreground">No supplies found matching your criteria.</p>
+                  <CrossCommunityResults
+                    results={crossResults}
+                    isSearching={isCrossSearching}
+                    hasSearched={hasCrossSearched}
+                  />
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
