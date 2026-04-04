@@ -37,14 +37,12 @@ export function CrossCommunityResults({ results, isSearching, hasSearched }: Cro
               {result.communityName}
             </span>
           </div>
-          <ul className="space-y-1 pl-6">
-            {result.categories.map((cat) => (
-              <li key={cat.category} className="text-sm text-muted-foreground">
-                {cat.count} {cat.count === 1 ? "item" : "items"} in{" "}
-                <span className="text-foreground capitalize">{cat.category}</span>
-              </li>
-            ))}
-          </ul>
+          <p className="text-sm text-muted-foreground pl-6">
+            <span className="text-foreground font-medium">
+              {result.matchCount} matching {result.matchCount === 1 ? "item" : "items"}
+            </span>{" "}
+            found
+          </p>
           <a
             href={result.joinUrl}
             target="_blank"

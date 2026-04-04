@@ -1,15 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-interface CategoryResult {
-  category: string;
-  count: number;
-}
-
 export interface CrossCommunityResult {
   communityName: string;
   joinUrl: string;
-  categories: CategoryResult[];
+  matchCount: number;
 }
 
 export function useCrossCommunitySearch(searchQuery: string, localResultCount: number) {
