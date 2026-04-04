@@ -35,6 +35,9 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
   // Check if a special category (like books) is selected
   const isSpecialCategorySelected = isSpecialCategory(categoryFilter);
 
+  const { crossResults, isSearching: isCrossSearching, hasSearched: hasCrossSearched } =
+    useCrossCommunitySearch(searchQuery, isSpecialCategorySelected ? 0 : -1);
+
   const filteredSupplies = useMemo(() => {
     // Don't compute filtered supplies if viewing a special category
     if (isSpecialCategorySelected) return [];
