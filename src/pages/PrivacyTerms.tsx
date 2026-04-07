@@ -80,7 +80,7 @@ export default function PrivacyTerms() {
             Community Supplies (<a href="https://communitysupplies.org" className="text-primary hover:underline underline-offset-2">communitysupplies.org</a>) is a free, volunteer-run platform that helps neighbors share physical items with one another. It provides a directory and coordination layer. It does not own, store, inspect, or transport any items listed on the platform. It does not process payments or broker transactions.
           </p>
           <p className="text-sm leading-relaxed mb-3">
-            The site is stewarded by Josh Nesbit as part of the <a href="https://relationaltech.org" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">Relational Tech Project</a>.
+            The site is stewarded by Josh Nesbit as part of the <a href="https://relationaltechproject.org" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">Relational Tech Project</a>.
           </p>
 
           <h3 className="text-[0.95rem] font-sans font-semibold text-foreground mt-6 mb-2">If You're Sharing an Item</h3>
@@ -170,18 +170,17 @@ export default function PrivacyTerms() {
           <h2 className="text-lg font-sans font-semibold text-foreground mb-4">Questions?</h2>
           <div className="bg-card rounded-lg p-5 border border-border">
             <p className="text-sm leading-relaxed mb-2">
-              Community Supplies is stewarded by Josh Nesbit as part of the{" "}
-              <a href="https://relationaltech.org" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">Relational Tech Project</a>.
+              Community Supplies is stewarded by volunteer neighbors.
             </p>
             <p className="text-sm leading-relaxed mb-2">For questions about these policies, your account, or the platform:</p>
-            <p className="text-sm font-semibold">hello@communitysupplies.org</p>
+            <p className="text-sm font-semibold">hello@relationaltechproject.org</p>
           </div>
         </section>
 
         {/* Footer */}
         <div className="text-xs text-muted-foreground pt-8 border-t border-border">
           Built by neighbors, for neighbors as{" "}
-          <a href="https://relationaltech.org" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">relational tech</a>.{" "}
+          <a href="https://relationaltechproject.org" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">relational tech</a>.{" "}
           <a href="https://github.com/The-Relational-Technology-Project" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">Open source</a>.
         </div>
       </div>
