@@ -3,7 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Supply } from "@/types/supply";
 
-const fetchSupplies = async (): Promise<Supply[]> => {
+export const SUPPLIES_QUERY_KEY = ['supplies'] as const;
+
+export const fetchSupplies = async (): Promise<Supply[]> => {
   // Fetch supplies with owner info in a single optimized query
   const { data: suppliesData, error } = await supabase
     .rpc('get_supplies_with_owners');
@@ -42,9 +44,8 @@ export function useSupplies() {
   const { toast } = useToast();
 
   const { data: supplies = [], isLoading: loading, error, refetch } = useQuery({
-    queryKey: ['supplies'],
+    queryKey: SUPPLIES_QUERY_KEY,
     queryFn: fetchSupplies,
-    staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
   });
 

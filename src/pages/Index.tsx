@@ -10,9 +10,12 @@ import { AddSupply } from "@/components/AddSupply";
 import { StewardDashboard } from "@/components/steward/StewardDashboard";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { SUPPLIES_QUERY_KEY, fetchSupplies } from "@/hooks/useSupplies";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('browse');
   const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState<any>(null);
