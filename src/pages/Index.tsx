@@ -43,6 +43,9 @@ const Index = () => {
           setUser(null);
         } else {
           setUser(session?.user ?? null);
+          if (session?.user) {
+            queryClient.prefetchQuery({ queryKey: SUPPLIES_QUERY_KEY, queryFn: fetchSupplies });
+          }
         }
       } catch (error) {
         console.error('Failed to check user:', error);
