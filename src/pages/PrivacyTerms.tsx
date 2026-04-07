@@ -80,7 +80,7 @@ export default function PrivacyTerms() {
             Community Supplies (<a href="https://communitysupplies.org" className="text-primary hover:underline underline-offset-2">communitysupplies.org</a>) is a free, volunteer-run platform that helps neighbors share physical items with one another. It provides a directory and coordination layer. It does not own, store, inspect, or transport any items listed on the platform. It does not process payments or broker transactions.
           </p>
           <p className="text-sm leading-relaxed mb-3">
-            The site is stewarded by Josh Nesbit as part of the <a href="https://relationaltech.org" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">Relational Tech Project</a>.
+            The site is stewarded by Josh Nesbit as part of the <a href="https://relationaltechproject.org" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">Relational Tech Project</a>.
           </p>
 
           <h3 className="text-[0.95rem] font-sans font-semibold text-foreground mt-6 mb-2">If You're Sharing an Item</h3>
