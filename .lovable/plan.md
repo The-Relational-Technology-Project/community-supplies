@@ -1,33 +1,26 @@
 
 
-## Speed Up Item Library Loading
+## Fix: Duplicate QueryClientProvider Crash
 
-### Problem
-Every time the browse page mounts (or after 10 minutes of inactivity), a fresh RPC call to `get_supplies_with_owners` fires and the user stares at a spinner. Since you said it's always the same browser, we can cache aggressively.
+### Root Cause
 
-### Approach: Three complementary improvements
+The caching update created a **conflict between two QueryClient instances**:
 
-**1. Persist React Query cache to localStorage**
-The biggest win. On repeat visits, supplies appear instantly from the local cache while a background refresh happens silently. Uses `@tanstack/react-query-persist-client` with a localStorage persister.
+1. `main.tsx` creates a `QueryClient` with persistence config and wraps the app in `PersistQueryClientProvider`
+2. `App.tsx` creates a **second** `QueryClient` (no persistence) and wraps everything again in `QueryClientProvider`
 
-- Install `@tanstack/react-query-persist-client`
-- In `main.tsx`, wrap the app with `PersistQueryClientProvider` and configure a `createSyncStoragePersister` backed by `localStorage`
-- Set `gcTime` to 24 hours (cache survives longer between visits)
-- Data shows immediately; stale data refreshes in the background
+Components see the inner (App.tsx) client, which has no cache persistence and no prefetched data. The persisted client in main.tsx is effectively dead. When the localStorage cache tries to hydrate into the wrong client, React crashes with error #301.
 
-**2. Prefetch supplies on auth**
-In `Index.tsx`, as soon as the user is authenticated, prefetch the supplies query so data is ready before they even click "Browse." One line: `queryClient.prefetchQuery(...)`.
+The 500 error on `get_supplies_with_owners` appears to be a transient Supabase timeout (only 29 rows in the table, query is simple) — likely related to the earlier unhealthy state you mentioned. But the crash happens because the error isn't handled gracefully due to the provider conflict.
 
-**3. Add skeleton loading instead of spinner**
-Replace the full-screen spinner in `BrowseSupplies` with a grid of skeleton cards matching the layout. This gives a sense of structure while loading and feels significantly faster perceptually.
+### Fix
 
-### Files to modify
-- `package.json` — add `@tanstack/react-query-persist-client`
-- `src/main.tsx` — swap to `PersistQueryClientProvider` with localStorage persister
-- `src/pages/Index.tsx` — prefetch supplies on auth
-- `src/components/BrowseSupplies.tsx` — skeleton grid instead of spinner
-- `src/hooks/useSupplies.ts` — export the query key constant for reuse
+**`src/App.tsx`** — Remove the duplicate `QueryClient` and `QueryClientProvider`. The component should just render the inner tree (TooltipProvider, BrowserRouter, etc.) without any query provider wrapper, since `main.tsx` already provides it.
+
+This is a ~5 line deletion — remove the `QueryClient` import/creation and the `QueryClientProvider` wrapper, keeping everything else intact.
 
 ### Result
-First visit: skeleton cards appear instantly, data loads in 1-2s. Every subsequent visit (same browser): data renders immediately from cache, background refresh happens silently.
+- Single QueryClient with persistence, prefetching, and 24-hour cache all working correctly
+- Cached data renders instantly on refresh
+- RPC errors display a toast instead of crashing the app
 
