@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import Steward from "./pages/Steward";
 import StartCommunity from "./pages/StartCommunity";
 import NotFound from "./pages/NotFound";
+import PrivacyTerms from "./pages/PrivacyTerms";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/steward" element={<Steward />} />
           <Route path="/start-community" element={<StartCommunity />} />
+          <Route path="/privacy" element={<PrivacyTerms />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
