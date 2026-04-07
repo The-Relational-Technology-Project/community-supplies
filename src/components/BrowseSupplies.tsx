@@ -5,7 +5,8 @@ import { SupplyCard } from "./SupplyCard";
 import { ContactModal } from "./ContactModal";
 import { Supply } from "@/types/supply";
 import { useSupplies } from "@/hooks/useSupplies";
-import { Loader2, SlidersHorizontal, Search } from "lucide-react";
+import { SlidersHorizontal, Search } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CategorySidebar } from "./CategorySidebar";
 import { categories, isSpecialCategory } from "@/data/categories";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,10 +65,24 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
   // Don't show loading state for special categories (they have their own)
   if (loading && !isSpecialCategorySelected) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-terracotta" />
-          <p className="text-muted-foreground">Loading supplies...</p>
+      <div className="min-h-screen flex">
+        <div className="hidden md:block">
+          <CategorySidebar selectedCategory={categoryFilter} onCategoryChange={setCategoryFilter} />
+        </div>
+        <div className="flex-1 overflow-auto bg-sand/30">
+          <div className="container mx-auto px-4 md:px-6 py-4 md:py-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="border border-border rounded-lg overflow-hidden bg-card">
+                  <Skeleton className="aspect-square w-full" />
+                  <div className="p-3 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
