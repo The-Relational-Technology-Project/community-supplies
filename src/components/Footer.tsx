@@ -158,10 +158,16 @@ export function Footer() {
               target="_blank"
               rel="noopener noreferrer"
               className="underline underline-offset-2 hover:opacity-80 transition-opacity font-semibold text-deep-brown/70">
-              
               Relational Tech Studio
             </a>{" "}
             · Reuse and remix for your neighborhood
+          </p>
+          <p className="text-sm text-muted-foreground">
+            <a
+              href="/privacy"
+              className="underline underline-offset-2 hover:opacity-80 transition-opacity text-deep-brown/60">
+              Privacy & Terms
+            </a>
           </p>
         </div>
       </div>
