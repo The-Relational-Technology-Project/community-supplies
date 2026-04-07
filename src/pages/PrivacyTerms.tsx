@@ -170,18 +170,17 @@ export default function PrivacyTerms() {
           <h2 className="text-lg font-sans font-semibold text-foreground mb-4">Questions?</h2>
           <div className="bg-card rounded-lg p-5 border border-border">
             <p className="text-sm leading-relaxed mb-2">
-              Community Supplies is stewarded by Josh Nesbit as part of the{" "}
-              <a href="https://relationaltech.org" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">Relational Tech Project</a>.
+              Community Supplies is stewarded by volunteer neighbors.
             </p>
             <p className="text-sm leading-relaxed mb-2">For questions about these policies, your account, or the platform:</p>
-            <p className="text-sm font-semibold">hello@communitysupplies.org</p>
+            <p className="text-sm font-semibold">hello@relationaltechproject.org</p>
           </div>
         </section>
 
         {/* Footer */}
         <div className="text-xs text-muted-foreground pt-8 border-t border-border">
           Built by neighbors, for neighbors as{" "}
-          <a href="https://relationaltech.org" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">relational tech</a>.{" "}
+          <a href="https://relationaltechproject.org" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">relational tech</a>.{" "}
           <a href="https://github.com/The-Relational-Technology-Project" className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer">Open source</a>.
         </div>
       </div>
