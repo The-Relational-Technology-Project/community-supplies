@@ -1,83 +1,33 @@
 
 
-## Upgrade Cross-Community Search: Full-Text Search + Clearer Results
+## Speed Up Item Library Loading
 
-### Two Changes
+### Problem
+Every time the browse page mounts (or after 10 minutes of inactivity), a fresh RPC call to `get_supplies_with_owners` fires and the user stares at a spinner. Since you said it's always the same browser, we can cache aggressively.
 
-**1. Replace `ilike` with PostgreSQL full-text search (`to_tsvector`/`to_tsquery`)**
+### Approach: Three complementary improvements
 
-The `search-public-catalog` edge function currently does substring matching. This misses stemmed words ("projectors" vs "projector") and semantic adjacency. We'll switch to `to_tsvector('english', name || ' ' || description)` matched against `plainto_tsquery('english', query)`. This gives stemming, stop-word removal, and proper word-boundary matching out of the box.
+**1. Persist React Query cache to localStorage**
+The biggest win. On repeat visits, supplies appear instantly from the local cache while a background refresh happens silently. Uses `@tanstack/react-query-persist-client` with a localStorage persister.
 
-No migration needed -- we can do this purely in the edge function query using raw SQL via `.rpc()` or by creating a small database function. A dedicated `search_supplies_public` RPC function keeps things clean and lets us add a GIN index later for performance.
+- Install `@tanstack/react-query-persist-client`
+- In `main.tsx`, wrap the app with `PersistQueryClientProvider` and configure a `createSyncStoragePersister` backed by `localStorage`
+- Set `gcTime` to 24 hours (cache survives longer between visits)
+- Data shows immediately; stale data refreshes in the background
 
-**2. Change the response format from category counts to a total match count**
+**2. Prefetch supplies on auth**
+In `Index.tsx`, as soon as the user is authenticated, prefetch the supplies query so data is ready before they even click "Browse." One line: `queryClient.prefetchQuery(...)`.
 
-Instead of `[{ category: "Electronics", count: 2 }]`, return a single `matchCount: number`. The UI will then show something like:
-
-> **2 matching items** found in **Inner Sunset Shares**
-> Want to see full details? Join Inner Sunset Shares →
-
-This is immediately understandable -- no one needs to parse category breakdowns.
-
-### Database
-
-**Migration: Create a `search_supplies_public` function + GIN index**
-
-```sql
--- GIN index for full-text search performance
-CREATE INDEX idx_supplies_fts ON public.supplies
-  USING gin (to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, '')));
-
--- Security definer function callable by service role from the edge function
-CREATE OR REPLACE FUNCTION public.search_supplies_public(search_query text)
-RETURNS integer
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = 'public'
-AS $$
-  SELECT count(*)::integer
-  FROM public.supplies
-  WHERE lent_out = false
-    AND to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, ''))
-        @@ plainto_tsquery('english', search_query);
-$$;
-```
-
-### Edge Function Changes
-
-**`supabase/functions/search-public-catalog/index.ts`**
-- Replace the `ilike` query + category grouping with a single call: `supabase.rpc("search_supplies_public", { search_query: query.trim() })`
-- Return `{ community_name: string, match_count: number }` instead of `{ community_name, results: [{ category, count }] }`
-
-**`supabase/functions/cross-community-search/index.ts`**
-- Update the response mapping to use `matchCount` from `data.match_count` instead of `categories` from `data.results`
-- Filter out results where `matchCount === 0`
-
-### Frontend Changes
-
-**`src/hooks/useCrossCommunitySearch.ts`**
-- Update `CrossCommunityResult` interface: replace `categories: CategoryResult[]` with `matchCount: number`
-- Remove the `CategoryResult` interface
-
-**`src/components/CrossCommunityResults.tsx`**
-- Replace the category list with a simple line: "{matchCount} matching {item/items} found in {communityName}"
-- Keep the join link as-is
-
-### Steward Guide
-
-**`/mnt/documents/federation-setup-guide.md`**
-- Update the "Response format" section to reflect the new `match_count` field
-- Note the full-text search upgrade (stemming, word boundaries)
-- Mention that neighbor instances should also upgrade their `search-public-catalog` for best results
-
-### Files to create
-- 1 database migration (GIN index + `search_supplies_public` function)
+**3. Add skeleton loading instead of spinner**
+Replace the full-screen spinner in `BrowseSupplies` with a grid of skeleton cards matching the layout. This gives a sense of structure while loading and feels significantly faster perceptually.
 
 ### Files to modify
-- `supabase/functions/search-public-catalog/index.ts`
-- `supabase/functions/cross-community-search/index.ts`
-- `src/hooks/useCrossCommunitySearch.ts`
-- `src/components/CrossCommunityResults.tsx`
-- Regenerate `federation-setup-guide.md`
+- `package.json` — add `@tanstack/react-query-persist-client`
+- `src/main.tsx` — swap to `PersistQueryClientProvider` with localStorage persister
+- `src/pages/Index.tsx` — prefetch supplies on auth
+- `src/components/BrowseSupplies.tsx` — skeleton grid instead of spinner
+- `src/hooks/useSupplies.ts` — export the query key constant for reuse
+
+### Result
+First visit: skeleton cards appear instantly, data loads in 1-2s. Every subsequent visit (same browser): data renders immediately from cache, background refresh happens silently.
 
