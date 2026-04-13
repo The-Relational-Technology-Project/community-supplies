@@ -76,8 +76,8 @@ export const CatalogHeader = ({ onSearch, searchQuery = "", onNavigate }: Catalo
           )}
         </form>
 
-        {/* Mobile: Prominent Add Item Button */}
-        <div className="md:hidden flex-1 flex justify-end">
+        {/* Mobile: Add Item Dropdown */}
+        <div className="md:hidden flex-1 flex justify-end gap-2">
           <Button 
             onClick={() => onNavigate?.("add")}
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -85,15 +85,28 @@ export const CatalogHeader = ({ onSearch, searchQuery = "", onNavigate }: Catalo
           >
             Add Item
           </Button>
+          <Button 
+            onClick={() => onNavigate?.("bulk-add")}
+            variant="outline"
+            size="sm"
+          >
+            Bulk Add
+          </Button>
         </div>
 
-        {/* Desktop: Add Item Button */}
-        <div className="hidden md:block">
+        {/* Desktop: Add Item Buttons */}
+        <div className="hidden md:flex gap-2">
           <Button 
             onClick={() => onNavigate?.("add")}
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             Add Item
+          </Button>
+          <Button 
+            onClick={() => onNavigate?.("bulk-add")}
+            variant="outline"
+          >
+            Bulk Add
           </Button>
         </div>
 

@@ -69,11 +69,6 @@ export function AddSupply() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be less than 5MB");
-      return;
-    }
-
     // Re-check auth directly to avoid stale state race condition
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
@@ -90,10 +85,10 @@ export function AddSupply() {
       let tempFilePath: string | null = null;
       try {
         const imageDataUrl = reader.result as string;
-        setUploadedImage(imageDataUrl);
 
-        // Compress image for AI analysis
+        // Compress image before display and upload
         const compressedImage = await compressImage(imageDataUrl);
+        setUploadedImage(compressedImage);
 
         // Convert compressed base64 to blob for storage upload
         const res = await fetch(compressedImage);
@@ -135,7 +130,7 @@ export function AddSupply() {
           neighborhood: data.neighborhood || savedNeighborhood || "",
           crossStreets: data.crossStreets || savedCrossStreets || "",
           contactEmail: data.contactEmail || userProfile?.email || currentUser.email || "",
-          images: [imageDataUrl],
+          images: [compressedImage],
         });
 
         setHouseRules(data.houseRules || []);
@@ -331,7 +326,7 @@ export function AddSupply() {
               </div>
 
               <p className="text-sm text-muted-foreground">
-                Maximum file size: 5MB
+                Photos are automatically compressed — any size works
               </p>
             </div>
           </div>
