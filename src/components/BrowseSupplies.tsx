@@ -68,8 +68,19 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
     });
   }, [supplies, categoryFilter, conditionFilter, availabilityFilter, searchQuery, isSpecialCategorySelected]);
 
+  const totalPages = Math.ceil(filteredSupplies.length / ITEMS_PER_PAGE);
+  const paginatedSupplies = filteredSupplies.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   const { crossResults, isSearching: isCrossSearching, hasSearched: hasCrossSearched } =
     useCrossCommunitySearch(searchQuery, filteredSupplies.length);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // Don't show loading state for special categories (they have their own)
   if (loading && !isSpecialCategorySelected) {
