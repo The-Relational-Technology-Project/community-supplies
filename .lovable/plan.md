@@ -1,57 +1,38 @@
 
 
-## Bulk Upload Items + Auto-Compress Images
+## Landing Page Polish for Launch
 
 ### Overview
-Two changes: (1) a new "Bulk Add" flow where users upload up to 10 photos at once, AI identifies each item, users review/edit all drafts, then publish them all in one go; (2) auto-compress all uploaded images so users never hit size limits regardless of phone camera resolution.
+Prepare the landing page for high-traffic visibility: add a hand-drawn SVG illustration of the Sunset/Richmond coastline as a hero background, update the primary CTA copy, and make a few subtle refinements.
 
-### Build error fix (prerequisite)
-The `send-bulk-update` edge function has a broken Resend import (`npm:resend@2.0.0`). Change it to use the esm.sh CDN import pattern consistent with other functions: `import { Resend } from "https://esm.sh/resend@2.0.0";`
+### 1. Hero background illustration
 
-### 1. Auto-compress images everywhere
+Create an inline SVG component (`src/components/SunsetSkyline.tsx`) — a minimalist, hand-drawn line illustration of the Sunset/Richmond aerial view: the coastline running diagonally, the grid of neighborhood blocks, ocean waves, and the hint of the Marin headlands. Style: thin terracotta/deep-brown strokes on transparent background, matching the catalog illustration aesthetic (line art, no fills, slightly wobbly lines for a hand-drawn feel).
 
-**`src/lib/imageCompression.ts`** — already compresses to 1200px/0.7 quality. Update it to also handle the initial file-to-dataURL conversion and increase the file size limit messaging. Remove the 5MB check from `AddSupply.tsx` since compression handles any size.
+Place it behind the hero text in `LandingPage.tsx` as a decorative background element — `absolute`, `opacity-[0.12]` or similar so it adds texture without competing with the text. On mobile it scales down gracefully.
 
-**`src/components/AddSupply.tsx`** — remove the 5MB file size check. Compress before display and before upload. The compressed image (typically 100-300KB) goes to storage and the form.
+### 2. CTA copy update
 
-**`src/components/MultipleImageUpload.tsx`** — same: remove 5MB limit, auto-compress each image on selection.
+Change the primary CTA from **"Browse Sunset & Richmond"** to **"Join Sunset & Richmond Community"** in both the hero button (logged-in and logged-out variants) and the Active Communities card button. For logged-out users the button still opens the auth modal; for logged-in users it navigates to browse.
 
-### 2. Bulk Add flow
+### 3. Meta tags refresh
 
-**New component: `src/components/BulkAddSupplies.tsx`**
+Update `index.html` meta description from "A neighborhood supply library for the Outer Sunset" to something broader: "A free tool for neighborhoods to share supplies, tools, and more. Borrow what you need, share what you have." — better for the incoming audience who won't know what the Outer Sunset is.
 
-Multi-step flow:
-1. **Upload step**: User selects up to 10 photos (grid of thumbnails with add/remove). Each photo is auto-compressed on selection.
-2. **Processing step**: On "Analyze All", each image is uploaded to temp storage, sent to `draft-item-from-image`, and results collected. Progress bar shows `3/10 items analyzed...`
-3. **Review step**: All drafted items shown as editable cards (name, description, category, condition). Shared fields (neighborhood, cross streets, contact email, house rules) are set once at the top and applied to all items.
-4. **Publish step**: On "Publish All", items are inserted to `supplies` in sequence. Illustration generation fires in the background for each. Notification email sent once for the batch.
+### 4. OG image check
 
-**`src/pages/Index.tsx`** — add a "bulk-add" tab option that renders `BulkAddSupplies`.
-
-**`src/components/CatalogHeader.tsx`** — add a "Bulk Add" button/tab alongside the existing "Add" tab.
-
-### 3. Edge function: batch notification
-
-**New function: `supabase/functions/send-bulk-supply-notification/index.ts`**
-
-Sends a single notification email summarizing all items added in a batch (item names + categories), rather than one email per item.
-
-### Technical details
-
-- **Image compression**: All images compressed client-side to 1200px max dimension, 0.7 JPEG quality before any upload. Typical output: 100-300KB regardless of input size (iPhone photos are 3-8MB).
-- **Storage**: Compressed images uploaded to `supply-images` bucket as temp files for AI analysis, then cleaned up. Final compressed data URLs stored in the `images` column.
-- **Rate limiting**: 2-second delay between AI calls during batch processing to avoid 429s. UI shows progress.
-- **Error handling**: If AI fails on one image, that item is flagged with an error but others continue. User can retry failed ones or fill in manually.
+Verify `public/og-image.png` exists and is suitable for social sharing from the WaPo article link. If it needs updating, flag it (we can generate one separately).
 
 ### Files to create
-- `src/components/BulkAddSupplies.tsx`
-- `supabase/functions/send-bulk-supply-notification/index.ts`
+- `src/components/SunsetSkyline.tsx` — SVG illustration component
 
 ### Files to modify
-- `src/components/AddSupply.tsx` — remove 5MB limit, auto-compress
-- `src/components/MultipleImageUpload.tsx` — remove 5MB limit, auto-compress
-- `src/pages/Index.tsx` — add bulk-add tab routing
-- `src/components/CatalogHeader.tsx` — add Bulk Add navigation
-- `supabase/functions/send-bulk-update/index.ts` — fix Resend import
-- `supabase/config.toml` — register new edge function
+- `src/components/LandingPage.tsx` — add background illustration, update CTA text
+- `index.html` — update meta description and OG description
+
+### Technical details
+- The SVG is a React component with inline paths, not an external file — keeps it fast and avoids an extra network request
+- Uses `currentColor` or theme colors so it works with the existing palette
+- Positioned with `absolute inset-0` inside the hero section, behind the text via `z-0`
+- The illustration traces the key features from the uploaded aerial photo: diagonal coastline with wave lines, rectangular street grid, Golden Gate Park edge, headlands silhouette
 
