@@ -375,8 +375,8 @@ export function BulkAddSupplies() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-6 max-w-md mx-auto px-6">
-          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
-            <Check className="h-8 w-8 text-green-600" />
+          <div className="w-16 h-16 rounded-full bg-accent/20 flex items-center justify-center mx-auto">
+            <Check className="h-8 w-8 text-accent" />
           </div>
           <h2 className="text-2xl font-serif font-semibold text-deep-brown">All Done!</h2>
           <p className="text-muted-foreground">Your items are now in the catalog. Illustrations are generating in the background.</p>
