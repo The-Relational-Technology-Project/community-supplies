@@ -29,10 +29,18 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
   const [availabilityFilter, setAvailabilityFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState(externalQuery);
   const [selectedSupply, setSelectedSupply] = useState<Supply | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const ITEMS_PER_PAGE = 25;
 
   useEffect(() => {
     setSearchQuery(externalQuery);
   }, [externalQuery]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [categoryFilter, conditionFilter, availabilityFilter, searchQuery]);
 
   // Check if a special category (like books) is selected
   const isSpecialCategorySelected = isSpecialCategory(categoryFilter);
