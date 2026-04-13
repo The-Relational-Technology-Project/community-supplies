@@ -6,7 +6,6 @@ import { AuthModal } from "./auth/AuthModal";
 import { Footer } from "./Footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Share2, HandHeart, ArrowRight, MapPin } from "lucide-react";
-import { SunsetSkyline } from "./SunsetSkyline";
 
 interface LandingPageProps {
   onTabChange: (tab: string) => void;
@@ -53,9 +52,8 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-sand flex flex-col">
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <SunsetSkyline className="absolute inset-0 w-full h-full text-deep-brown opacity-[0.08] pointer-events-none" />
-        <div className="container mx-auto px-4 py-12 sm:py-20 text-center relative z-10">
+      <section>
+        <div className="container mx-auto px-4 py-12 sm:py-20 text-center">
           <div className="max-w-3xl mx-auto">
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-serif font-bold text-deep-brown mb-4 leading-tight">
               Community Supplies
