@@ -6,6 +6,7 @@ import { Footer } from "@/components/Footer";
 import { LandingPage } from "@/components/LandingPage";
 import { BrowseSupplies } from "@/components/BrowseSupplies";
 import { AddSupply } from "@/components/AddSupply";
+import { BulkAddSupplies } from "@/components/BulkAddSupplies";
 
 import { StewardDashboard } from "@/components/steward/StewardDashboard";
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -24,7 +25,7 @@ const Index = () => {
   useEffect(() => {
     // Check for tab parameter in URL
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['browse', 'add', 'steward'].includes(tabParam)) {
+    if (tabParam && ['browse', 'add', 'bulk-add', 'steward'].includes(tabParam)) {
       setActiveTab(tabParam);
       // Clear the URL parameter after setting the tab
       setSearchParams({});
@@ -101,6 +102,16 @@ const Index = () => {
         );
       case 'add':
         return (
+          <AuthGuard requireVouched>
+            <AddSupply />
+          </AuthGuard>
+        );
+      case 'bulk-add':
+        return (
+          <AuthGuard requireVouched>
+            <BulkAddSupplies />
+          </AuthGuard>
+        );
           <AuthGuard requireVouched>
             <AddSupply />
           </AuthGuard>
