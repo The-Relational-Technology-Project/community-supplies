@@ -155,11 +155,11 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
             <div className="shrink-0">
               {user ? (
                 <Button size="sm" variant="ghost" onClick={() => onTabChange('browse')}>
-                  Browse <ArrowRight className="h-4 w-4 ml-1" />
+                  Join <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
               ) : (
                 <Button size="sm" variant="ghost" onClick={() => setModalMode('login')}>
-                  Sign in <ArrowRight className="h-4 w-4 ml-1" />
+                  Join <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
               )}
             </div>
