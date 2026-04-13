@@ -288,15 +288,61 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
                   />
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {filteredSupplies.map((supply) => (
-                    <SupplyCard
-                      key={supply.id}
-                      supply={supply}
-                      onViewContact={setSelectedSupply}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div ref={gridRef} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {paginatedSupplies.map((supply) => (
+                      <SupplyCard
+                        key={supply.id}
+                        supply={supply}
+                        onViewContact={setSelectedSupply}
+                      />
+                    ))}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="mt-8 mb-4">
+                      <Pagination>
+                        <PaginationContent>
+                          {currentPage > 1 && (
+                            <PaginationItem>
+                              <PaginationPrevious
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                className="cursor-pointer"
+                              />
+                            </PaginationItem>
+                          )}
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => 
+                              page === 1 || page === totalPages || 
+                              Math.abs(page - currentPage) <= 1
+                            )
+                            .map((page, idx, arr) => (
+                              <PaginationItem key={page}>
+                                {idx > 0 && arr[idx - 1] !== page - 1 && (
+                                  <span className="px-2 text-muted-foreground">…</span>
+                                )}
+                                <PaginationLink
+                                  isActive={page === currentPage}
+                                  onClick={() => handlePageChange(page)}
+                                  className="cursor-pointer"
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            ))}
+                          {currentPage < totalPages && (
+                            <PaginationItem>
+                              <PaginationNext
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                className="cursor-pointer"
+                              />
+                            </PaginationItem>
+                          )}
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
