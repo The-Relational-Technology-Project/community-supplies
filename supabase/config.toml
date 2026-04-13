@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.cross-community-search]
 verify_jwt = false
+
+[functions.send-bulk-supply-notification]
+verify_jwt = false

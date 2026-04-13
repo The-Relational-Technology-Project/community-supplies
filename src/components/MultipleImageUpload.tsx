@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Upload, X, Image as ImageIcon } from "lucide-react";
+import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import { compressFileToDataUrl } from "@/lib/imageCompression";
 
 interface MultipleImageUploadProps {
   onImagesChange: (images: string[]) => void;
@@ -15,49 +15,39 @@ export function MultipleImageUpload({
   maxImages = 4 
 }: MultipleImageUploadProps) {
   const [images, setImages] = useState<string[]>(currentImages);
+  const [compressing, setCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Update local state when currentImages prop changes (for form resets)
   useEffect(() => {
     setImages(currentImages);
   }, [currentImages]);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
-    const newImages: string[] = [];
     const remainingSlots = maxImages - images.length;
     const filesToProcess = Math.min(files.length, remainingSlots);
+    if (filesToProcess === 0) return;
 
-    let processedCount = 0;
+    setCompressing(true);
 
-    for (let i = 0; i < filesToProcess; i++) {
-      const file = files[i];
-      
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert(`File "${file.name}" is too large. Maximum size is 5MB.`);
-        continue;
+    try {
+      const newImages: string[] = [];
+      for (let i = 0; i < filesToProcess; i++) {
+        const compressed = await compressFileToDataUrl(files[i]);
+        newImages.push(compressed);
       }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        newImages.push(result);
-        processedCount++;
-        
-        if (processedCount === filesToProcess) {
-          const updatedImages = [...images, ...newImages];
-          setImages(updatedImages);
-          onImagesChange(updatedImages);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      const updatedImages = [...images, ...newImages];
+      setImages(updatedImages);
+      onImagesChange(updatedImages);
+    } catch (error) {
+      console.error('Failed to compress images:', error);
+    } finally {
+      setCompressing(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -103,13 +93,22 @@ export function MultipleImageUpload({
             onClick={handleUploadClick}
             className="w-full h-32 border-2 border-dashed border-border rounded-sm flex flex-col items-center justify-center cursor-pointer hover:border-terracotta transition-colors"
           >
-            <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-muted-foreground text-center mb-1 text-sm">
-              Click to upload images
-            </p>
-            <p className="text-xs text-muted-foreground text-center">
-              PNG, JPG up to 5MB each ({images.length}/{maxImages})
-            </p>
+            {compressing ? (
+              <>
+                <Loader2 className="h-8 w-8 text-muted-foreground mb-2 animate-spin" />
+                <p className="text-muted-foreground text-center text-sm">Compressing...</p>
+              </>
+            ) : (
+              <>
+                <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-muted-foreground text-center mb-1 text-sm">
+                  Click to upload images
+                </p>
+                <p className="text-xs text-muted-foreground text-center">
+                  Any size — auto-compressed ({images.length}/{maxImages})
+                </p>
+              </>
+            )}
           </div>
 
           <input
@@ -119,15 +118,20 @@ export function MultipleImageUpload({
             multiple
             onChange={handleFileSelect}
             className="hidden"
+            disabled={compressing}
           />
 
           <Button 
             onClick={handleUploadClick}
             variant="outline" 
             className="w-full"
-            disabled={!canAddMore}
+            disabled={!canAddMore || compressing}
           >
-            <Upload className="h-4 w-4 mr-2" />
+            {compressing ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4 mr-2" />
+            )}
             Add Images ({images.length}/{maxImages})
           </Button>
         </>

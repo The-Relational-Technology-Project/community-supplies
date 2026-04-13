@@ -1,3 +1,7 @@
+/**
+ * Compress an image data URL to a smaller size.
+ * Resizes to maxDimension and converts to JPEG at the given quality.
+ */
 export async function compressImage(
   dataUrl: string,
   maxDimension = 1200,
@@ -34,4 +38,22 @@ export async function compressImage(
     img.onerror = () => reject(new Error('Failed to load image for compression'));
     img.src = dataUrl;
   });
+}
+
+/**
+ * Read a File object and return a compressed data URL.
+ * Handles any file size — compression brings it down to ~100-300KB.
+ */
+export async function compressFileToDataUrl(
+  file: File,
+  maxDimension = 1200,
+  quality = 0.7
+): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+  return compressImage(dataUrl, maxDimension, quality);
 }
