@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SupplyCard } from "./SupplyCard";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { BookLibrary } from "./books/BookLibrary";
 import { CrossCommunityResults } from "./CrossCommunityResults";
 import { useCrossCommunitySearch } from "@/hooks/useCrossCommunitySearch";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 interface BrowseSuppliesProps {
   searchQuery?: string;

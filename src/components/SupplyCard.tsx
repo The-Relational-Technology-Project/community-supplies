@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Supply } from "@/types/supply";
 import { MapPin } from "lucide-react";
 import { categories } from "@/data/categories";
+import { cn } from "@/lib/utils";
 
 interface SupplyCardProps {
   supply: Supply;
@@ -9,11 +11,10 @@ interface SupplyCardProps {
 }
 
 export function SupplyCard({ supply, onViewContact }: SupplyCardProps) {
-  // Get category icon for fallback
+  const [imageLoaded, setImageLoaded] = useState(false);
   const categoryData = categories.find(c => c.id === supply.category);
   const CategoryIcon = categoryData?.icon;
   
-  // Check if illustration is still being generated
   const hasPhotos = supply.images?.length || supply.image;
   const isGeneratingIllustration = hasPhotos && !supply.illustration_url;
   
@@ -25,11 +26,27 @@ export function SupplyCard({ supply, onViewContact }: SupplyCardProps) {
       <CardContent className="p-0">
         <div className="relative aspect-square bg-white flex items-center justify-center overflow-hidden border border-border">
           {supply.illustration_url ? (
-            <img 
-              src={supply.illustration_url} 
-              alt={supply.name}
-              className="w-full h-full object-contain p-3"
-            />
+            <>
+              {/* Text placeholder shown until image loads */}
+              <div className={cn(
+                "absolute inset-0 flex items-center justify-center p-4 transition-opacity duration-300",
+                imageLoaded ? "opacity-0" : "opacity-100"
+              )}>
+                <p className="font-serif text-sm text-muted-foreground text-center line-clamp-3">
+                  {supply.name}
+                </p>
+              </div>
+              <img 
+                src={supply.illustration_url} 
+                alt={supply.name}
+                loading="lazy"
+                onLoad={() => setImageLoaded(true)}
+                className={cn(
+                  "w-full h-full object-contain p-3 transition-opacity duration-300",
+                  imageLoaded ? "opacity-100" : "opacity-0"
+                )}
+              />
+            </>
           ) : isGeneratingIllustration ? (
             <div className="text-center px-4">
               <p className="font-serif text-sm text-muted-foreground italic">
