@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { AuthButtons } from "./auth/AuthButtons";
 import { UserProfile } from "./auth/UserProfile";
 import { supabase } from "@/integrations/supabase/client";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 interface HeaderProps {
   activeTab: string;
@@ -14,6 +15,7 @@ interface HeaderProps {
 
 export function Header({ activeTab, onTabChange }: HeaderProps) {
   const navigate = useNavigate();
+  const { communityName } = useCommunity();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -114,7 +116,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <button className="cursor-pointer" onClick={() => handleTabChange('home')}>
-            <h1 className="text-lg md:text-xl font-serif font-bold text-deep-brown hover:text-primary transition-colors">Community Supplies</h1>
+            <h1 className="text-lg md:text-xl font-serif font-bold text-deep-brown hover:text-primary transition-colors">{communityName}</h1>
           </button>
           
           {/* Desktop Navigation & Auth */}
