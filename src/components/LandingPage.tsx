@@ -7,6 +7,13 @@ import { Footer } from "./Footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Share2, HandHeart, ArrowRight, MapPin } from "lucide-react";
 
+interface Community {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+}
+
 interface LandingPageProps {
   onTabChange: (tab: string) => void;
 }
@@ -16,6 +23,8 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
   const [modalMode, setModalMode] = useState<'login' | 'signup' | null>(null);
   const [illustrations, setIllustrations] = useState<string[]>([]);
   const [loadingIllustrations, setLoadingIllustrations] = useState(true);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [loadingCommunities, setLoadingCommunities] = useState(true);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -47,6 +56,23 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
       }
     };
     fetchIllustrations();
+
+    const fetchCommunities = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('communities')
+          .select('id, name, slug, description')
+          .order('created_at', { ascending: true });
+        if (!error && data) {
+          setCommunities(data);
+        }
+      } catch (e) {
+        console.error('Failed to fetch communities:', e);
+      } finally {
+        setLoadingCommunities(false);
+      }
+    };
+    fetchCommunities();
   }, []);
 
   return (

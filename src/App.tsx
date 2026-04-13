@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
 import Index from "./pages/Index";
 import MySupplies from "./pages/MySupplies";
 import MyBooks from "./pages/MyBooks";
@@ -12,8 +12,13 @@ import NotFound from "./pages/NotFound";
 import PrivacyTerms from "./pages/PrivacyTerms";
 import { CommunityProvider } from "./contexts/CommunityContext";
 
-function CommunityIndex() {
-  return <Index />;
+function CommunitySlugRoute() {
+  const { communitySlug } = useParams();
+  return (
+    <CommunityProvider slug={communitySlug}>
+      <Index />
+    </CommunityProvider>
+  );
 }
 
 const App = () => (
@@ -36,14 +41,5 @@ const App = () => (
     </BrowserRouter>
   </TooltipProvider>
 );
-
-function CommunitySlugRoute() {
-  const { communitySlug } = require("react-router-dom").useParams();
-  return (
-    <CommunityProvider slug={communitySlug}>
-      <Index />
-    </CommunityProvider>
-  );
-}
 
 export default App;
