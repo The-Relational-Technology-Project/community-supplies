@@ -1,46 +1,31 @@
 
 
-## Fix: Corrupted localStorage Cache Crashing the App
+## Faster Library Loading: Lazy Images + Pagination
 
-### Root Cause
+### Problem
+All supply cards (and their illustration images) render at once, causing a slow initial load — especially on mobile. The data itself loads via RPC, but then every `<img>` fires immediately.
 
-The earlier dual-QueryClient crash (which we fixed) likely wrote malformed data to `localStorage` under the key `community-supplies-cache`. Now every time the app loads in that browser, `PersistQueryClientProvider` tries to deserialize that corrupted cache, React crashes silently, and you see only the tan background.
+### Solution — 3 changes
 
-A clean browser (like the one I just tested with) has no cache, so it loads fine.
+**1. Lazy-load images with `loading="lazy"`**
+Add `loading="lazy"` to the `<img>` tag in `SupplyCard.tsx`. The browser natively defers off-screen images, loading them as the user scrolls. Zero dependencies, works on all modern browsers.
 
-### Fix
+**2. Show item name immediately while image loads**
+Restructure `SupplyCard` so the text (name + location) renders beneath the image area regardless of image load state. The image area shows the name as a text placeholder until the image finishes loading — use an `onLoad` state flag to crossfade from text placeholder to loaded image.
 
-**`src/main.tsx`** — Two changes:
-
-1. **Add a cache buster** (`buster` option) so the old corrupted cache is automatically invalidated. Set it to a version string like `'v2'`.
-
-2. **Wrap the persister's deserialize in a try/catch** so if localStorage contains garbage, it's silently discarded instead of crashing the app. Use the `deserialize` option on `createSyncStoragePersister`.
-
-```typescript
-const persister = createSyncStoragePersister({
-  storage: window.localStorage,
-  key: 'community-supplies-cache',
-  deserialize: (cachedString) => {
-    try {
-      return JSON.parse(cachedString);
-    } catch {
-      return { clientState: undefined };
-    }
-  },
-});
-
-// In persistOptions, add buster:
-persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000, buster: 'v2' }}
-```
-
-### Immediate workaround
-
-You can also fix your browser right now by opening DevTools > Application > Local Storage and deleting the `community-supplies-cache` key. But the code fix prevents this from ever happening again.
-
-### Published site
-
-Note: the published site still shows "Browse Sunset & Richmond" (old CTA). You'll need to click **Update** in the publish dialog to deploy the latest changes including the CTA update, bulk add feature, and this fix.
+**3. Paginate results (25 per page)**
+Add pagination state to `BrowseSupplies.tsx`:
+- `currentPage` state, default 1, resets when filters/search change
+- Slice `filteredSupplies` to show items `(page-1)*25` through `page*25`
+- Render a simple "Previous / Page X of Y / Next" control below the grid using the existing `Pagination` UI components
+- Scroll to top of results on page change
 
 ### Files to modify
-- `src/main.tsx`
+- `src/components/SupplyCard.tsx` — add `loading="lazy"`, add image load state for text-first rendering
+- `src/components/BrowseSupplies.tsx` — add pagination logic and controls
+
+### Technical notes
+- `loading="lazy"` is a single attribute addition — the browser handles intersection detection
+- Pagination is client-side (all data is already fetched and cached). This keeps the cache working and avoids API changes. 25 items means ~25 images max in the DOM at once.
+- Page resets to 1 on any filter/search change via a `useEffect`
 
