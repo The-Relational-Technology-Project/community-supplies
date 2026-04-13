@@ -111,6 +111,7 @@ const Index = () => {
           <AuthGuard requireVouched>
             <BulkAddSupplies />
           </AuthGuard>
+        );
       case 'steward':
         return (
           <AuthGuard requireSteward>
