@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Supply } from "@/types/supply";
@@ -49,13 +50,15 @@ export function useSupplies() {
     retry: 1,
   });
 
-  if (error) {
-    toast({
-      title: "Error loading supplies",
-      description: error instanceof Error ? error.message : "Failed to load supplies",
-      variant: "destructive"
-    });
-  }
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error loading supplies",
+        description: error instanceof Error ? error.message : "Failed to load supplies",
+        variant: "destructive"
+      });
+    }
+  }, [error, toast]);
 
   return { supplies, loading, refetch };
 }
