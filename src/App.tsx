@@ -10,6 +10,11 @@ import Steward from "./pages/Steward";
 import StartCommunity from "./pages/StartCommunity";
 import NotFound from "./pages/NotFound";
 import PrivacyTerms from "./pages/PrivacyTerms";
+import { CommunityProvider } from "./contexts/CommunityContext";
+
+function CommunityIndex() {
+  return <Index />;
+}
 
 const App = () => (
   <TooltipProvider>
@@ -17,18 +22,28 @@ const App = () => (
     <Sonner />
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/my-supplies" element={<MySupplies />} />
-        <Route path="/my-books" element={<MyBooks />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/steward" element={<Steward />} />
+        <Route path="/" element={<CommunityProvider><Index /></CommunityProvider>} />
+        <Route path="/my-supplies" element={<CommunityProvider><MySupplies /></CommunityProvider>} />
+        <Route path="/my-books" element={<CommunityProvider><MyBooks /></CommunityProvider>} />
+        <Route path="/profile" element={<CommunityProvider><Profile /></CommunityProvider>} />
+        <Route path="/steward" element={<CommunityProvider><Steward /></CommunityProvider>} />
         <Route path="/start-community" element={<StartCommunity />} />
         <Route path="/privacy" element={<PrivacyTerms />} />
+        <Route path="/c/:communitySlug" element={<CommunitySlugRoute />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   </TooltipProvider>
 );
+
+function CommunitySlugRoute() {
+  const { communitySlug } = require("react-router-dom").useParams();
+  return (
+    <CommunityProvider slug={communitySlug}>
+      <Index />
+    </CommunityProvider>
+  );
+}
 
 export default App;

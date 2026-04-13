@@ -3,17 +3,16 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Supply } from "@/types/supply";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 export const SUPPLIES_QUERY_KEY = ['supplies'] as const;
 
-export const fetchSupplies = async (): Promise<Supply[]> => {
-  // Fetch supplies with owner info in a single optimized query
+export const fetchSupplies = async (communityId?: string): Promise<Supply[]> => {
   const { data: suppliesData, error } = await supabase
-    .rpc('get_supplies_with_owners');
+    .rpc('get_supplies_with_owners', communityId ? { p_community_id: communityId } : {});
 
   if (error) throw error;
 
-  // Map the data to Supply interface
   return (suppliesData || []).map((item: any) => ({
     id: item.id,
     name: item.name,
@@ -43,10 +42,11 @@ export const fetchSupplies = async (): Promise<Supply[]> => {
 
 export function useSupplies() {
   const { toast } = useToast();
+  const { communityId } = useCommunity();
 
   const { data: supplies = [], isLoading: loading, error, refetch } = useQuery({
-    queryKey: SUPPLIES_QUERY_KEY,
-    queryFn: fetchSupplies,
+    queryKey: [...SUPPLIES_QUERY_KEY, communityId],
+    queryFn: () => fetchSupplies(communityId),
     retry: 1,
   });
 

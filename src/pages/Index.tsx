@@ -13,10 +13,12 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { SUPPLIES_QUERY_KEY, fetchSupplies } from "@/hooks/useSupplies";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { communityId, communityName, loading: communityLoading, notFound } = useCommunity();
   const [activeTab, setActiveTab] = useState('browse');
   const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState<any>(null);
@@ -45,7 +47,7 @@ const Index = () => {
         } else {
           setUser(session?.user ?? null);
           if (session?.user) {
-            queryClient.prefetchQuery({ queryKey: SUPPLIES_QUERY_KEY, queryFn: fetchSupplies });
+            queryClient.prefetchQuery({ queryKey: [...SUPPLIES_QUERY_KEY, communityId], queryFn: () => fetchSupplies(communityId) });
           }
         }
       } catch (error) {
