@@ -1,38 +1,46 @@
 
 
-## Landing Page Polish for Launch
+## Fix: Corrupted localStorage Cache Crashing the App
 
-### Overview
-Prepare the landing page for high-traffic visibility: add a hand-drawn SVG illustration of the Sunset/Richmond coastline as a hero background, update the primary CTA copy, and make a few subtle refinements.
+### Root Cause
 
-### 1. Hero background illustration
+The earlier dual-QueryClient crash (which we fixed) likely wrote malformed data to `localStorage` under the key `community-supplies-cache`. Now every time the app loads in that browser, `PersistQueryClientProvider` tries to deserialize that corrupted cache, React crashes silently, and you see only the tan background.
 
-Create an inline SVG component (`src/components/SunsetSkyline.tsx`) — a minimalist, hand-drawn line illustration of the Sunset/Richmond aerial view: the coastline running diagonally, the grid of neighborhood blocks, ocean waves, and the hint of the Marin headlands. Style: thin terracotta/deep-brown strokes on transparent background, matching the catalog illustration aesthetic (line art, no fills, slightly wobbly lines for a hand-drawn feel).
+A clean browser (like the one I just tested with) has no cache, so it loads fine.
 
-Place it behind the hero text in `LandingPage.tsx` as a decorative background element — `absolute`, `opacity-[0.12]` or similar so it adds texture without competing with the text. On mobile it scales down gracefully.
+### Fix
 
-### 2. CTA copy update
+**`src/main.tsx`** — Two changes:
 
-Change the primary CTA from **"Browse Sunset & Richmond"** to **"Join Sunset & Richmond Community"** in both the hero button (logged-in and logged-out variants) and the Active Communities card button. For logged-out users the button still opens the auth modal; for logged-in users it navigates to browse.
+1. **Add a cache buster** (`buster` option) so the old corrupted cache is automatically invalidated. Set it to a version string like `'v2'`.
 
-### 3. Meta tags refresh
+2. **Wrap the persister's deserialize in a try/catch** so if localStorage contains garbage, it's silently discarded instead of crashing the app. Use the `deserialize` option on `createSyncStoragePersister`.
 
-Update `index.html` meta description from "A neighborhood supply library for the Outer Sunset" to something broader: "A free tool for neighborhoods to share supplies, tools, and more. Borrow what you need, share what you have." — better for the incoming audience who won't know what the Outer Sunset is.
+```typescript
+const persister = createSyncStoragePersister({
+  storage: window.localStorage,
+  key: 'community-supplies-cache',
+  deserialize: (cachedString) => {
+    try {
+      return JSON.parse(cachedString);
+    } catch {
+      return { clientState: undefined };
+    }
+  },
+});
 
-### 4. OG image check
+// In persistOptions, add buster:
+persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000, buster: 'v2' }}
+```
 
-Verify `public/og-image.png` exists and is suitable for social sharing from the WaPo article link. If it needs updating, flag it (we can generate one separately).
+### Immediate workaround
 
-### Files to create
-- `src/components/SunsetSkyline.tsx` — SVG illustration component
+You can also fix your browser right now by opening DevTools > Application > Local Storage and deleting the `community-supplies-cache` key. But the code fix prevents this from ever happening again.
+
+### Published site
+
+Note: the published site still shows "Browse Sunset & Richmond" (old CTA). You'll need to click **Update** in the publish dialog to deploy the latest changes including the CTA update, bulk add feature, and this fix.
 
 ### Files to modify
-- `src/components/LandingPage.tsx` — add background illustration, update CTA text
-- `index.html` — update meta description and OG description
-
-### Technical details
-- The SVG is a React component with inline paths, not an external file — keeps it fast and avoids an extra network request
-- Uses `currentColor` or theme colors so it works with the existing palette
-- Positioned with `absolute inset-0` inside the hero section, behind the text via `z-0`
-- The illustration traces the key features from the uploaded aerial photo: diagonal coastline with wave lines, rectangular street grid, Golden Gate Park edge, headlands silhouette
+- `src/main.tsx`
 
