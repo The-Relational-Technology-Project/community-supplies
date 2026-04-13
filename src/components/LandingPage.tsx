@@ -6,6 +6,7 @@ import { AuthModal } from "./auth/AuthModal";
 import { Footer } from "./Footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Share2, HandHeart, ArrowRight, MapPin } from "lucide-react";
+import { SunsetSkyline } from "./SunsetSkyline";
 
 interface LandingPageProps {
   onTabChange: (tab: string) => void;
