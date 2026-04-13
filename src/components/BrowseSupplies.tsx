@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SupplyCard } from "./SupplyCard";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { BookLibrary } from "./books/BookLibrary";
 import { CrossCommunityResults } from "./CrossCommunityResults";
 import { useCrossCommunitySearch } from "@/hooks/useCrossCommunitySearch";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 interface BrowseSuppliesProps {
   searchQuery?: string;
@@ -28,10 +29,18 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
   const [availabilityFilter, setAvailabilityFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState(externalQuery);
   const [selectedSupply, setSelectedSupply] = useState<Supply | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const ITEMS_PER_PAGE = 25;
 
   useEffect(() => {
     setSearchQuery(externalQuery);
   }, [externalQuery]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [categoryFilter, conditionFilter, availabilityFilter, searchQuery]);
 
   // Check if a special category (like books) is selected
   const isSpecialCategorySelected = isSpecialCategory(categoryFilter);
@@ -59,8 +68,19 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
     });
   }, [supplies, categoryFilter, conditionFilter, availabilityFilter, searchQuery, isSpecialCategorySelected]);
 
+  const totalPages = Math.ceil(filteredSupplies.length / ITEMS_PER_PAGE);
+  const paginatedSupplies = filteredSupplies.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   const { crossResults, isSearching: isCrossSearching, hasSearched: hasCrossSearched } =
     useCrossCommunitySearch(searchQuery, filteredSupplies.length);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // Don't show loading state for special categories (they have their own)
   if (loading && !isSpecialCategorySelected) {
@@ -268,15 +288,61 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
                   />
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {filteredSupplies.map((supply) => (
-                    <SupplyCard
-                      key={supply.id}
-                      supply={supply}
-                      onViewContact={setSelectedSupply}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div ref={gridRef} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {paginatedSupplies.map((supply) => (
+                      <SupplyCard
+                        key={supply.id}
+                        supply={supply}
+                        onViewContact={setSelectedSupply}
+                      />
+                    ))}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="mt-8 mb-4">
+                      <Pagination>
+                        <PaginationContent>
+                          {currentPage > 1 && (
+                            <PaginationItem>
+                              <PaginationPrevious
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                className="cursor-pointer"
+                              />
+                            </PaginationItem>
+                          )}
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => 
+                              page === 1 || page === totalPages || 
+                              Math.abs(page - currentPage) <= 1
+                            )
+                            .map((page, idx, arr) => (
+                              <PaginationItem key={page}>
+                                {idx > 0 && arr[idx - 1] !== page - 1 && (
+                                  <span className="px-2 text-muted-foreground">…</span>
+                                )}
+                                <PaginationLink
+                                  isActive={page === currentPage}
+                                  onClick={() => handlePageChange(page)}
+                                  className="cursor-pointer"
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            ))}
+                          {currentPage < totalPages && (
+                            <PaginationItem>
+                              <PaginationNext
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                className="cursor-pointer"
+                              />
+                            </PaginationItem>
+                          )}
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
