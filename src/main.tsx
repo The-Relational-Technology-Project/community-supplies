@@ -19,12 +19,19 @@ const queryClient = new QueryClient({
 const persister = createSyncStoragePersister({
   storage: window.localStorage,
   key: 'community-supplies-cache',
+  deserialize: (cachedString) => {
+    try {
+      return JSON.parse(cachedString);
+    } catch {
+      return { clientState: undefined };
+    }
+  },
 })
 
 createRoot(document.getElementById("root")!).render(
   <PersistQueryClientProvider
     client={queryClient}
-    persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000 }}
+    persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000, buster: 'v2' }}
   >
     <App />
   </PersistQueryClientProvider>
