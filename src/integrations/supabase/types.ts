@@ -17,6 +17,7 @@ export type Database = {
       books: {
         Row: {
           author: string | null
+          community_id: string
           condition: string
           created_at: string
           genre: string | null
@@ -30,6 +31,7 @@ export type Database = {
         }
         Insert: {
           author?: string | null
+          community_id?: string
           condition?: string
           created_at?: string
           genre?: string | null
@@ -43,6 +45,7 @@ export type Database = {
         }
         Update: {
           author?: string | null
+          community_id?: string
           condition?: string
           created_at?: string
           genre?: string | null
@@ -56,6 +59,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "books_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "books_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
@@ -63,6 +73,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      communities: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       community_neighbors: {
         Row: {
@@ -138,6 +175,7 @@ export type Database = {
       }
       join_requests: {
         Row: {
+          community_id: string
           connection_context: string | null
           cross_streets: string | null
           email: string
@@ -154,6 +192,7 @@ export type Database = {
           voucher_id: string | null
         }
         Insert: {
+          community_id?: string
           connection_context?: string | null
           cross_streets?: string | null
           email: string
@@ -170,6 +209,7 @@ export type Database = {
           voucher_id?: string | null
         }
         Update: {
+          community_id?: string
           connection_context?: string | null
           cross_streets?: string | null
           email?: string
@@ -186,6 +226,13 @@ export type Database = {
           voucher_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "join_requests_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "join_requests_reviewed_by_fkey"
             columns: ["reviewed_by"]
@@ -204,6 +251,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          community_id: string
           created_at: string
           email: string
           id: string
@@ -216,6 +264,7 @@ export type Database = {
           zip_code: string | null
         }
         Insert: {
+          community_id?: string
           created_at?: string
           email: string
           id: string
@@ -228,6 +277,7 @@ export type Database = {
           zip_code?: string | null
         }
         Update: {
+          community_id?: string
           created_at?: string
           email?: string
           id?: string
@@ -240,6 +290,13 @@ export type Database = {
           zip_code?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_vouched_by_fkey"
             columns: ["vouched_by"]
@@ -270,6 +327,7 @@ export type Database = {
       supplies: {
         Row: {
           category: string
+          community_id: string
           condition: string
           contact_email: string | null
           created_at: string
@@ -293,6 +351,7 @@ export type Database = {
         }
         Insert: {
           category: string
+          community_id?: string
           condition: string
           contact_email?: string | null
           created_at?: string
@@ -316,6 +375,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          community_id?: string
           condition?: string
           contact_email?: string | null
           created_at?: string
@@ -339,6 +399,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "supplies_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "supplies_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
@@ -349,6 +416,7 @@ export type Database = {
       }
       supply_requests: {
         Row: {
+          community_id: string
           created_at: string
           id: string
           message: string
@@ -361,6 +429,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          community_id?: string
           created_at?: string
           id?: string
           message: string
@@ -373,6 +442,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          community_id?: string
           created_at?: string
           id?: string
           message?: string
@@ -384,28 +454,47 @@ export type Database = {
           supply_owner_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "supply_requests_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
+          community_id: string
           created_at: string
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
+          community_id?: string
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
+          community_id?: string
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -416,30 +505,56 @@ export type Database = {
         Args: { request_email: string }
         Returns: boolean
       }
-      get_books_with_owners: {
-        Args: never
-        Returns: {
-          author: string
-          condition: string
-          created_at: string
-          genre: string
-          house_rules: string[]
-          id: string
-          lender_notes: string
-          lent_out: boolean
-          owner_email: string
-          owner_id: string
-          owner_name: string
-          title: string
-          updated_at: string
-        }[]
-      }
-      get_public_illustrations: {
-        Args: never
-        Returns: {
-          illustration_url: string
-        }[]
-      }
+      get_books_with_owners:
+        | {
+            Args: never
+            Returns: {
+              author: string
+              condition: string
+              created_at: string
+              genre: string
+              house_rules: string[]
+              id: string
+              lender_notes: string
+              lent_out: boolean
+              owner_email: string
+              owner_id: string
+              owner_name: string
+              title: string
+              updated_at: string
+            }[]
+          }
+        | {
+            Args: { p_community_id?: string }
+            Returns: {
+              author: string
+              condition: string
+              created_at: string
+              genre: string
+              house_rules: string[]
+              id: string
+              lender_notes: string
+              lent_out: boolean
+              owner_email: string
+              owner_id: string
+              owner_name: string
+              title: string
+              updated_at: string
+            }[]
+          }
+      get_public_illustrations:
+        | {
+            Args: never
+            Returns: {
+              illustration_url: string
+            }[]
+          }
+        | {
+            Args: { p_community_id?: string }
+            Returns: {
+              illustration_url: string
+            }[]
+          }
       get_public_profile: {
         Args: { profile_id: string }
         Returns: {
@@ -449,33 +564,61 @@ export type Database = {
           zip_code: string
         }[]
       }
-      get_supplies_with_owners: {
-        Args: never
-        Returns: {
-          category: string
-          condition: string
-          contact_email: string
-          created_at: string
-          cross_streets: string
-          date_available: string
-          description: string
-          house_rules: string[]
-          id: string
-          illustration_url: string
-          image_url: string
-          images: string[]
-          lender_notes: string
-          lent_out: boolean
-          location: string
-          name: string
-          neighborhood: string
-          owner_id: string
-          owner_name: string
-          owner_zip_code: string
-          party_types: string[]
-          updated_at: string
-        }[]
-      }
+      get_supplies_with_owners:
+        | {
+            Args: never
+            Returns: {
+              category: string
+              condition: string
+              contact_email: string
+              created_at: string
+              cross_streets: string
+              date_available: string
+              description: string
+              house_rules: string[]
+              id: string
+              illustration_url: string
+              image_url: string
+              images: string[]
+              lender_notes: string
+              lent_out: boolean
+              location: string
+              name: string
+              neighborhood: string
+              owner_id: string
+              owner_name: string
+              owner_zip_code: string
+              party_types: string[]
+              updated_at: string
+            }[]
+          }
+        | {
+            Args: { p_community_id?: string }
+            Returns: {
+              category: string
+              condition: string
+              contact_email: string
+              created_at: string
+              cross_streets: string
+              date_available: string
+              description: string
+              house_rules: string[]
+              id: string
+              illustration_url: string
+              image_url: string
+              images: string[]
+              lender_notes: string
+              lent_out: boolean
+              location: string
+              name: string
+              neighborhood: string
+              owner_id: string
+              owner_name: string
+              owner_zip_code: string
+              party_types: string[]
+              updated_at: string
+            }[]
+          }
       get_supply_owner_info: {
         Args: { owner_id_param: string }
         Returns: {
@@ -483,6 +626,7 @@ export type Database = {
           zip_code: string
         }[]
       }
+      get_user_community_id: { Args: { p_user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -492,9 +636,15 @@ export type Database = {
       }
       is_user_steward: { Args: { user_id: string }; Returns: boolean }
       is_user_vouched: { Args: { user_id: string }; Returns: boolean }
-      search_supplies_public: {
-        Args: { search_query: string }
-        Returns: number
+      search_supplies_public:
+        | { Args: { search_query: string }; Returns: number }
+        | {
+            Args: { p_community_id?: string; search_query: string }
+            Returns: number
+          }
+      user_in_community: {
+        Args: { p_community_id: string; p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {

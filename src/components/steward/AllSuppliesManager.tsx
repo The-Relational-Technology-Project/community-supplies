@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 interface Supply {
   id: string;
@@ -20,10 +21,11 @@ export function AllSuppliesManager() {
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { communityId } = useCommunity();
 
   const fetchSupplies = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_supplies_with_owners');
+      const { data, error } = await supabase.rpc('get_supplies_with_owners', { p_community_id: communityId });
 
       if (error) throw error;
 

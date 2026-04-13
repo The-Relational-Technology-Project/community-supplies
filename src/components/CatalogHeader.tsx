@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthButtons } from "./auth/AuthButtons";
 import { UserProfile } from "./auth/UserProfile";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 interface CatalogHeaderProps {
   onSearch?: (query: string) => void;
@@ -15,6 +16,7 @@ interface CatalogHeaderProps {
 export const CatalogHeader = ({ onSearch, searchQuery = "", onNavigate }: CatalogHeaderProps) => {
   const [user, setUser] = useState<any>(null);
   const [localQuery, setLocalQuery] = useState(searchQuery);
+  const { communityName } = useCommunity();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -42,7 +44,7 @@ export const CatalogHeader = ({ onSearch, searchQuery = "", onNavigate }: Catalo
           onClick={() => onNavigate?.("home")}
           className="text-lg md:text-xl font-serif font-bold text-deep-brown hover:text-terracotta transition-colors whitespace-nowrap"
         >
-          Community Supplies
+          {communityName}
         </button>
 
         {/* Desktop Search - hidden on mobile */}
