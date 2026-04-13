@@ -6,6 +6,7 @@ import { AuthModal } from "./auth/AuthModal";
 import { Footer } from "./Footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Share2, HandHeart, ArrowRight, MapPin } from "lucide-react";
+import { SunsetSkyline } from "./SunsetSkyline";
 
 interface LandingPageProps {
   onTabChange: (tab: string) => void;
@@ -52,47 +53,50 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-sand flex flex-col">
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-12 sm:py-20 text-center relative z-10">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-serif font-bold text-deep-brown mb-4 leading-tight">
-            Community Supplies
-          </h1>
+      <section className="relative overflow-hidden">
+        <SunsetSkyline className="absolute inset-0 w-full h-full text-deep-brown opacity-[0.08] pointer-events-none" />
+        <div className="container mx-auto px-4 py-12 sm:py-20 text-center relative z-10">
+          <div className="max-w-3xl mx-auto">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-serif font-bold text-deep-brown mb-4 leading-tight">
+              Community Supplies
+            </h1>
 
-          <p className="text-lg sm:text-xl text-dusk-pink mb-3">
-            Borrow what you need. Share what you have.
-          </p>
+            <p className="text-lg sm:text-xl text-dusk-pink mb-3">
+              Borrow what you need. Share what you have.
+            </p>
 
-          <p className="text-base text-muted-foreground mb-10 sm:mb-14 max-w-xl mx-auto">
-            A free, open-source tool for neighborhoods to share supplies, tools, party gear, and more.
-          </p>
+            <p className="text-base text-muted-foreground mb-10 sm:mb-14 max-w-xl mx-auto">
+              A free, open-source tool for neighborhoods to share supplies, tools, party gear, and more.
+            </p>
 
-          {/* Dual CTAs */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-6">
-            {user ? (
+            {/* Dual CTAs */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-6">
+              {user ? (
+                <Button
+                  size="lg"
+                  onClick={() => onTabChange('browse')}
+                  className="text-base px-8"
+                >
+                  Join Sunset & Richmond Community
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  onClick={() => setModalMode('login')}
+                  className="text-base px-8"
+                >
+                  Join Sunset & Richmond Community
+                </Button>
+              )}
               <Button
                 size="lg"
-                onClick={() => onTabChange('browse')}
-                className="text-base px-8"
+                variant="outline"
+                asChild
+                className="border-2 border-primary text-primary hover:bg-primary/10 text-base px-8"
               >
-                Browse Sunset & Richmond
+                <Link to="/start-community">Start a Sharing Community</Link>
               </Button>
-            ) : (
-              <Button
-                size="lg"
-                onClick={() => setModalMode('login')}
-                className="text-base px-8"
-              >
-                Browse Sunset & Richmond
-              </Button>
-            )}
-            <Button
-              size="lg"
-              variant="outline"
-              asChild
-              className="border-2 border-primary text-primary hover:bg-primary/10 text-base px-8"
-            >
-              <Link to="/start-community">Start a Sharing Community</Link>
-            </Button>
+            </div>
           </div>
         </div>
       </section>
@@ -154,11 +158,11 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
             <div className="shrink-0">
               {user ? (
                 <Button size="sm" variant="ghost" onClick={() => onTabChange('browse')}>
-                  Browse <ArrowRight className="h-4 w-4 ml-1" />
+                  Join <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
               ) : (
                 <Button size="sm" variant="ghost" onClick={() => setModalMode('login')}>
-                  Sign in <ArrowRight className="h-4 w-4 ml-1" />
+                  Join <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
               )}
             </div>
