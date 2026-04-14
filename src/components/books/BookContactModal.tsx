@@ -55,7 +55,6 @@ export function BookContactModal({ isOpen, book, onClose }: BookContactModalProp
           supplyId: book.id,
           supplyName: `Book: ${book.title}`,
           supplyOwnerId: book.ownerId,
-          supplyOwnerEmail: book.ownerEmail,
           senderName: name.trim(),
           senderContact: contact.trim(),
           message: message.trim() || `I'd like to borrow "${book.title}".`
