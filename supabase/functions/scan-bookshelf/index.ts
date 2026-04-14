@@ -55,14 +55,6 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is vouched
-    const { data: isVouched } = await supabase.rpc('is_user_vouched', { user_id: user.id });
-    if (!isVouched) {
-      return new Response(
-        JSON.stringify({ error: 'User must be vouched to scan bookshelves' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     const rawBody = await req.json();
     

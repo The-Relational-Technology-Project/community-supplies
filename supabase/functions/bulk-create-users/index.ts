@@ -126,18 +126,7 @@ serve(async (req) => {
               id: authUser.user.id,
               name: request.name,
               email: request.email,
-              vouched_at: new Date().toISOString(),
-              vouched_by: null // System vouched
             });
-        } else {
-          // Update existing profile to mark as vouched
-          await supabaseAdmin
-            .from('profiles')
-            .update({
-              vouched_at: new Date().toISOString(),
-              vouched_by: null // System vouched
-            })
-            .eq('id', authUser.user.id);
         }
 
         results.push({

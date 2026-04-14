@@ -13,7 +13,7 @@ interface JoinRequest {
   email: string;
   intro: string;
   connection_context: string | null;
-  status: 'pending' | 'rejected' | 'vouched';
+  status: 'pending' | 'rejected' | 'vouched' | 'approved';
   requested_at: string;
   voucher_id: string | null;
 }
@@ -117,13 +117,13 @@ export function JoinRequestsManager() {
                 <Badge 
                  variant={
                   request.status === 'rejected' ? 'destructive' : 
-                  request.status === 'vouched' ? 'default' : 'secondary'
+                  (request.status === 'vouched' || request.status === 'approved') ? 'default' : 'secondary'
                 }
               >
                 {request.status === 'pending' && <Clock className="h-3 w-3 mr-1" />}
                 {request.status === 'rejected' && <XCircle className="h-3 w-3 mr-1" />}
-                {request.status === 'vouched' && <CheckCircle className="h-3 w-3 mr-1" />}
-                {request.status}
+                {(request.status === 'vouched' || request.status === 'approved') && <CheckCircle className="h-3 w-3 mr-1" />}
+                {request.status === 'vouched' ? 'approved' : request.status}
               </Badge>
             </TableCell>
             <TableCell>

@@ -33,13 +33,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: vouchedData } = await supabase.rpc("is_user_vouched", { user_id: user.id });
-    if (!vouchedData) {
-      return new Response(JSON.stringify({ error: "Not a vouched member" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const { query } = await req.json();
     if (!query || typeof query !== "string" || query.trim().length === 0) {
