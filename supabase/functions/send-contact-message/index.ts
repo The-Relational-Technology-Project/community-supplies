@@ -5,19 +5,13 @@ import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
-// Initialize Supabase client
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-);
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Define validation schema
+// Define validation schema — supplyOwnerEmail removed, looked up server-side
 const ContactRequestSchema = z.object({
   senderName: z.string()
     .trim()
@@ -29,7 +23,6 @@ const ContactRequestSchema = z.object({
     .max(255, "Contact information must be less than 255 characters")
     .refine(
       (val) => {
-        // Check if it's either a valid email or a phone number
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const phoneRegex = /^[\d\s\-\+\(\)]{7,20}$/;
         return emailRegex.test(val) || phoneRegex.test(val);
@@ -43,24 +36,65 @@ const ContactRequestSchema = z.object({
   supplyId: z.string().uuid("Invalid supply ID"),
   supplyName: z.string().trim().min(1).max(200),
   supplyOwnerId: z.string().uuid("Invalid owner ID"),
-  supplyOwnerEmail: z.string().email("Invalid owner email"),
   communityId: z.string().uuid("Invalid community ID").optional(),
 });
 
 type ContactRequest = z.infer<typeof ContactRequestSchema>;
 
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Authenticate the caller
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    // Service-role client for DB operations
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Verify the caller is vouched
+    const userId = claimsData.claims.sub as string;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('vouched_at')
+      .eq('id', userId)
+      .single();
+
+    if (!profile?.vouched_at) {
+      return new Response(JSON.stringify({ error: "Account not active" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     const rawBody = await req.json();
-    
-    // Validate input data
     const validationResult = ContactRequestSchema.safeParse(rawBody);
-    
+
     if (!validationResult.success) {
       console.error("Validation error:", validationResult.error.errors);
       return new Response(
@@ -71,15 +105,28 @@ const handler = async (req: Request): Promise<Response> => {
             message: e.message
           }))
         }),
-        { 
-          status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders }
-        }
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
     const requestData: ContactRequest = validationResult.data;
-    
+
+    // Look up the actual owner email from the database instead of trusting caller
+    const { data: ownerProfile, error: ownerError } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('id', requestData.supplyOwnerId)
+      .single();
+
+    if (ownerError || !ownerProfile?.email) {
+      return new Response(
+        JSON.stringify({ error: "Supply owner not found" }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const supplyOwnerEmail = ownerProfile.email;
+
     console.log("Validated contact request for supply:", requestData.supplyName);
 
     // Store the supply request in the database
@@ -105,14 +152,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Supply request saved:", supplyRequest);
 
-    // Check if sender contact is an email for reply-to and confirmation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const isEmailContact = emailRegex.test(requestData.senderContact);
-    
-    // Send email notification to supply owner
+
+    // Send email notification to supply owner (using DB-looked-up email)
     const emailResponse = await resend.emails.send({
       from: "Community Supplies <notifications@communitysupplies.org>",
-      to: [requestData.supplyOwnerEmail],
+      to: [supplyOwnerEmail],
       reply_to: isEmailContact ? requestData.senderContact : undefined,
       subject: `Someone wants to borrow: ${requestData.supplyName}`,
       html: `
@@ -195,19 +241,13 @@ const handler = async (req: Request): Promise<Response> => {
       supplyRequest: supplyRequest
     }), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders,
-      },
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
     console.error("Error in send-contact-message function:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 };
