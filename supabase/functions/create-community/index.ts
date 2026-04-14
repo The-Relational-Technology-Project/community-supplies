@@ -136,6 +136,59 @@ Deno.serve(async (req) => {
         reviewed_at: new Date().toISOString(),
       });
 
+    // 7. Send welcome email (non-blocking)
+    const APP_URL = "https://sunset-block-party-supplies.lovable.app";
+    const communityUrl = `${APP_URL}/c/${communitySlug}`;
+    const stewardUrl = `${APP_URL}/c/${communitySlug}/steward`;
+
+    try {
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      if (resendApiKey) {
+        const resend = new Resend(resendApiKey);
+        await resend.emails.send({
+          from: "Community Supplies <josh@relationaltechproject.org>",
+          to: [stewardEmail],
+          subject: "Your community is live! Here's your link 🎉",
+          html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f9fafb;font-family:Georgia,'Times New Roman',serif;">
+<div style="max-width:580px;margin:0 auto;padding:40px 20px;">
+  <div style="background:#ffffff;border-radius:12px;padding:40px 32px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+    <h1 style="font-size:24px;font-weight:bold;color:#1a1a1a;margin:0 0 16px;">Welcome, ${escapeHtml(stewardName)}! 🎉</h1>
+    <p style="font-size:16px;color:#4a4a4a;line-height:1.6;margin:0 0 8px;">
+      Your community <strong>${escapeHtml(communityName)}</strong> is live and ready for neighbors to join.
+    </p>
+    <p style="font-size:16px;color:#4a4a4a;line-height:1.6;margin:0 0 24px;">
+      Bookmark this link — it's your community's home:
+    </p>
+    <div style="text-align:center;margin:0 0 32px;">
+      <a href="${communityUrl}" style="display:inline-block;background:#e97451;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:14px 32px;border-radius:8px;">
+        Go to ${escapeHtml(communityName)}
+      </a>
+    </div>
+    <h2 style="font-size:18px;color:#1a1a1a;margin:0 0 12px;">Quick next steps:</h2>
+    <ol style="font-size:15px;color:#4a4a4a;line-height:1.8;margin:0 0 24px;padding-left:20px;">
+      <li><strong>Add your first supplies</strong> — list items you're willing to share with neighbors.</li>
+      <li><strong>Invite neighbors</strong> — share your community link: <a href="${communityUrl}" style="color:#e97451;">${communityUrl}</a></li>
+      <li><strong>Manage your community</strong> — use the <a href="${stewardUrl}" style="color:#e97451;">steward dashboard</a> to review members and requests.</li>
+    </ol>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+    <p style="font-size:14px;color:#888;line-height:1.5;margin:0;">
+      Questions? Reply to this email or reach us at <a href="mailto:hello@relationaltechproject.org" style="color:#e97451;">hello@relationaltechproject.org</a>.
+    </p>
+    <p style="font-size:14px;color:#888;margin:16px 0 0;">— Josh, Community Supplies</p>
+  </div>
+</div>
+</body>
+</html>`,
+        });
+      }
+    } catch (emailErr) {
+      console.error("Welcome email failed (non-blocking):", emailErr);
+    }
+
     return new Response(
       JSON.stringify({ communitySlug, communityId }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
