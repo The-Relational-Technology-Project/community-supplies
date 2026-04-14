@@ -16,6 +16,7 @@ interface AuthGuardProps {
 export function AuthGuard({ children, requireVouched = false, requireSteward = false }: AuthGuardProps) {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [isSteward, setIsSteward] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showJoinForm, setShowJoinForm] = useState(false);
   const { communityName, communityId } = useCommunity();
