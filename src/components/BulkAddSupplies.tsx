@@ -255,8 +255,8 @@ export function BulkAddSupplies() {
       }
     }
 
-    // Send single batch notification
-    if (published > 0) {
+    // Send single batch notification (only for the default Sunset & Richmond community)
+    if (published > 0 && communityId === 'a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4') {
       supabase.functions.invoke('send-bulk-supply-notification', {
         body: {
           items: publishedNames.map((name, i) => ({
