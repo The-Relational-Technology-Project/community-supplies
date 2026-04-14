@@ -514,6 +514,10 @@ export type Database = {
         Args: { request_email: string }
         Returns: boolean
       }
+      check_steward_request_rate_limit: {
+        Args: { request_email: string }
+        Returns: boolean
+      }
       get_books_with_owners:
         | {
             Args: never
