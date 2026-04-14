@@ -5,14 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { AuthModal } from "./auth/AuthModal";
 import { Footer } from "./Footer";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Share2, HandHeart, ArrowRight, MapPin } from "lucide-react";
+import { Users, Share2, HandHeart, ArrowRight } from "lucide-react";
 
-interface Community {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-}
 
 interface LandingPageProps {
   onTabChange: (tab: string) => void;
@@ -23,8 +17,6 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
   const [modalMode, setModalMode] = useState<'login' | 'signup' | null>(null);
   const [illustrations, setIllustrations] = useState<string[]>([]);
   const [loadingIllustrations, setLoadingIllustrations] = useState(true);
-  const [communities, setCommunities] = useState<Community[]>([]);
-  const [loadingCommunities, setLoadingCommunities] = useState(true);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -57,22 +49,6 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
     };
     fetchIllustrations();
 
-    const fetchCommunities = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('communities')
-          .select('id, name, slug, description')
-          .order('created_at', { ascending: true });
-        if (!error && data) {
-          setCommunities(data);
-        }
-      } catch (e) {
-        console.error('Failed to fetch communities:', e);
-      } finally {
-        setLoadingCommunities(false);
-      }
-    };
-    fetchCommunities();
   }, []);
 
   return (
@@ -160,49 +136,21 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Community Directory */}
-      <section className="container mx-auto px-4 pb-12 sm:pb-16">
-        <h2 className="text-xl sm:text-2xl font-serif font-semibold text-deep-brown mb-6 text-center">
-          Active Communities
-        </h2>
-        <div className="max-w-2xl mx-auto space-y-4">
-          {loadingCommunities ? (
-            Array.from({ length: 1 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full rounded-sm" />
-            ))
-          ) : (
-            communities.map((community) => (
-              <div key={community.id} className="bg-card border border-border rounded-sm p-5 sm:p-6 flex items-start gap-4">
-                <div className="bg-sand rounded-full p-2.5 shrink-0">
-                  <MapPin className="h-5 w-5 text-terracotta" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-serif font-semibold text-deep-brown text-lg">
-                    {community.name}
-                  </h3>
-                  {community.description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {community.description}
-                    </p>
-                  )}
-                </div>
-                <div className="shrink-0">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    asChild
-                  >
-                    <Link to={community.slug === 'sunset-richmond' ? '/' : `/c/${community.slug}`}>
-                      Join <ArrowRight className="h-4 w-4 ml-1" />
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
+      {/* Community Ticker */}
+      <section className="pb-10 sm:pb-14">
+        <div className="overflow-hidden relative">
+          <div className="flex whitespace-nowrap animate-[marquee_25s_linear_infinite]">
+            {[0, 1].map((copy) => (
+              <span key={copy} className="inline-block px-4 text-sm sm:text-base text-dusk-pink font-medium tracking-wide">
+                Outer Sunset, SF &nbsp;·&nbsp; Chevy Chase, MD &nbsp;·&nbsp; Mission District, SF &nbsp;·&nbsp; Baldwin Acres, VA &nbsp;·&nbsp; Cedars of Carrboro, NC &nbsp;·&nbsp; South Central Austin, TX &nbsp;·&nbsp; and spreading! &nbsp;&nbsp;&nbsp;&nbsp;
+              </span>
+            ))}
+          </div>
+        </div>
 
-          {/* Start your own CTA */}
-          <div className="bg-card border-2 border-dashed border-terracotta/30 rounded-sm p-5 sm:p-6 text-center">
+        {/* Start your own CTA */}
+        <div className="container mx-auto px-4 mt-8">
+          <div className="max-w-2xl mx-auto bg-card border-2 border-dashed border-terracotta/30 rounded-sm p-5 sm:p-6 text-center">
             <p className="text-deep-brown font-medium mb-2">
               Want to start a sharing community in your neighborhood?
             </p>
