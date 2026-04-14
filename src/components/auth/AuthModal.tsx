@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, commu
   const [loading, setLoading] = useState(false);
   const [useMagicLink, setUseMagicLink] = useState(false);
   const { toast } = useToast();
+  const { communityId: contextCommunityId, communitySlug, communityName: contextCommunityName } = useCommunity();
 
   // Generate math captcha when component mounts or mode changes to signup
   useEffect(() => {
@@ -114,6 +116,29 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, commu
       title: "Account created!", 
       description: "You can now sign in with your email and password." 
     });
+
+    // Send welcome email for auto-join communities
+    try {
+      const effectiveCommunityId = communityId || contextCommunityId;
+      const { data: community } = await supabase
+        .from('communities')
+        .select('join_mode, name, slug')
+        .eq('id', effectiveCommunityId)
+        .single();
+
+      if (community && community.join_mode === 'auto') {
+        await supabase.functions.invoke('send-welcome-email', {
+          body: {
+            memberName: name,
+            memberEmail: email,
+            communityName: community.name,
+            communitySlug: community.slug,
+          },
+        });
+      }
+    } catch (welcomeError) {
+      console.error("Failed to send welcome email:", welcomeError);
+    }
     
     onClose();
     setLoading(false);
