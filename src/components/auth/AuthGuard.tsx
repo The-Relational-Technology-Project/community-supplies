@@ -4,22 +4,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AuthButtons } from "./AuthButtons";
 import { JoinRequestForm } from "../community/JoinRequestForm";
-import { Heart, Shield, Users } from "lucide-react";
+import { Shield, Users } from "lucide-react";
 import { useCommunity } from "@/contexts/CommunityContext";
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  requireVouched?: boolean;
   requireSteward?: boolean;
 }
 
-export function AuthGuard({ children, requireVouched = false, requireSteward = false }: AuthGuardProps) {
+export function AuthGuard({ children, requireSteward = false }: AuthGuardProps) {
   const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
   const [isSteward, setIsSteward] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showJoinForm, setShowJoinForm] = useState(false);
-  const { communityName, communityId } = useCommunity();
+  const { communityName } = useCommunity();
 
   useEffect(() => {
     let mounted = true;
@@ -40,20 +38,6 @@ export function AuthGuard({ children, requireVouched = false, requireSteward = f
         setUser(user);
         
         if (user) {
-          const { data, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .maybeSingle();
-          
-          if (!mounted) return;
-          
-          if (profileError) {
-            console.error('AuthGuard profile error:', profileError);
-          } else {
-            setProfile(data);
-          }
-
           // Check steward role from user_roles table (authoritative source)
           const { data: roleData } = await supabase
             .from('user_roles')
@@ -80,7 +64,6 @@ export function AuthGuard({ children, requireVouched = false, requireSteward = f
       
       if (event === 'SIGNED_OUT') {
         setUser(null);
-        setProfile(null);
         setIsSteward(false);
         setLoading(false);
       } else if (event === 'SIGNED_IN' && session) {
@@ -166,36 +149,6 @@ export function AuthGuard({ children, requireVouched = false, requireSteward = f
             <div className="flex items-center justify-center gap-2 text-sm text-orange-600">
               <Shield className="h-4 w-4" />
               <span>Protected steward area</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (requireVouched && !profile?.vouched_at) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center p-4">
-        <Card className="max-w-md">
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="bg-orange-500 p-3 rounded-full">
-                <Heart className="h-8 w-8 text-white" />
-              </div>
-            </div>
-            <CardTitle>Waiting for Community Vouching</CardTitle>
-            <CardDescription>
-              You need to be vouched by a community steward to access this feature
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Our trust-based system ensures a safe and welcoming community. 
-              A steward will review your profile and vouch for you soon.
-            </p>
-            <div className="flex items-center justify-center gap-2 text-sm text-orange-600">
-              <Shield className="h-4 w-4" />
-              <span>Protected by community trust</span>
             </div>
           </CardContent>
         </Card>

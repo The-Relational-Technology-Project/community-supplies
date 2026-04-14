@@ -83,7 +83,7 @@ export function BulkCreateUsers() {
           Bulk Create User Accounts
         </CardTitle>
         <CardDescription>
-          Create Supabase auth accounts for all vouched join requests who don't already have accounts.
+          Create Supabase auth accounts for all approved join requests who don't already have accounts.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -92,7 +92,7 @@ export function BulkCreateUsers() {
           disabled={loading}
           className="w-full"
         >
-          {loading ? 'Creating Accounts...' : 'Create Accounts for Vouched Members'}
+          {loading ? 'Creating Accounts...' : 'Create Accounts for Approved Members'}
         </Button>
 
         {results && (

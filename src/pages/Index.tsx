@@ -122,19 +122,19 @@ const Index = () => {
     switch (activeTab) {
       case 'browse':
         return (
-          <AuthGuard requireVouched>
+          <AuthGuard>
             <BrowseSupplies searchQuery={searchQuery} />
           </AuthGuard>
         );
       case 'add':
         return (
-          <AuthGuard requireVouched>
+          <AuthGuard>
             <AddSupply />
           </AuthGuard>
         );
       case 'bulk-add':
         return (
-          <AuthGuard requireVouched>
+          <AuthGuard>
             <BulkAddSupplies />
           </AuthGuard>
         );
@@ -146,7 +146,7 @@ const Index = () => {
         );
       default:
         return (
-          <AuthGuard requireVouched>
+          <AuthGuard>
             <BrowseSupplies searchQuery={searchQuery} />
           </AuthGuard>
         );

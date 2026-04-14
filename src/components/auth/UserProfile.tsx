@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { User, LogOut, Shield, Heart, Package, Settings, LayoutDashboard } from "lucide-react";
+import { User, LogOut, Shield, Package, Settings, LayoutDashboard } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useCommunity } from "@/contexts/CommunityContext";
 
@@ -13,7 +13,6 @@ interface Profile {
   name: string;
   email: string;
   role: 'member' | 'steward';
-  vouched_at: string | null;
 }
 
 export function UserProfile() {
@@ -28,7 +27,7 @@ export function UserProfile() {
       if (user) {
         const { data } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id, name, email, role')
           .eq('id', user.id)
           .single();
         
@@ -60,7 +59,6 @@ export function UserProfile() {
 
   if (!profile) return null;
 
-  const isVouched = !!profile.vouched_at;
   const isSteward = profile.role === 'steward';
 
   return (
@@ -71,17 +69,17 @@ export function UserProfile() {
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">{profile.name}</span>
             {isSteward && <Shield className="h-4 w-4 text-accent hidden sm:inline" />}
-            {isVouched && <Heart className="h-4 w-4 text-accent hidden sm:inline" />}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <div className="px-2 py-1.5 text-sm">
             <div className="font-medium">{profile.name}</div>
             <div className="text-muted-foreground">{profile.email}</div>
-            <div className="text-xs mt-1 flex gap-2">
-              {isSteward && <span className="text-accent">Steward</span>}
-              {isVouched && <span className="text-primary">Vouched</span>}
-            </div>
+            {isSteward && (
+              <div className="text-xs mt-1">
+                <span className="text-accent">Steward</span>
+              </div>
+            )}
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => navigate('/profile')}>

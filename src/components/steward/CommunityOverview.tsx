@@ -18,7 +18,6 @@ interface Member {
   name: string;
   email: string;
   role: 'member' | 'steward';
-  vouched_at: string | null;
   created_at: string;
   intro_text: string | null;
   zip_code: string | null;
@@ -45,7 +44,7 @@ export function CommunityOverview() {
     try {
       const { data: members, error } = await supabase
         .from('profiles')
-        .select('id, name, email, role, vouched_at, created_at, intro_text, zip_code')
+        .select('id, name, email, role, created_at, intro_text, zip_code')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
