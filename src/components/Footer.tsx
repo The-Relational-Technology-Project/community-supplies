@@ -163,6 +163,14 @@ export function Footer() {
             · Reuse and remix for your neighborhood
           </p>
           <p className="text-sm text-muted-foreground">
+            Questions or ideas? Reach out to us at{" "}
+            <a
+              href="mailto:hello@relationaltechproject.org"
+              className="underline underline-offset-2 hover:opacity-80 transition-opacity font-semibold text-deep-brown/70">
+              hello@relationaltechproject.org
+            </a>
+          </p>
+          <p className="text-sm text-muted-foreground">
             <a
               href="/privacy"
               className="underline underline-offset-2 hover:opacity-80 transition-opacity text-deep-brown/60">
