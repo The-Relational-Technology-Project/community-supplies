@@ -7,6 +7,7 @@ import { AllSuppliesManager } from "./AllSuppliesManager";
 import { RefreshIllustrations } from "./RefreshIllustrations";
 import { CommunityRequestsManager } from "./CommunityRequestsManager";
 import { NeighborCommunitiesManager } from "./NeighborCommunitiesManager";
+import { JoinModeToggle } from "./JoinModeToggle";
 
 export function StewardDashboard() {
   return (
