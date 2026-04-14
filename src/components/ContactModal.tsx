@@ -97,7 +97,6 @@ export function ContactModal({ supply, isOpen, onClose }: ContactModalProps) {
           supplyId: supply.id,
           supplyName: supply.name,
           supplyOwnerId: supply.ownerId,
-          supplyOwnerEmail: supply.contactEmail,
           senderName,
           senderContact,
           message,
