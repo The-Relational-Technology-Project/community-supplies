@@ -13,9 +13,11 @@ interface AuthModalProps {
   onClose: () => void;
   mode: 'login' | 'signup' | 'join-request';
   onSuccess?: () => void;
+  communityId?: string;
+  communityName?: string;
 }
 
-export function AuthModal({ isOpen, onClose, mode, onSuccess }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, communityName }: AuthModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -89,15 +91,17 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess }: AuthModalProps) 
     }
     
     // Simplified signup without emailRedirectTo to avoid hanging
+    const metadata: Record<string, string> = { 
+      name,
+      connection_context: connectionContext 
+    };
+    if (communityId) {
+      metadata.community_id = communityId;
+    }
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { 
-        data: { 
-          name,
-          connection_context: connectionContext 
-        }
-      }
+      options: { data: metadata }
     });
     
     if (error) {

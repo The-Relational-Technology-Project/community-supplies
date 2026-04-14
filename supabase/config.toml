@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.send-bulk-supply-notification]
 verify_jwt = false
+
+[functions.create-community]
+verify_jwt = false

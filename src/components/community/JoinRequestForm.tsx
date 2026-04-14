@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 export function JoinRequestForm() {
   const [name, setName] = useState("");
@@ -19,6 +20,7 @@ export function JoinRequestForm() {
   const [captchaQuestion, setCaptchaQuestion] = useState({ question: "", answer: 0 });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { communityId, communityName } = useCommunity();
 
   // Generate math captcha when component mounts
   useEffect(() => {
@@ -54,7 +56,8 @@ export function JoinRequestForm() {
         options: {
           emailRedirectTo: redirectUrl,
           data: {
-            name
+            name,
+            community_id: communityId,
           }
         }
       });
@@ -88,7 +91,8 @@ export function JoinRequestForm() {
           email,
           cross_streets: crossStreets,
           referral_source: referralSource,
-          phone_number: referralSource === 'other' ? phoneNumber : null
+          phone_number: referralSource === 'other' ? phoneNumber : null,
+          community_id: communityId,
         });
 
       if (requestError) {
@@ -139,9 +143,9 @@ export function JoinRequestForm() {
   return (
     <Card className="max-w-2xl mx-auto my-4 sm:my-8">
       <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-        <CardTitle className="text-xl sm:text-2xl">Request to Join Our Community</CardTitle>
+        <CardTitle className="text-xl sm:text-2xl">Request to Join {communityName}</CardTitle>
         <CardDescription className="text-sm sm:text-base">
-          We're a trust-based community in the Sunset & Richmond neighborhoods. 
+          We're a trust-based sharing community.
           Create your account and a community steward will review your application.
         </CardDescription>
       </CardHeader>

@@ -137,9 +137,12 @@ export type Database = {
       community_steward_requests: {
         Row: {
           co_stewards: Json | null
+          community_name: string | null
+          community_slug: string | null
           created_at: string
           email: string
           id: string
+          location: string | null
           name: string
           questions: string | null
           reason: string
@@ -149,9 +152,12 @@ export type Database = {
         }
         Insert: {
           co_stewards?: Json | null
+          community_name?: string | null
+          community_slug?: string | null
           created_at?: string
           email: string
           id?: string
+          location?: string | null
           name: string
           questions?: string | null
           reason: string
@@ -161,9 +167,12 @@ export type Database = {
         }
         Update: {
           co_stewards?: Json | null
+          community_name?: string | null
+          community_slug?: string | null
           created_at?: string
           email?: string
           id?: string
+          location?: string | null
           name?: string
           questions?: string | null
           reason?: string

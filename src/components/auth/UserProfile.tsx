@@ -4,8 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { User, LogOut, Shield, Heart, Package, Settings } from "lucide-react";
+import { User, LogOut, Shield, Heart, Package, Settings, LayoutDashboard } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 interface Profile {
   id: string;
@@ -19,6 +20,7 @@ export function UserProfile() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const { toast } = useToast();
+  const { communitySlug } = useCommunity();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -90,6 +92,12 @@ export function UserProfile() {
             <Package className="mr-2 h-4 w-4" />
             My Supplies
           </DropdownMenuItem>
+          {isSteward && (
+            <DropdownMenuItem onClick={() => navigate(`/c/${communitySlug}/steward`)}>
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Steward Dashboard
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
             Sign Out
