@@ -17,6 +17,11 @@ const BodySchema = z.object({
   stewardPassword: z.string().min(6).max(200),
 });
 
+function escapeHtml(text: string): string {
+  const entities: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return text.replace(/[&<>"']/g, (c) => entities[c] || c);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
