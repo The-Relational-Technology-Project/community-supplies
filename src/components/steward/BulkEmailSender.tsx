@@ -9,6 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Mail, Send, Users, AlertTriangle, CheckCircle2, Loader2, Upload, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 interface SendResult {
   success: boolean;
@@ -24,6 +25,7 @@ interface ImageStatus {
 }
 
 export function BulkEmailSender() {
+  const { communityId } = useCommunity();
   const [subject, setSubject] = useState("New features on Community Party Supplies! 📚✨");
   const [excludeEmails, setExcludeEmails] = useState("minda.nicolas@gmail.com");
   const [loading, setLoading] = useState(false);
@@ -80,7 +82,8 @@ export function BulkEmailSender() {
         body: {
           subject,
           excludeEmails: parseExcludeEmails(),
-          dryRun: true
+          dryRun: true,
+          communityId
         }
       });
 
@@ -104,7 +107,8 @@ export function BulkEmailSender() {
         body: {
           subject,
           excludeEmails: parseExcludeEmails(),
-          dryRun: false
+          dryRun: false,
+          communityId
         }
       });
 

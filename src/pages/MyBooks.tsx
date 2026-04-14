@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCommunity } from "@/contexts/CommunityContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import { AddBooks } from "@/components/books/AddBooks";
 
 export default function MyBooks() {
   const navigate = useNavigate();
+  const { communitySlug } = useCommunity();
   const { books, loading } = useMyBooks();
   const { updateBook, deleteBook } = useBooks();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -87,11 +89,11 @@ export default function MyBooks() {
   };
 
   const handleGoBack = () => {
-    navigate("/?tab=browse");
+    navigate(`/c/${communitySlug}?tab=browse`);
   };
 
   const handleTabChange = (tab: string) => {
-    navigate(`/?tab=${tab}`);
+    navigate(`/c/${communitySlug}?tab=${tab}`);
   };
 
   const handleToggleLentOut = async (book: any) => {

@@ -44,6 +44,7 @@ const ContactRequestSchema = z.object({
   supplyName: z.string().trim().min(1).max(200),
   supplyOwnerId: z.string().uuid("Invalid owner ID"),
   supplyOwnerEmail: z.string().email("Invalid owner email"),
+  communityId: z.string().uuid("Invalid community ID").optional(),
 });
 
 type ContactRequest = z.infer<typeof ContactRequestSchema>;
@@ -91,7 +92,8 @@ const handler = async (req: Request): Promise<Response> => {
         sender_name: requestData.senderName,
         sender_contact: requestData.senderContact,
         message: requestData.message,
-        status: 'pending'
+        status: 'pending',
+        ...(requestData.communityId ? { community_id: requestData.communityId } : {}),
       })
       .select()
       .single();

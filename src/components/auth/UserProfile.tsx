@@ -12,12 +12,12 @@ interface Profile {
   id: string;
   name: string;
   email: string;
-  role: 'member' | 'steward';
 }
 
 export function UserProfile() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isSteward, setIsSteward] = useState(false);
   const { toast } = useToast();
   const { communitySlug } = useCommunity();
 
@@ -27,11 +27,21 @@ export function UserProfile() {
       if (user) {
         const { data } = await supabase
           .from('profiles')
-          .select('id, name, email, role')
+          .select('id, name, email')
           .eq('id', user.id)
           .single();
         
         if (data) setProfile(data);
+
+        // Check steward role from user_roles table (authoritative source)
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'steward')
+          .maybeSingle();
+        
+        setIsSteward(!!roleData);
       }
     };
 
@@ -40,6 +50,7 @@ export function UserProfile() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         setProfile(null);
+        setIsSteward(false);
       } else if (event === 'SIGNED_IN' && session) {
         fetchProfile();
       }
@@ -58,8 +69,6 @@ export function UserProfile() {
   };
 
   if (!profile) return null;
-
-  const isSteward = profile.role === 'steward';
 
   return (
     <>

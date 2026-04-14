@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCommunity } from "@/contexts/CommunityContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { Header } from "@/components/Header";
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { communitySlug } = useCommunity();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -119,11 +121,11 @@ export default function Profile() {
   };
 
   const handleGoBack = () => {
-    navigate('/');
+    navigate(`/c/${communitySlug}`);
   };
 
   const handleTabChange = (tab: string) => {
-    navigate(`/?tab=${tab}`);
+    navigate(`/c/${communitySlug}?tab=${tab}`);
   };
 
   if (loading) {

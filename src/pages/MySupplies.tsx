@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCommunity } from "@/contexts/CommunityContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { MultipleImageUpload } from "@/components/MultipleImageUpload";
 
 export default function MySupplies() {
   const navigate = useNavigate();
+  const { communitySlug } = useCommunity();
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -164,11 +166,11 @@ export default function MySupplies() {
   };
 
   const handleGoBack = () => {
-    navigate('/');
+    navigate(`/c/${communitySlug}`);
   };
 
   const handleTabChange = (tab: string) => {
-    navigate(`/?tab=${tab}`);
+    navigate(`/c/${communitySlug}?tab=${tab}`);
   };
 
   const handleToggleLentOut = async (supply: Supply) => {
