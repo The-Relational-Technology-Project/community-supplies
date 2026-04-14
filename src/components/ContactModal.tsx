@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { GenerateIllustrationButton } from "./GenerateIllustrationButton";
+import { useCommunity } from "@/contexts/CommunityContext";
+import { GenerateIllustrationButton } from "./GenerateIllustrationButton";
 
 interface ContactModalProps {
   supply: Supply | null;
@@ -25,6 +27,7 @@ export function ContactModal({ supply, isOpen, onClose }: ContactModalProps) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const { toast } = useToast();
+  const { communityId } = useCommunity();
 
   useEffect(() => {
     const getUserId = async () => {
@@ -98,7 +101,8 @@ export function ContactModal({ supply, isOpen, onClose }: ContactModalProps) {
           supplyOwnerEmail: supply.contactEmail,
           senderName,
           senderContact,
-          message
+          message,
+          communityId
         }
       });
 
