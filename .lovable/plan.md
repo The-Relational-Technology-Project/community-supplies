@@ -1,75 +1,100 @@
 
 
-## Multi-Community End-to-End Audit: Remaining Issues
+## Steward Member Management -- Clean Implementation
 
-I found **5 issues** that will break the experience for new stewards and their community members.
+### Current state of "vouching" in the codebase
 
-### Issue 1: Navigation links lose community context
-**Severity: High** -- affects every non-default community user
+The `vouched_at` column on `profiles` and the `is_user_vouched()` DB function are the underlying access-control mechanism used by all RLS policies. These stay in the database -- they work, and renaming them would require touching every RLS policy. But no user-facing code should say "vouch."
 
-Pages like `/my-supplies`, `/my-books`, `/profile` navigate back to `/` (the generic landing/default route) instead of `/c/{slug}`. When a user from "Western Howard County" clicks "Back" from My Supplies, they land on the Sunset & Richmond context.
-
-**Affected files and links:**
-- `MySupplies.tsx`: `navigate('/')`, `navigate('/?tab=...')`
-- `MyBooks.tsx`: `navigate('/?tab=browse')`, `navigate('/?tab=...')`
-- `Profile.tsx`: `navigate('/')`, `navigate('/?tab=...')`
-- `AddSupply.tsx`: `navigate('/?tab=browse')`
-- `BulkAddSupplies.tsx`: `navigate('/?tab=browse')`
-- `BookLibrary.tsx`: `navigate('/my-books')`
-- `UserProfile.tsx`: `navigate('/profile')`, `navigate('/my-supplies')`
-
-**Fix:** Use `communitySlug` from `useCommunity()` to build community-aware URLs: `navigate(`/c/${communitySlug}?tab=browse`)` etc. For `/my-supplies` and `/profile`, either add `/c/:slug/my-supplies` routes or keep the generic routes (they now resolve community from auth), but "Back" buttons must go to `/c/{slug}`.
-
-### Issue 2: Steward dashboard shows ALL communities' data
-**Severity: High** -- stewards see other communities' members, requests, supplies
-
-Several steward components query without filtering by `community_id`:
-- **`CommunityOverview.tsx`**: `supabase.from('profiles').select(...)` with no community filter -- shows members from ALL communities
-- **`JoinRequestsManager.tsx`**: `supabase.from('join_requests').select(...)` with no community filter (RLS does filter by community, but worth confirming)
-- **`SupplyRequestsManager.tsx`**: `supabase.from('supply_requests').select(...)` with no community filter (RLS does filter)
-- **`BulkEmailSender.tsx`**: calls `send-bulk-update` edge function which may email ALL users, not just the steward's community
-
-RLS on `profiles` allows stewards to see profiles in their own community, so `CommunityOverview` might already be scoped. But the `JoinRequestsManager` and `SupplyRequestsManager` RLS policies also scope to `community_id = get_user_community_id(auth.uid())`, so these are likely safe at the DB level. **However**, `BulkEmailSender` is the most dangerous -- it likely emails all users across all communities.
-
-### Issue 3: `UserProfile.tsx` checks steward role from `profiles.role` column, not `user_roles` table
-**Severity: Medium**
-
-Line 62: `const isSteward = profile.role === 'steward'` reads from the `profiles` table's `role` column. The authoritative source is `user_roles`. If these get out of sync, the steward dashboard link won't appear in the user menu. The `AuthGuard` correctly checks `user_roles`, but `UserProfile` does not.
-
-### Issue 4: `supply_requests` inserts are missing `community_id`
-**Severity: Medium** -- borrowing requests from non-default communities will fail or go to wrong community
-
-The `ContactModal.tsx` calls `send-contact-message` edge function but doesn't pass `community_id`. The `supply_requests` table has a default of the Sunset community UUID. Same RLS pattern as the supply insert bug we just fixed.
-
-### Issue 5: `BulkEmailSender` sends to all communities
-**Severity: High** -- steward bulk email would reach users in other neighborhoods
-
-The `send-bulk-update` edge function likely queries all profiles without community filtering. A steward from one community could email everyone on the platform.
-
----
+**Remaining "vouch" references to clean up:**
+- `JoinRequestsManager.tsx`: status type includes `'vouched'`, displays `vouched` mapped to "approved"
+- `bulk-create-users` edge function: queries `status = 'vouched'`
+- DB enum `join_request_status`: values are `pending | vouched | rejected` (no `approved` value)
+- Edge function comments: "vouched status" in 3 files (cosmetic)
 
 ### Plan
 
-| # | File(s) | Change |
-|---|---------|--------|
-| 1 | `MySupplies.tsx`, `MyBooks.tsx`, `Profile.tsx`, `AddSupply.tsx`, `BulkAddSupplies.tsx`, `BookLibrary.tsx` | Use `useCommunity().communitySlug` to build back-navigation URLs like `/c/${slug}?tab=browse` |
-| 2 | `UserProfile.tsx` | Change steward check from `profiles.role` to querying `user_roles` table (matching `AuthGuard` pattern) |
-| 3 | `BulkEmailSender.tsx` + `send-bulk-update` edge function | Pass `communityId` and filter recipients to the steward's community only |
-| 4 | `ContactModal.tsx` + `send-contact-message` edge function | Pass `community_id` so `supply_requests` inserts have the correct community |
-| 5 | Verify `CommunityOverview`, `JoinRequestsManager`, `SupplyRequestsManager` | Confirm RLS scoping is sufficient; add explicit community_id filters if needed for clarity |
+#### 1. Database migration: add `join_mode` to communities + add `approved` to enum
 
-### Files Changed (estimated)
-- `src/pages/MySupplies.tsx`
-- `src/pages/MyBooks.tsx`
-- `src/pages/Profile.tsx`
-- `src/components/AddSupply.tsx`
-- `src/components/BulkAddSupplies.tsx`
-- `src/components/books/BookLibrary.tsx`
-- `src/components/auth/UserProfile.tsx`
-- `src/components/ContactModal.tsx`
-- `src/components/steward/BulkEmailSender.tsx`
-- `supabase/functions/send-bulk-update/index.ts` (add community_id filter)
-- `supabase/functions/send-contact-message/index.ts` (pass community_id to supply_requests)
+```sql
+-- Add join_mode column
+ALTER TABLE communities ADD COLUMN join_mode text NOT NULL DEFAULT 'auto';
 
-No database migrations needed -- RLS policies are already correct.
+-- Add 'approved' value to the join_request_status enum
+ALTER TYPE join_request_status ADD VALUE IF NOT EXISTS 'approved';
+```
+
+#### 2. Database migration: update `handle_new_user()` trigger
+
+Modify the trigger to check the community's `join_mode`. If `approval_required`, set `vouched_at = null` instead of `now()`:
+
+```sql
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger ...
+AS $$
+DECLARE
+  v_community_id uuid;
+  v_join_mode text;
+BEGIN
+  v_community_id := COALESCE(
+    (NEW.raw_user_meta_data->>'community_id')::uuid,
+    'a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4'::uuid
+  );
+  SELECT join_mode INTO v_join_mode FROM communities WHERE id = v_community_id;
+
+  INSERT INTO profiles (id, name, email, vouched_at, intro_text, zip_code, community_id)
+  VALUES (
+    NEW.id, ...,
+    CASE WHEN v_join_mode = 'approval_required' THEN null ELSE now() END,
+    ..., v_community_id
+  );
+  RETURN NEW;
+END;
+$$;
+```
+
+#### 3. CommunityOverview.tsx -- add deactivate/reactivate
+
+- Fetch `vouched_at` in the query (internal field name, never shown as "vouched")
+- Show an "Active" / "Inactive" badge per member
+- Add a "Deactivate" button (sets `vouched_at = null`) and "Reactivate" button (sets `vouched_at = now()`)
+- Skip the button for steward rows (stewards can't deactivate other stewards)
+
+#### 4. JoinRequestsManager.tsx -- make approval functional
+
+- When steward clicks "Approve": update join_request status to `'approved'` (new enum value), then set the corresponding profile's `vouched_at = now()` using the request's `user_id`
+- Remove all `'vouched'` string references from the component -- treat legacy `vouched` rows as `approved` in display
+- Remove `voucher_id` from the interface (unused legacy field)
+
+#### 5. Join mode toggle on steward dashboards
+
+- Add a settings card (above or within the Members tab) in both `CommunityStewardDashboard.tsx` and `StewardDashboard.tsx`
+- Switch component: "Require approval for new members"
+- Reads/writes `communities.join_mode` for the steward's community
+- Uses `useCommunity()` to get the `communityId`
+
+#### 6. Update `bulk-create-users` edge function
+
+- Change query filter from `status = 'vouched'` to `status = 'approved'` (or include both for backward compat with existing data)
+
+### UI language guide
+
+| Internal DB field | UI label |
+|---|---|
+| `vouched_at IS NOT NULL` | "Active" |
+| `vouched_at IS NULL` | "Inactive" / "Pending approval" |
+| `join_request.status = 'approved'` | "Approved" |
+| `join_mode = 'auto'` | "Auto-join" |
+| `join_mode = 'approval_required'` | "Require approval" |
+
+No user-facing text will contain the word "vouch" anywhere.
+
+### Files changed
+
+- **Migration**: `communities.join_mode` column, `approved` enum value, updated `handle_new_user()` trigger
+- `src/components/steward/CommunityOverview.tsx` -- deactivate/reactivate buttons + active status badge
+- `src/components/steward/JoinRequestsManager.tsx` -- functional approve, clean "vouch" references
+- `src/components/steward/CommunityStewardDashboard.tsx` -- join mode toggle
+- `src/components/steward/StewardDashboard.tsx` -- join mode toggle
+- `supabase/functions/bulk-create-users/index.ts` -- query both `approved` and `vouched` statuses
 
