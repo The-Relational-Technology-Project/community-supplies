@@ -101,6 +101,22 @@ const Index = () => {
     return <LandingPage onTabChange={setActiveTab} />;
   }
 
+  // Show onboarding for new stewards
+  if (showOnboarding) {
+    return (
+      <main className="min-h-screen flex flex-col bg-sand">
+        <StewardOnboarding
+          communityName={communityName}
+          communitySlug={communitySlug}
+          onDismiss={() => {
+            setShowOnboarding(false);
+            setActiveTab("add");
+          }}
+        />
+      </main>
+    );
+  }
+
   // If user is authenticated, show the functional interface
   const renderContent = () => {
     switch (activeTab) {
