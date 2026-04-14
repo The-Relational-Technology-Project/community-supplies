@@ -1,122 +1,124 @@
 
 
-## Multi-Community Architecture — Implementation Plan
+## Self-Service Community Creation + Steward Onboarding
 
 ### What We're Building
 
-Transform the single-community app into a multi-tenant platform where each community lives at `communitysupplies.org/{slug}` (e.g., `/oakland`, `/mission`). The existing Sunset & Richmond community keeps working at the root `/` path. New communities get their own isolated data, stewards, and members.
+Transform the existing "Start a Sharing Community" form from a request-and-wait flow into an **instant self-service** flow where a new steward:
 
-### Database Changes (Migration 1)
+1. Fills out the form (name, email, community name, community location, reason, questions, captcha)
+2. Creates their account immediately (email/password or magic link)
+3. Gets tagged as steward of a brand-new community
+4. Lands on an onboarding page with prompts to add first supplies and invite neighbors
+5. Their community is live at `/c/{slug}` — visitors see sign-in/sign-up, members see the library
 
-**New `communities` table:**
-```sql
-communities (
-  id uuid PK,
-  name text NOT NULL,           -- "Oakland Hills"
-  slug text UNIQUE NOT NULL,    -- "oakland"
-  description text,
-  created_at timestamptz,
-  updated_at timestamptz
-)
-```
+Plus: add Steward Dashboard access at `/c/{slug}/steward` and in the user dropdown menu.
 
-**Add `community_id` to existing tables:**
-- `supplies` — add `community_id uuid REFERENCES communities(id)`, backfill with Sunset & Richmond ID
-- `books` — same
-- `profiles` — add `community_id uuid REFERENCES communities(id)`, backfill
-- `join_requests` — add `community_id`, backfill
-- `user_roles` — add `community_id`, backfill
-- `supply_requests` — add `community_id`, backfill
+### Implementation Details
 
-**Backfill:** Insert the Sunset & Richmond community row first, then UPDATE all existing rows to reference it.
+**1. Revamp StartCommunityForm → self-service creation**
 
-**Update RLS policies** on all modified tables to scope reads/writes by community_id. Use a helper function `get_user_community_id(uuid)` to look up a user's community.
+Update `src/components/community/StartCommunityForm.tsx`:
+- Add "Community Name" field with helper text ("e.g., Outer Sunset Sharing, Oakland Community Supplies")
+- Add "Location" field ("Where is your sharing community? e.g., Oakland Hills, Mission District SF")
+- Auto-generate slug from community name (lowercase, hyphenated)
+- Remove co-stewards section (simplify for v1 — steward can invite co-stewards later)
+- After captcha validation, show account creation step (email/password + magic link option) instead of submitting a request
+- On account creation: call a new edge function that atomically creates community + steward role
 
-**Update RPCs:**
-- `get_supplies_with_owners(p_community_id uuid)` — add parameter and WHERE clause
-- `get_books_with_owners(p_community_id uuid)` — same
-- `get_public_illustrations(p_community_id uuid)` — same
-- `search_supplies_public(search_query, p_community_id uuid)` — same
+**2. New edge function: `create-community`**
 
-### Routing (App.tsx)
+`supabase/functions/create-community/index.ts`:
+- Accepts: `{ communityName, communitySlug, location, reason, questions, stewardName, stewardEmail, stewardPassword }`
+- Uses service role to:
+  1. Check slug uniqueness against `communities` table
+  2. Insert new `communities` row (name, slug, description = location)
+  3. Create auth user via `admin.createUser()` (email confirmed, vouched)
+  4. Insert profile with `community_id` set to new community
+  5. Insert `user_roles` row with `role = 'steward'` and `community_id`
+  6. Optionally store the request in `community_steward_requests` for record-keeping
+- Returns: `{ communitySlug, communityId }` on success
+- No JWT required (unauthenticated users call this during signup)
+- Math captcha validated client-side; rate limit via existing patterns
 
-Add a `/:communitySlug` route that renders the same `Index` page but with community context:
+**3. Database migration**
 
-```text
-/                    → Landing page (no change)
-/oakland             → Index with CommunityContext = "oakland"
-/oakland?tab=browse  → Browse Oakland supplies
-/start-community     → Start community form (no change)
-/steward             → Steward dashboard (scoped to user's community)
-```
+- Add `location` column to `community_steward_requests` (optional, for record-keeping)
+- No other schema changes needed — communities table and community_id columns already exist
 
-### React Context (new file: `src/contexts/CommunityContext.tsx`)
+**4. Steward onboarding page**
 
-Provides `{ communityId, communitySlug, communityName }` to all child components. The `/:communitySlug` route component fetches the community row by slug and populates this context. All data hooks read from it.
+New component: `src/components/community/StewardOnboarding.tsx`
+- Shown after successful community creation (via route state or query param)
+- Two cards: "Add your first supplies" (link to add supply page) and "Invite your neighbors" (copyable community URL)
+- Clean, encouraging design matching the existing aesthetic
 
-### Hook Updates
+**5. Community-aware auth flow**
 
-- `useSupplies` — accept `communityId` from context, pass to RPC
-- `useBooks` — same
-- `useCrossCommunitySearch` — scope to community
-- All steward dashboard queries — scope by `community_id`
+Update `src/components/auth/AuthGuard.tsx`:
+- When showing the "not logged in" screen at a community route (`/c/{slug}`), display the community name instead of hardcoded "Sunset & Richmond"
+- Sign-up from a community page should include `community_id` in user metadata so the `handle_new_user` trigger assigns them to the correct community
 
-### Component Updates
+Update `src/components/auth/AuthModal.tsx`:
+- Accept optional `communityId` and `communityName` props
+- Pass `community_id` in signup `user_metadata` when provided
 
-- **`Index.tsx`** — read `communitySlug` from `useParams()`, fetch community, wrap in `CommunityProvider`
-- **`CatalogHeader`** — show community name instead of hardcoded "Community Supplies"
-- **`LandingPage`** — "Active Communities" section fetches from `communities` table dynamically
-- **`AuthGuard`** — check vouching within the user's community context
-- **`AddSupply` / `BulkAddSupplies`** — include `community_id` in inserts
-- **`BrowseSupplies`** — no direct changes (inherits from `useSupplies` which uses context)
-- **`StewardDashboard`** — all sub-components scope queries by community_id from context
-- **`JoinRequestForm`** — include `community_id` in join request
+Update `src/components/community/JoinRequestForm.tsx`:
+- Include `community_id` from context in the join request insert
 
-### Steward Provisioning Flow
+**6. Steward Dashboard routing**
 
-When a community request is approved (from the Communities tab in steward dashboard):
-1. Insert a row into `communities` with chosen name/slug
-2. Create user accounts for steward + co-stewards via `bulk-create-users` edge function
-3. Insert `steward` role in `user_roles` scoped to the new `community_id`
-4. Update the `community_steward_requests` row status to `approved`
+Update `src/App.tsx`:
+- Add route `/c/:communitySlug/steward` that renders a community-scoped steward dashboard
 
-This will be a button in `CommunityRequestsManager` — "Approve & Create Community" — with a small form for the slug.
+New component: `src/components/steward/CommunityStewardDashboard.tsx`
+- Simplified version of `StewardDashboard` with just two tabs: **Members** and **Requests**
+- Reuses `CommunityOverview` and `SupplyRequestsManager` (already community-scoped via context)
+
+**7. Steward link in user dropdown**
+
+Update `src/components/auth/UserProfile.tsx`:
+- Check if user has steward role (already checking `profile.role`)
+- Add "Steward Dashboard" menu item that navigates to `/c/{communitySlug}/steward`
+- Read `communitySlug` from `CommunityContext`
+
+Update `src/components/CatalogHeader.tsx`:
+- Add steward dashboard link for steward users (similar to Header.tsx pattern)
 
 ### Files to Create
-- `src/contexts/CommunityContext.tsx` — React context + provider + hook
-- 1 database migration (communities table, add community_id columns, backfill, update RPCs, update RLS)
+- `supabase/functions/create-community/index.ts` — edge function for atomic community + steward creation
+- `src/components/community/StewardOnboarding.tsx` — post-creation onboarding UI
+- `src/components/steward/CommunityStewardDashboard.tsx` — simplified steward view for community stewards
+- 1 database migration (add `location` column to `community_steward_requests`)
 
 ### Files to Modify
-- `src/App.tsx` — add `/:communitySlug/*` routes
-- `src/pages/Index.tsx` — read slug param, wrap in CommunityProvider
-- `src/hooks/useSupplies.ts` — pass community_id to RPC
-- `src/hooks/useBooks.ts` — pass community_id to RPC
-- `src/components/CatalogHeader.tsx` — show community name
-- `src/components/LandingPage.tsx` — fetch communities dynamically
-- `src/components/AddSupply.tsx` — include community_id in insert
-- `src/components/BulkAddSupplies.tsx` — include community_id in insert
-- `src/components/BrowseSupplies.tsx` — minor (context-aware)
-- `src/components/auth/AuthGuard.tsx` — community-scoped vouching
+- `src/components/community/StartCommunityForm.tsx` — self-service flow with account creation
+- `src/pages/StartCommunity.tsx` — handle post-creation redirect/onboarding
+- `src/App.tsx` — add `/c/:communitySlug/steward` route
+- `src/components/auth/AuthGuard.tsx` — community-aware login prompt
+- `src/components/auth/AuthModal.tsx` — accept community_id for signup
+- `src/components/auth/UserProfile.tsx` — add steward dashboard link
 - `src/components/community/JoinRequestForm.tsx` — include community_id
-- `src/components/steward/StewardDashboard.tsx` — pass community context
-- `src/components/steward/CommunityOverview.tsx` — scope by community_id
-- `src/components/steward/CommunityRequestsManager.tsx` — add approve/create flow
-- `src/components/steward/AllSuppliesManager.tsx` — scope by community_id
-- `src/components/steward/SupplyRequestsManager.tsx` — scope by community_id
-- `src/components/steward/JoinRequestsManager.tsx` — scope by community_id
-- `src/components/steward/BulkEmailSender.tsx` — scope by community_id
-- `src/pages/MySupplies.tsx` — scope queries
-- `src/pages/MyBooks.tsx` — scope queries
+- `src/components/CatalogHeader.tsx` — steward link for steward users
 
-### Implementation Order
-1. **Database migration** — communities table, columns, backfill, RPCs, RLS
-2. **CommunityContext + routing** — context provider, App.tsx routes, Index.tsx integration
-3. **Hook + component updates** — useSupplies, useBooks, all components reading/writing data
-4. **Steward provisioning** — approve button in CommunityRequestsManager
-5. **Landing page** — dynamic community directory from DB
+### User Flow Summary
 
-### Risk Mitigation
-- Backfill ensures the existing Sunset & Richmond community keeps working immediately
-- All new `community_id` columns default to the Sunset & Richmond ID so nothing breaks mid-migration
-- The root `/` path continues to work as before (defaults to Sunset & Richmond)
+```text
+New steward visits /start-community
+  → Fills form (name, email, community name, location, reason, captcha)
+  → Creates account (email/password or magic link)
+  → Edge function creates community + tags them as steward
+  → Redirected to /c/{slug} with onboarding overlay
+  → "Add your first supplies" + "Invite neighbors (copy URL)"
+  → Community is live — visitors at /c/{slug} see sign-in/sign-up
+
+Existing member visits /c/{slug}
+  → Not signed in: sees community name + sign-in/sign-up prompt
+  → Signed in: sees the library (scoped to that community)
+
+Steward accesses dashboard
+  → Via user dropdown menu → "Steward Dashboard"
+  → Or directly at /c/{slug}/steward
+  → Simplified view: Members tab + Requests tab
+```
 
