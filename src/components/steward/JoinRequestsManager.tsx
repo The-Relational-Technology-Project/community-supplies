@@ -12,6 +12,7 @@ interface JoinRequest {
   email: string;
   intro: string;
   connection_context: string | null;
+  community_id: string;
   status: 'pending' | 'rejected' | 'vouched' | 'approved';
   requested_at: string;
   user_id: string | null;
@@ -27,7 +28,7 @@ export function JoinRequestsManager() {
     try {
       const { data, error } = await supabase
         .from('join_requests')
-        .select('id, name, email, intro, connection_context, status, requested_at, user_id')
+        .select('id, name, email, intro, connection_context, community_id, status, requested_at, user_id')
         .order('requested_at', { ascending: false });
 
       if (error) throw error;
