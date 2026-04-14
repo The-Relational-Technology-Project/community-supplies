@@ -12,6 +12,7 @@ import { Header } from "@/components/Header";
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { communitySlug } = useCommunity();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -120,11 +121,11 @@ export default function Profile() {
   };
 
   const handleGoBack = () => {
-    navigate('/');
+    navigate(`/c/${communitySlug}`);
   };
 
   const handleTabChange = (tab: string) => {
-    navigate(`/?tab=${tab}`);
+    navigate(`/c/${communitySlug}?tab=${tab}`);
   };
 
   if (loading) {

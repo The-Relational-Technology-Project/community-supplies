@@ -28,7 +28,7 @@ type Step = "upload" | "processing" | "review" | "publishing" | "done";
 
 export function BulkAddSupplies() {
   const navigate = useNavigate();
-  const { communityId } = useCommunity();
+  const { communityId, communitySlug } = useCommunity();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -384,7 +384,7 @@ export function BulkAddSupplies() {
           <h2 className="text-2xl font-serif font-semibold text-deep-brown">All Done!</h2>
           <p className="text-muted-foreground">Your items are now in the catalog. Illustrations are generating in the background.</p>
           <div className="flex gap-4 justify-center">
-            <Button onClick={() => navigate('/?tab=browse')}>Browse Catalog</Button>
+            <Button onClick={() => navigate(`/c/${communitySlug}?tab=browse`)}>Browse Catalog</Button>
             <Button variant="outline" onClick={() => {
               setStep("upload");
               setImages([]);

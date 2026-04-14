@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCommunity } from "@/contexts/CommunityContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,6 +12,7 @@ import { Loader2, Search, BookOpen, Plus } from "lucide-react";
 
 export function BookLibrary() {
   const navigate = useNavigate();
+  const { communitySlug } = useCommunity();
   const { books, loading } = useBooks();
   const [searchQuery, setSearchQuery] = useState("");
   const [conditionFilter, setConditionFilter] = useState("all");

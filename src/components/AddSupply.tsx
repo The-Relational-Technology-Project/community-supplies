@@ -15,7 +15,7 @@ import { useCommunity } from "@/contexts/CommunityContext";
 
 export function AddSupply() {
   const navigate = useNavigate();
-  const { communityId } = useCommunity();
+  const { communityId, communitySlug } = useCommunity();
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -254,7 +254,7 @@ export function AddSupply() {
       setUploadedImage("");
       setShowForm(false);
       
-      navigate('/?tab=browse');
+      navigate(`/c/${communitySlug}?tab=browse`);
     } catch (error: any) {
       console.error('Error adding supply:', error);
       toast.error(error.message || "Failed to add item. Please try again.");
