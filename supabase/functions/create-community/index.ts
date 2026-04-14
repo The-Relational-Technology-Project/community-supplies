@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
       });
 
     // 7. Send welcome email (non-blocking)
-    const APP_URL = "https://sunset-block-party-supplies.lovable.app";
+    const APP_URL = "https://communitysupplies.org";
     const communityUrl = `${APP_URL}/c/${communitySlug}`;
     const stewardUrl = `${APP_URL}/c/${communitySlug}/steward`;
 
