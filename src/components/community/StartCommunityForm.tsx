@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,23 +7,37 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
-interface CoSteward {
-  name: string;
-  email: string;
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 100);
 }
 
 export function StartCommunityForm() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [coStewards, setCoStewards] = useState<CoSteward[]>([]);
+  const navigate = useNavigate();
+  const [step, setStep] = useState<"details" | "account">("details");
+
+  // Community details
+  const [stewardName, setStewardName] = useState("");
+  const [stewardEmail, setStewardEmail] = useState("");
+  const [communityName, setCommunityName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
+  const [location, setLocation] = useState("");
   const [reason, setReason] = useState("");
   const [questions, setQuestions] = useState("");
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [captchaQuestion, setCaptchaQuestion] = useState({ question: "", answer: 0 });
+
+  // Account creation
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -31,89 +46,117 @@ export function StartCommunityForm() {
     setCaptchaQuestion({ question: `${num1} + ${num2}`, answer: num1 + num2 });
   }, []);
 
-  const addCoSteward = () => {
-    setCoStewards([...coStewards, { name: "", email: "" }]);
-  };
+  // Auto-generate slug from community name unless manually edited
+  useEffect(() => {
+    if (!slugEdited) {
+      setSlug(slugify(communityName));
+    }
+  }, [communityName, slugEdited]);
 
-  const removeCoSteward = (index: number) => {
-    setCoStewards(coStewards.filter((_, i) => i !== index));
-  };
-
-  const updateCoSteward = (index: number, field: keyof CoSteward, value: string) => {
-    const updated = [...coStewards];
-    updated[index] = { ...updated[index], [field]: value };
-    setCoStewards(updated);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (parseInt(captchaAnswer) !== captchaQuestion.answer) {
-      toast({
-        title: "Incorrect answer",
-        description: "Please solve the math problem correctly.",
-        variant: "destructive",
-      });
+      toast({ title: "Incorrect answer", description: "Please solve the math problem correctly.", variant: "destructive" });
       return;
     }
+    if (!slug) {
+      toast({ title: "Invalid community URL", description: "Please enter a valid community name.", variant: "destructive" });
+      return;
+    }
+    setStep("account");
+  };
 
+  const handleCreateCommunity = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
 
     try {
-      const validCoStewards = coStewards.filter((cs) => cs.name.trim() && cs.email.trim());
+      const response = await supabase.functions.invoke("create-community", {
+        body: {
+          communityName: communityName.trim(),
+          communitySlug: slug.trim(),
+          location: location.trim(),
+          reason: reason.trim(),
+          questions: questions.trim() || null,
+          stewardName: stewardName.trim(),
+          stewardEmail: stewardEmail.trim(),
+          stewardPassword: password,
+        },
+      });
 
-      const { error } = await supabase.from("community_steward_requests" as any).insert({
-        name: name.trim(),
-        email: email.trim(),
-        co_stewards: validCoStewards,
-        reason: reason.trim(),
-        questions: questions.trim() || null,
-      } as any);
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        });
+      if (response.error) {
+        const errMsg = response.error.message || "Failed to create community.";
+        toast({ title: "Error", description: errMsg, variant: "destructive" });
         setLoading(false);
         return;
       }
 
-      // Send notification email (fire and forget)
-      supabase.functions.invoke("send-community-request-notification", {
-        body: {
-          name: name.trim(),
-          email: email.trim(),
-          coStewards: validCoStewards,
-          reason: reason.trim(),
-          questions: questions.trim() || null,
-        },
-      }).catch((err) => console.error("Failed to send notification:", err));
+      const data = response.data;
+      if (data?.error) {
+        toast({ title: "Error", description: data.error, variant: "destructive" });
+        setLoading(false);
+        return;
+      }
 
-      setSubmitted(true);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred.",
-        variant: "destructive",
+      // Sign in the newly created user
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: stewardEmail.trim(),
+        password,
       });
+
+      if (signInError) {
+        toast({ title: "Community created!", description: "Please sign in at your new community page.", variant: "default" });
+        navigate(`/c/${slug}`);
+      } else {
+        // Redirect to community with onboarding flag
+        navigate(`/c/${slug}?onboarding=true`);
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
     }
 
     setLoading(false);
   };
 
-  if (submitted) {
+  if (step === "account") {
     return (
-      <Card className="max-w-2xl mx-auto my-8 sm:my-16">
-        <CardContent className="p-8 sm:p-12 text-center">
-          <div className="text-4xl mb-4">🎉</div>
-          <h2 className="text-2xl font-serif font-bold text-deep-brown mb-3">
-            Thank you!
-          </h2>
-          <p className="text-muted-foreground text-base leading-relaxed">
-            We've received your request to start a sharing community. We'll be in touch soon to talk next steps.
-          </p>
+      <Card className="max-w-2xl mx-auto my-4 sm:my-8">
+        <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
+          <CardTitle className="text-xl sm:text-2xl font-serif">Create Your Account</CardTitle>
+          <CardDescription className="text-sm sm:text-base leading-relaxed">
+            Set a password to create your steward account for <strong>{communityName}</strong>.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+          <form onSubmit={handleCreateCommunity} className="space-y-4">
+            <div>
+              <Label>Email</Label>
+              <Input value={stewardEmail} disabled className="h-11 sm:h-10 text-base bg-muted" />
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Create a password (min. 6 characters)"
+                required
+                minLength={6}
+                maxLength={200}
+                className="h-11 sm:h-10 text-base"
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" onClick={() => setStep("details")} className="gap-2">
+                <ArrowLeft className="h-4 w-4" /> Back
+              </Button>
+              <Button type="submit" disabled={loading} className="flex-1 h-11 sm:h-10 text-base gap-2">
+                {loading ? "Creating your community..." : <>Create Community <ArrowRight className="h-4 w-4" /></>}
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
     );
@@ -124,33 +167,33 @@ export function StartCommunityForm() {
       <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
         <CardTitle className="text-xl sm:text-2xl font-serif">Start a Sharing Community</CardTitle>
         <CardDescription className="text-sm sm:text-base leading-relaxed">
-          Community Supplies is a free, open-source tool for neighborhoods to share supplies, tools, and more. 
-          Tell us about the community you'd like to start and we'll help you get set up.
+          Community Supplies is a free, open-source tool for neighborhoods to share supplies, tools, and more.
+          Create your community in minutes — no approval needed.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleDetailsSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="name">Your Name</Label>
+            <Label htmlFor="stewardName">Your Name</Label>
             <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              id="stewardName"
+              value={stewardName}
+              onChange={(e) => setStewardName(e.target.value)}
               placeholder="Your full name"
               required
-              maxLength={100}
+              maxLength={200}
               className="h-11 sm:h-10 text-base"
               autoComplete="name"
             />
           </div>
 
           <div>
-            <Label htmlFor="email">Your Email</Label>
+            <Label htmlFor="stewardEmail">Your Email</Label>
             <Input
-              id="email"
+              id="stewardEmail"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={stewardEmail}
+              onChange={(e) => setStewardEmail(e.target.value)}
               placeholder="you@email.com"
               required
               maxLength={255}
@@ -159,51 +202,61 @@ export function StartCommunityForm() {
             />
           </div>
 
-          {/* Co-stewards */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Co-stewards (optional)</Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={addCoSteward}
-                className="text-xs gap-1"
-              >
-                <Plus className="h-3 w-3" />
-                Add co-steward
-              </Button>
-            </div>
-            {coStewards.map((cs, i) => (
-              <div key={i} className="flex gap-2 items-start">
-                <div className="flex-1 space-y-2">
-                  <Input
-                    value={cs.name}
-                    onChange={(e) => updateCoSteward(i, "name", e.target.value)}
-                    placeholder="Co-steward name"
-                    maxLength={100}
-                    className="h-11 sm:h-10 text-base"
-                  />
-                  <Input
-                    type="email"
-                    value={cs.email}
-                    onChange={(e) => updateCoSteward(i, "email", e.target.value)}
-                    placeholder="Co-steward email"
-                    maxLength={255}
-                    className="h-11 sm:h-10 text-base"
-                  />
-                </div>
-                <Button
+          <div>
+            <Label htmlFor="communityName">Community Name</Label>
+            <Input
+              id="communityName"
+              value={communityName}
+              onChange={(e) => setCommunityName(e.target.value)}
+              placeholder="e.g., Outer Sunset Sharing, Oakland Community Supplies"
+              required
+              maxLength={200}
+              className="h-11 sm:h-10 text-base"
+            />
+            {slug && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Your community URL: <span className="font-mono">communitysupplies.org/c/{slug}</span>
+                {" "}
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeCoSteward(i)}
-                  className="mt-1 text-muted-foreground hover:text-destructive"
+                  className="text-primary hover:underline"
+                  onClick={() => setSlugEdited(true)}
                 >
-                  <X className="h-4 w-4" />
-                </Button>
+                  edit
+                </button>
+              </p>
+            )}
+          </div>
+
+          {slugEdited && (
+            <div>
+              <Label htmlFor="slug">Custom URL</Label>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">communitysupplies.org/c/</span>
+                <Input
+                  id="slug"
+                  value={slug}
+                  onChange={(e) => setSlug(slugify(e.target.value))}
+                  placeholder="my-community"
+                  required
+                  maxLength={100}
+                  className="h-11 sm:h-10 text-base font-mono"
+                />
               </div>
-            ))}
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="location">Location</Label>
+            <Input
+              id="location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., Oakland Hills, Mission District SF"
+              required
+              maxLength={500}
+              className="h-11 sm:h-10 text-base"
+            />
           </div>
 
           <div>
@@ -215,7 +268,7 @@ export function StartCommunityForm() {
               placeholder="Tell us about your neighborhood and what inspired you..."
               required
               maxLength={2000}
-              className="min-h-[120px] text-base"
+              className="min-h-[100px] text-base"
             />
           </div>
 
@@ -227,7 +280,7 @@ export function StartCommunityForm() {
               onChange={(e) => setQuestions(e.target.value)}
               placeholder="Anything you'd like to know..."
               maxLength={2000}
-              className="min-h-[80px] text-base"
+              className="min-h-[60px] text-base"
             />
           </div>
 
@@ -245,8 +298,8 @@ export function StartCommunityForm() {
             />
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full h-11 sm:h-10 text-base mt-2">
-            {loading ? "Submitting..." : "Submit Request"}
+          <Button type="submit" className="w-full h-11 sm:h-10 text-base mt-2 gap-2">
+            Next: Create Your Account <ArrowRight className="h-4 w-4" />
           </Button>
         </form>
       </CardContent>
