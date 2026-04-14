@@ -13,6 +13,7 @@ const SendBulkUpdateSchema = z.object({
   subject: z.string().min(1).max(200),
   excludeEmails: z.array(z.string().email()).optional().default([]),
   dryRun: z.boolean().optional().default(false),
+  communityId: z.string().uuid("Invalid community ID"),
 });
 
 // Escape HTML to prevent XSS
@@ -78,12 +79,13 @@ serve(async (req) => {
       );
     }
 
-    const { subject, excludeEmails, dryRun } = validationResult.data;
+    const { subject, excludeEmails, dryRun, communityId } = validationResult.data;
 
-    // Fetch all profiles except excluded emails
+    // Fetch profiles for this community only, excluding specified emails
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('name, email')
+      .eq('community_id', communityId)
       .not('email', 'in', `(${excludeEmails.map(e => `"${e}"`).join(',')})`)
       .order('name');
 
