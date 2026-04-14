@@ -11,12 +11,25 @@ import StartCommunity from "./pages/StartCommunity";
 import NotFound from "./pages/NotFound";
 import PrivacyTerms from "./pages/PrivacyTerms";
 import { CommunityProvider } from "./contexts/CommunityContext";
+import { CommunityStewardDashboard } from "./components/steward/CommunityStewardDashboard";
+import { AuthGuard } from "./components/auth/AuthGuard";
 
 function CommunitySlugRoute() {
   const { communitySlug } = useParams();
   return (
     <CommunityProvider slug={communitySlug}>
       <Index />
+    </CommunityProvider>
+  );
+}
+
+function CommunityStewardRoute() {
+  const { communitySlug } = useParams();
+  return (
+    <CommunityProvider slug={communitySlug}>
+      <AuthGuard requireSteward>
+        <CommunityStewardDashboard />
+      </AuthGuard>
     </CommunityProvider>
   );
 }
@@ -35,6 +48,7 @@ const App = () => (
         <Route path="/start-community" element={<StartCommunity />} />
         <Route path="/privacy" element={<PrivacyTerms />} />
         <Route path="/c/:communitySlug" element={<CommunitySlugRoute />} />
+        <Route path="/c/:communitySlug/steward" element={<CommunityStewardRoute />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

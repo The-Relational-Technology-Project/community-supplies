@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AuthButtons } from "./AuthButtons";
 import { JoinRequestForm } from "../community/JoinRequestForm";
 import { Heart, Shield, Users } from "lucide-react";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -17,6 +18,7 @@ export function AuthGuard({ children, requireVouched = false, requireSteward = f
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showJoinForm, setShowJoinForm] = useState(false);
+  const { communityName, communityId } = useCommunity();
 
   useEffect(() => {
     let mounted = true;
@@ -100,9 +102,9 @@ export function AuthGuard({ children, requireVouched = false, requireSteward = f
                     <Users className="h-8 w-8 text-white" />
                   </div>
                 </div>
-                <CardTitle className="text-2xl">Welcome to Community Party Supplies</CardTitle>
+                <CardTitle className="text-2xl">Welcome to {communityName}</CardTitle>
                 <CardDescription>
-                  A trust-based community for sharing party supplies in the Sunset & Richmond
+                  A trust-based community for sharing supplies with your neighbors
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
