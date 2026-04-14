@@ -35,14 +35,6 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is vouched
-    const { data: isVouched } = await supabase.rpc('is_user_vouched', { user_id: user.id });
-    if (!isVouched) {
-      return new Response(
-        JSON.stringify({ error: 'User must be vouched to generate illustrations' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     const { supplyId, itemName, description, imageUrl } = await req.json();
     console.log('Generating illustration for:', itemName, 'by user:', user.id);

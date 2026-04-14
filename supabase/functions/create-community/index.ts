@@ -109,7 +109,6 @@ Deno.serve(async (req) => {
         email: stewardEmail,
         community_id: communityId,
         role: "steward",
-        vouched_at: new Date().toISOString(),
       }, { onConflict: "id" });
 
     // 5. Insert steward role
