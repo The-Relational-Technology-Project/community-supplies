@@ -2,12 +2,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommunityOverview } from "./CommunityOverview";
 import { SupplyRequestsManager } from "./SupplyRequestsManager";
 import { JoinRequestsManager } from "./JoinRequestsManager";
+import { JoinModeToggle } from "./JoinModeToggle";
 import { Users, MessageSquare, UserPlus } from "lucide-react";
 
 export function CommunityStewardDashboard() {
   return (
     <div className="container mx-auto px-4 py-6">
       <h1 className="text-2xl font-serif font-bold text-deep-brown mb-6">Steward Dashboard</h1>
+      <div className="mb-6">
+        <JoinModeToggle />
+      </div>
       <Tabs defaultValue="members" className="space-y-4">
         <TabsList>
           <TabsTrigger value="members" className="gap-2">

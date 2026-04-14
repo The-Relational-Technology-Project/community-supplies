@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Clock, Heart } from "lucide-react";
+import { CheckCircle, XCircle, Clock } from "lucide-react";
 
 interface JoinRequest {
   id: string;
@@ -15,19 +14,20 @@ interface JoinRequest {
   connection_context: string | null;
   status: 'pending' | 'rejected' | 'vouched' | 'approved';
   requested_at: string;
-  voucher_id: string | null;
+  user_id: string | null;
 }
 
 export function JoinRequestsManager() {
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchRequests = async () => {
     try {
       const { data, error } = await supabase
         .from('join_requests')
-        .select('*')
+        .select('id, name, email, intro, connection_context, status, requested_at, user_id')
         .order('requested_at', { ascending: false });
 
       if (error) throw error;
@@ -44,13 +44,52 @@ export function JoinRequestsManager() {
   };
 
   const handleApprove = async (request: JoinRequest) => {
-    toast({
-      title: "Simplified Process",
-      description: "Since you know everyone personally, just ask them to sign up again with their email. No approval needed!"
-    });
+    setProcessingId(request.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Update join request status to approved
+      const { error: updateError } = await supabase
+        .from('join_requests')
+        .update({
+          status: 'approved' as any,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString()
+        })
+        .eq('id', request.id);
+
+      if (updateError) throw updateError;
+
+      // If there's a linked user, activate them by setting vouched_at
+      if (request.user_id) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ vouched_at: new Date().toISOString() })
+          .eq('id', request.user_id);
+
+        if (profileError) throw profileError;
+      }
+
+      toast({
+        title: "Member approved",
+        description: `${request.name} has been approved and can now access the community.`
+      });
+
+      fetchRequests();
+    } catch (error: any) {
+      toast({
+        title: "Error approving request",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   const handleReject = async (request: JoinRequest) => {
+    setProcessingId(request.id);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -78,6 +117,8 @@ export function JoinRequestsManager() {
         description: error.message,
         variant: "destructive"
       });
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -91,11 +132,19 @@ export function JoinRequestsManager() {
 
   if (requests.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-muted-foreground">
         No join requests to review
       </div>
     );
   }
+
+  // Normalize legacy 'vouched' status to 'approved' for display
+  const displayStatus = (status: string) => {
+    if (status === 'vouched') return 'approved';
+    return status;
+  };
+
+  const isApproved = (status: string) => status === 'approved' || status === 'vouched';
 
   return (
     <Table>
@@ -117,13 +166,13 @@ export function JoinRequestsManager() {
                 <Badge 
                  variant={
                   request.status === 'rejected' ? 'destructive' : 
-                  (request.status === 'vouched' || request.status === 'approved') ? 'default' : 'secondary'
+                  isApproved(request.status) ? 'default' : 'secondary'
                 }
               >
                 {request.status === 'pending' && <Clock className="h-3 w-3 mr-1" />}
                 {request.status === 'rejected' && <XCircle className="h-3 w-3 mr-1" />}
-                {(request.status === 'vouched' || request.status === 'approved') && <CheckCircle className="h-3 w-3 mr-1" />}
-                {request.status === 'vouched' ? 'approved' : request.status}
+                {isApproved(request.status) && <CheckCircle className="h-3 w-3 mr-1" />}
+                {displayStatus(request.status)}
               </Badge>
             </TableCell>
             <TableCell>
@@ -135,15 +184,16 @@ export function JoinRequestsManager() {
                   <Button 
                     size="sm" 
                     onClick={() => handleApprove(request)}
-                    variant="outline"
+                    disabled={processingId === request.id}
                   >
-                    <Heart className="h-4 w-4 mr-1" />
-                    Ask to Sign Up
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Approve
                   </Button>
                   <Button 
                     size="sm" 
                     variant="destructive"
                     onClick={() => handleReject(request)}
+                    disabled={processingId === request.id}
                   >
                     <XCircle className="h-4 w-4 mr-1" />
                     Reject

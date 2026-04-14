@@ -73,7 +73,7 @@ serve(async (req) => {
     const { data: joinRequests, error: joinError } = await supabaseAdmin
       .from('join_requests')
       .select('name, email, status')
-      .eq('status', 'vouched');
+      .in('status', ['approved', 'vouched']);
 
     if (joinError) throw joinError;
 
