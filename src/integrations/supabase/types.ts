@@ -79,6 +79,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          join_mode: string
           name: string
           slug: string
           updated_at: string
@@ -87,6 +88,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          join_mode?: string
           name: string
           slug: string
           updated_at?: string
@@ -95,6 +97,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          join_mode?: string
           name?: string
           slug?: string
           updated_at?: string
@@ -662,7 +665,7 @@ export type Database = {
     }
     Enums: {
       app_role: "member" | "steward"
-      join_request_status: "pending" | "vouched" | "rejected"
+      join_request_status: "pending" | "vouched" | "rejected" | "approved"
       user_role: "member" | "steward"
     }
     CompositeTypes: {
@@ -792,7 +795,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["member", "steward"],
-      join_request_status: ["pending", "vouched", "rejected"],
+      join_request_status: ["pending", "vouched", "rejected", "approved"],
       user_role: ["member", "steward"],
     },
   },
