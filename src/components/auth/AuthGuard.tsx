@@ -16,6 +16,7 @@ interface AuthGuardProps {
 export function AuthGuard({ children, requireVouched = false, requireSteward = false }: AuthGuardProps) {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [isSteward, setIsSteward] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showJoinForm, setShowJoinForm] = useState(false);
   const { communityName, communityId } = useCommunity();
@@ -52,6 +53,17 @@ export function AuthGuard({ children, requireVouched = false, requireSteward = f
           } else {
             setProfile(data);
           }
+
+          // Check steward role from user_roles table (authoritative source)
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('role', 'steward')
+            .maybeSingle();
+          
+          if (!mounted) return;
+          setIsSteward(!!roleData);
         }
         
         if (mounted) setLoading(false);
@@ -69,6 +81,7 @@ export function AuthGuard({ children, requireVouched = false, requireSteward = f
       if (event === 'SIGNED_OUT') {
         setUser(null);
         setProfile(null);
+        setIsSteward(false);
         setLoading(false);
       } else if (event === 'SIGNED_IN' && session) {
         setLoading(true);
@@ -130,7 +143,7 @@ export function AuthGuard({ children, requireVouched = false, requireSteward = f
     );
   }
 
-  if (requireSteward && profile?.role !== 'steward') {
+  if (requireSteward && !isSteward) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center p-4">
         <Card className="max-w-md">
