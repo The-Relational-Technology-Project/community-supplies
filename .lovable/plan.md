@@ -1,124 +1,62 @@
 
 
-## Self-Service Community Creation + Steward Onboarding
+## Remove Vouching Remnants
 
-### What We're Building
+Since all users are now auto-vouched on signup (`handle_new_user` sets `vouched_at = now()`), the vouching concept is dead code. Here's the cleanup plan:
 
-Transform the existing "Start a Sharing Community" form from a request-and-wait flow into an **instant self-service** flow where a new steward:
+### Summary
 
-1. Fills out the form (name, email, community name, community location, reason, questions, captcha)
-2. Creates their account immediately (email/password or magic link)
-3. Gets tagged as steward of a brand-new community
-4. Lands on an onboarding page with prompts to add first supplies and invite neighbors
-5. Their community is live at `/c/{slug}` — visitors see sign-in/sign-up, members see the library
+Replace all vouching gates with simple authentication checks. The `is_user_vouched` function and `vouched_at` column stay in the database for now (they always return true for any user), but all UI references and Edge Function checks get removed.
 
-Plus: add Steward Dashboard access at `/c/{slug}/steward` and in the user dropdown menu.
+### Frontend Changes
 
-### Implementation Details
+1. **AuthGuard.tsx** -- Remove `requireVouched` prop and the "Waiting for Community Vouching" UI block. Only keep `requireSteward` logic. All `requireVouched` usages become plain `<AuthGuard>`.
 
-**1. Revamp StartCommunityForm → self-service creation**
+2. **Index.tsx** -- Remove all `requireVouched` props from `<AuthGuard>` calls (4 instances).
 
-Update `src/components/community/StartCommunityForm.tsx`:
-- Add "Community Name" field with helper text ("e.g., Outer Sunset Sharing, Oakland Community Supplies")
-- Add "Location" field ("Where is your sharing community? e.g., Oakland Hills, Mission District SF")
-- Auto-generate slug from community name (lowercase, hyphenated)
-- Remove co-stewards section (simplify for v1 — steward can invite co-stewards later)
-- After captcha validation, show account creation step (email/password + magic link option) instead of submitting a request
-- On account creation: call a new edge function that atomically creates community + steward role
+3. **UserProfile.tsx** -- Remove `vouched_at` from the Profile interface, remove the `isVouched` variable, and remove the Heart icon + "Vouched" label from the dropdown.
 
-**2. New edge function: `create-community`**
+4. **CommunityOverview.tsx** -- Remove `vouched_at` from the Member interface and any display of vouched status.
 
-`supabase/functions/create-community/index.ts`:
-- Accepts: `{ communityName, communitySlug, location, reason, questions, stewardName, stewardEmail, stewardPassword }`
-- Uses service role to:
-  1. Check slug uniqueness against `communities` table
-  2. Insert new `communities` row (name, slug, description = location)
-  3. Create auth user via `admin.createUser()` (email confirmed, vouched)
-  4. Insert profile with `community_id` set to new community
-  5. Insert `user_roles` row with `role = 'steward'` and `community_id`
-  6. Optionally store the request in `community_steward_requests` for record-keeping
-- Returns: `{ communitySlug, communityId }` on success
-- No JWT required (unauthenticated users call this during signup)
-- Math captcha validated client-side; rate limit via existing patterns
+5. **JoinRequestsManager.tsx** -- Change the `status` type from `'pending' | 'rejected' | 'vouched'` to `'pending' | 'rejected' | 'approved'`. Update badge rendering accordingly. (The enum in DB still has 'vouched' but we can rename it in a migration.)
 
-**3. Database migration**
+6. **VouchedUsersExport.tsx** -- Delete this file entirely (it's not imported anywhere).
 
-- Add `location` column to `community_steward_requests` (optional, for record-keeping)
-- No other schema changes needed — communities table and community_id columns already exist
+7. **BulkCreateUsers.tsx** -- Update description text that references "vouched join requests".
 
-**4. Steward onboarding page**
+### Edge Functions
 
-New component: `src/components/community/StewardOnboarding.tsx`
-- Shown after successful community creation (via route state or query param)
-- Two cards: "Add your first supplies" (link to add supply page) and "Invite your neighbors" (copyable community URL)
-- Clean, encouraging design matching the existing aesthetic
+8. **4 Edge Functions** (`generate-illustration`, `draft-item-from-image`, `scan-bookshelf`, `cross-community-search`) -- Remove the `is_user_vouched` RPC check. Keep the auth check (user must be signed in).
 
-**5. Community-aware auth flow**
+9. **bulk-create-users** -- Remove vouched status references; profiles are already created with `vouched_at = now()` by the trigger.
 
-Update `src/components/auth/AuthGuard.tsx`:
-- When showing the "not logged in" screen at a community route (`/c/{slug}`), display the community name instead of hardcoded "Sunset & Richmond"
-- Sign-up from a community page should include `community_id` in user metadata so the `handle_new_user` trigger assigns them to the correct community
+10. **create-community** -- Remove `vouched_at` from the profile upsert (the trigger handles it).
 
-Update `src/components/auth/AuthModal.tsx`:
-- Accept optional `communityId` and `communityName` props
-- Pass `community_id` in signup `user_metadata` when provided
+### Database Migration
 
-Update `src/components/community/JoinRequestForm.tsx`:
-- Include `community_id` from context in the join request insert
+11. **RLS policies** -- The policies using `is_user_vouched()` still work (always true), so they don't break anything. Optionally simplify them to just check `auth.uid() IS NOT NULL`, but this can be a follow-up to avoid a large migration.
 
-**6. Steward Dashboard routing**
+### What We're NOT Changing (Yet)
 
-Update `src/App.tsx`:
-- Add route `/c/:communitySlug/steward` that renders a community-scoped steward dashboard
+- The `vouched_at` / `vouched_by` columns in `profiles` -- harmless, always populated by the trigger
+- The `is_user_vouched()` DB function -- still called by RLS policies; always returns true
+- The `join_request_status` enum -- renaming 'vouched' to 'approved' would require a full enum migration; can be a follow-up
 
-New component: `src/components/steward/CommunityStewardDashboard.tsx`
-- Simplified version of `StewardDashboard` with just two tabs: **Members** and **Requests**
-- Reuses `CommunityOverview` and `SupplyRequestsManager` (already community-scoped via context)
+### Files Affected
 
-**7. Steward link in user dropdown**
-
-Update `src/components/auth/UserProfile.tsx`:
-- Check if user has steward role (already checking `profile.role`)
-- Add "Steward Dashboard" menu item that navigates to `/c/{communitySlug}/steward`
-- Read `communitySlug` from `CommunityContext`
-
-Update `src/components/CatalogHeader.tsx`:
-- Add steward dashboard link for steward users (similar to Header.tsx pattern)
-
-### Files to Create
-- `supabase/functions/create-community/index.ts` — edge function for atomic community + steward creation
-- `src/components/community/StewardOnboarding.tsx` — post-creation onboarding UI
-- `src/components/steward/CommunityStewardDashboard.tsx` — simplified steward view for community stewards
-- 1 database migration (add `location` column to `community_steward_requests`)
-
-### Files to Modify
-- `src/components/community/StartCommunityForm.tsx` — self-service flow with account creation
-- `src/pages/StartCommunity.tsx` — handle post-creation redirect/onboarding
-- `src/App.tsx` — add `/c/:communitySlug/steward` route
-- `src/components/auth/AuthGuard.tsx` — community-aware login prompt
-- `src/components/auth/AuthModal.tsx` — accept community_id for signup
-- `src/components/auth/UserProfile.tsx` — add steward dashboard link
-- `src/components/community/JoinRequestForm.tsx` — include community_id
-- `src/components/CatalogHeader.tsx` — steward link for steward users
-
-### User Flow Summary
-
-```text
-New steward visits /start-community
-  → Fills form (name, email, community name, location, reason, captcha)
-  → Creates account (email/password or magic link)
-  → Edge function creates community + tags them as steward
-  → Redirected to /c/{slug} with onboarding overlay
-  → "Add your first supplies" + "Invite neighbors (copy URL)"
-  → Community is live — visitors at /c/{slug} see sign-in/sign-up
-
-Existing member visits /c/{slug}
-  → Not signed in: sees community name + sign-in/sign-up prompt
-  → Signed in: sees the library (scoped to that community)
-
-Steward accesses dashboard
-  → Via user dropdown menu → "Steward Dashboard"
-  → Or directly at /c/{slug}/steward
-  → Simplified view: Members tab + Requests tab
-```
+| File | Action |
+|------|--------|
+| `src/components/auth/AuthGuard.tsx` | Remove `requireVouched` prop + vouching UI |
+| `src/pages/Index.tsx` | Remove `requireVouched` from 4 AuthGuard usages |
+| `src/components/auth/UserProfile.tsx` | Remove vouched display |
+| `src/components/steward/CommunityOverview.tsx` | Remove vouched_at from interface |
+| `src/components/steward/VouchedUsersExport.tsx` | Delete |
+| `src/components/steward/BulkCreateUsers.tsx` | Update text |
+| `src/components/steward/JoinRequestsManager.tsx` | Update status labels |
+| `supabase/functions/generate-illustration/index.ts` | Remove vouched check |
+| `supabase/functions/draft-item-from-image/index.ts` | Remove vouched check |
+| `supabase/functions/scan-bookshelf/index.ts` | Remove vouched check |
+| `supabase/functions/cross-community-search/index.ts` | Remove vouched check |
+| `supabase/functions/bulk-create-users/index.ts` | Remove vouched references |
+| `supabase/functions/create-community/index.ts` | Remove vouched_at from upsert |
 
