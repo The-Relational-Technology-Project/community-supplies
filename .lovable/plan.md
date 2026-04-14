@@ -1,44 +1,32 @@
 
 
-## Fix: Community Context Should Follow the User
+## Send Welcome Email to New Stewards on Community Creation
 
 ### Problem
-Routes without `/c/:slug` (like `/`, `/my-supplies`, `/profile`, `/steward`) always hardcode the community to "Sunset & Richmond SF." Any user from a different community who navigates to these routes sees the wrong community's data.
+When a new steward creates a community, they get the onboarding screen in-browser but no email with their community URL. If they close the tab or forget the link, they're stuck (as Edward experienced).
 
 ### Solution
-When `CommunityProvider` has no slug, detect the authenticated user's community from their profile instead of defaulting to Sunset & Richmond.
+Add a welcome email send at the end of the `create-community` Edge Function, using the existing Resend integration. The email includes their community URL, steward dashboard link, and recommended next steps.
 
 ### Changes
 
-**`src/contexts/CommunityContext.tsx`**:
-- When no `slug` is provided, check if the user is authenticated
-- If authenticated, fetch their profile's `community_id` and look up the corresponding community
-- Only fall back to the default community if the user is unauthenticated (landing page scenario)
-- Listen for auth state changes so the community updates on sign-in/sign-out
+**`supabase/functions/create-community/index.ts`**:
+- After community + user + role creation succeeds, send a welcome email via Resend
+- Email includes:
+  - Their community URL (`https://sunset-block-party-supplies.lovable.app/c/{slug}`)
+  - Steward dashboard link (`/c/{slug}/steward`)
+  - Next steps: add first supplies, invite neighbors by sharing the link, manage members from the steward dashboard
+- From address: `Community Supplies <josh@relationaltechproject.org>` (matches existing emails)
+- Non-blocking: if the email fails, log the error but still return success (community creation is the critical path)
 
-**`src/App.tsx`**:
-- Routes like `/my-supplies`, `/my-books`, `/profile` should redirect to `/c/:slug/...` equivalents, OR the CommunityProvider auto-detection handles it (the latter is simpler and what we'll do)
-
-### Technical Detail
-
-```text
-Current flow:
-  /my-supplies → CommunityProvider(no slug) → always Sunset & Richmond
-
-Fixed flow:
-  /my-supplies → CommunityProvider(no slug) → check auth → 
-    authenticated? → fetch profile.community_id → resolve community
-    not authenticated? → default to Sunset & Richmond (landing page)
-```
-
-### Edward's Immediate Fix
-His data is already correct in the DB. Once the code fix deploys, it will work. No manual data fix needed.
-
-### Systemic Impact
-This affects every user who created a community via `/start-community` and then navigates to any non-`/c/` route. With the growing number of communities, this is critical to fix now.
+### Email Content (Summary)
+- Subject: "Your community is live! Here's your link 🎉"
+- Body: congratulations, community URL (prominent CTA button), steward dashboard link, 3 quick next steps (add supplies, invite neighbors, manage from dashboard), sign-off from Josh
+- Styled consistently with existing bulk email template (same color palette, layout)
 
 ### Files Changed
 | File | Change |
 |------|--------|
-| `src/contexts/CommunityContext.tsx` | Add auth-aware community detection when no slug provided |
+| `supabase/functions/create-community/index.ts` | Add Resend welcome email after successful creation |
 
+One file, no database changes.
