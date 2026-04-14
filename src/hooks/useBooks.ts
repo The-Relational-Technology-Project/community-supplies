@@ -61,6 +61,7 @@ export function useBooks() {
         house_rules: book.house_rules || [],
         lender_notes: book.lender_notes || null,
         owner_id: user.id,
+        community_id: communityId,
       }));
 
       const { data, error } = await supabase

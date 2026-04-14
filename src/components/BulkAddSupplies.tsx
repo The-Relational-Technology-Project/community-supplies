@@ -28,6 +28,7 @@ type Step = "upload" | "processing" | "review" | "publishing" | "done";
 
 export function BulkAddSupplies() {
   const navigate = useNavigate();
+  const { communityId } = useCommunity();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -229,6 +230,7 @@ export function BulkAddSupplies() {
             image_url: draft.compressedImage,
             house_rules: houseRules,
             owner_id: user.id,
+            community_id: communityId,
           }])
           .select();
 
