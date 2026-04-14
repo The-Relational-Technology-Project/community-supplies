@@ -11,7 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { GenerateIllustrationButton } from "./GenerateIllustrationButton";
 import { useCommunity } from "@/contexts/CommunityContext";
-import { GenerateIllustrationButton } from "./GenerateIllustrationButton";
 
 interface ContactModalProps {
   supply: Supply | null;
