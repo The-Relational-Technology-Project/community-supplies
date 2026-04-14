@@ -7,6 +7,7 @@ import { LandingPage } from "@/components/LandingPage";
 import { BrowseSupplies } from "@/components/BrowseSupplies";
 import { AddSupply } from "@/components/AddSupply";
 import { BulkAddSupplies } from "@/components/BulkAddSupplies";
+import { StewardOnboarding } from "@/components/community/StewardOnboarding";
 
 import { StewardDashboard } from "@/components/steward/StewardDashboard";
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -18,19 +19,26 @@ import { useCommunity } from "@/contexts/CommunityContext";
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const { communityId, communityName, loading: communityLoading, notFound } = useCommunity();
+  const { communityId, communityName, communitySlug, loading: communityLoading, notFound } = useCommunity();
   const [activeTab, setActiveTab] = useState('browse');
   const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     // Check for tab parameter in URL
     const tabParam = searchParams.get('tab');
     if (tabParam && ['browse', 'add', 'bulk-add', 'steward'].includes(tabParam)) {
       setActiveTab(tabParam);
-      // Clear the URL parameter after setting the tab
       setSearchParams({});
+    }
+    
+    const onboardingParam = searchParams.get('onboarding');
+    if (onboardingParam === 'true') {
+      setShowOnboarding(true);
+      searchParams.delete('onboarding');
+      setSearchParams(searchParams);
     }
 
     let mounted = true;
