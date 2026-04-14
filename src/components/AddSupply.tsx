@@ -11,6 +11,7 @@ import { HouseRules } from "@/components/HouseRules";
 import { supabase } from "@/integrations/supabase/client";
 import { compressImage } from "@/lib/imageCompression";
 import { categories } from "@/data/categories";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 export function AddSupply() {
   const navigate = useNavigate();
