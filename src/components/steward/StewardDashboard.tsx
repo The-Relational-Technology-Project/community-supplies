@@ -23,6 +23,8 @@ export function StewardDashboard() {
         </div>
       </div>
 
+      <JoinModeToggle />
+
       <Tabs defaultValue="members" className="space-y-4">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="members" className="flex items-center gap-2">
