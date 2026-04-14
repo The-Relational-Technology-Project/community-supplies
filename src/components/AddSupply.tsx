@@ -11,9 +11,11 @@ import { HouseRules } from "@/components/HouseRules";
 import { supabase } from "@/integrations/supabase/client";
 import { compressImage } from "@/lib/imageCompression";
 import { categories } from "@/data/categories";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 export function AddSupply() {
   const navigate = useNavigate();
+  const { communityId } = useCommunity();
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -192,7 +194,8 @@ export function AddSupply() {
             images: formData.images,
             image_url: formData.images[0] || null,
             house_rules: houseRules,
-            owner_id: user.id
+            owner_id: user.id,
+            community_id: communityId,
           }
         ])
         .select();
