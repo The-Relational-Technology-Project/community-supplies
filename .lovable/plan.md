@@ -1,64 +1,65 @@
 
 
-## Fix: Make Landing Page Community-Aware with Clear Sign In
+## Fix: Community Sign-Up Flow is Broken for Non-Flagship Communities
 
-### Problem
+### Bugs Found
 
-When a steward (or any member) visits their community URL (`/c/slug`) while logged out, they see a generic landing page hardcoded to "Sunset & Richmond Community" with no visible "Sign In" button. This blocks returning users from accessing their community.
+**Bug 1: New members always join the flagship community, not the one they visited**
 
-### Root Cause
+In `LandingPage.tsx` (line 253-258), the `AuthModal` is rendered **without** passing `communityId` or `communityName` props:
 
-`LandingPage.tsx` doesn't use `useCommunity()` context. It hardcodes the flagship community name and only offers a "Join Sunset & Richmond Community" button (which confusingly opens the login modal).
+```tsx
+<AuthModal
+  isOpen={!!modalMode}
+  mode={modalMode}
+  onClose={() => setModalMode(null)}
+  onSuccess={() => onTabChange('browse')}
+/>
+```
 
-### Changes
+Inside `AuthModal.handleSignup` (line 96-102), `communityId` from props is checked — since it's undefined, it's never included in the signup metadata. The `handle_new_user` database trigger then defaults to the flagship community UUID. **Every user who signs up via `/c/some-slug` gets assigned to the wrong community.**
+
+**Bug 2: Approval-required communities have no proper join flow from the landing page**
+
+The "Join [Community]" button on the community-specific landing page opens the `AuthModal` in `signup` mode, which creates an account directly. For communities with `join_mode = 'approval_required'`, this means:
+- The user account gets created with `vouched_at = null` (correct)
+- But **no join request record** is created for the steward to review
+- The steward has no way to know someone is waiting for approval
+
+The `JoinRequestForm` (which does create both an account AND a join request) only appears inside `AuthGuard` — a screen users would never reach from the landing page.
+
+### Fix
 
 **File: `src/components/LandingPage.tsx`**
 
-1. Import and use `useCommunity()` to get `communityName`, `communitySlug`, `communityId`
-2. Detect whether we're on a non-default community (`communitySlug !== 'sunset-richmond'`)
-3. For community-specific landing pages (`/c/slug`):
-   - Show the community name in the hero heading instead of generic "Community Supplies"
-   - Replace "Join Sunset & Richmond Community" with **"Sign In"** as a clear primary CTA
-   - Add a secondary **"Request to Join"** or **"Create Account"** button for new members
-   - Hide the "Start a Sharing Community" CTA (irrelevant when visiting a specific community)
-   - Hide the community ticker and "start your own" section
-4. For the root landing page (`/`):
-   - Keep existing behavior (generic branding, flagship CTA)
-   - Add a visible "Already a member? Sign In" link so returning users of any community can log in
-
-**File: `src/components/auth/AuthModal.tsx`**
-
-- No changes needed — it already supports `login`, `signup`, and `join-request` modes
-
-### What the community-specific landing page will show
-
-```text
-┌─────────────────────────────────────────┐
-│                                         │
-│        [Community Name]                 │
-│   Borrow what you need.                 │
-│   Share what you have.                  │
-│                                         │
-│   ┌──────────┐  ┌──────────────────┐    │
-│   │ Sign In  │  │ Join Community   │    │
-│   └──────────┘  └──────────────────┘    │
-│                                         │
-│        Illustration gallery             │
-│                                         │
-│              Footer                     │
-└─────────────────────────────────────────┘
+1. Pass `communityId` and `communityName` from the community context to `AuthModal`:
+```tsx
+<AuthModal
+  isOpen={!!modalMode}
+  mode={modalMode}
+  onClose={() => setModalMode(null)}
+  onSuccess={() => onTabChange('browse')}
+  communityId={isCommunitySpecific ? communityId : undefined}
+  communityName={isCommunitySpecific ? communityName : undefined}
+/>
 ```
 
-### What the root landing page will add
+2. For communities with `join_mode = 'approval_required'`, the "Join" button should show the `JoinRequestForm` instead of the signup modal. Add state to track join mode and fetch it from the `communities` table. When `join_mode` is `approval_required`, render `JoinRequestForm` inline (or in a dialog) instead of opening the AuthModal in signup mode.
 
-A "Already a member? Sign in" text link below the existing CTAs, opening the login modal.
+3. Import `communityId` from `useCommunity()` (it's already imported but only `communityName` and `communitySlug` are destructured).
 
-### Technical Detail
+**File: `src/components/LandingPage.tsx` — detailed changes**
 
-The `LandingPage` receives `onTabChange` but doesn't receive community info. We'll add `useCommunity()` inside the component (it's already wrapped in `CommunityProvider` via `Index`). The community-aware check is simply:
+- Destructure `communityId` from `useCommunity()`
+- Add state: `joinMode` (fetched from communities table) and `showJoinForm`
+- Add `useEffect` to fetch `join_mode` when `isCommunitySpecific`
+- For the "Join" CTA button: if `joinMode === 'approval_required'`, toggle `showJoinForm` state instead of opening AuthModal
+- Render `JoinRequestForm` in a dialog or inline section when `showJoinForm` is true
+- Pass `communityId` to `AuthModal` for auto-join communities
 
-```typescript
-const { communityName, communitySlug } = useCommunity();
-const isCommunitySpecific = communitySlug !== 'sunset-richmond';
-```
+### Result
+
+- Auto-join communities: neighbor clicks "Join", creates account with correct `community_id`, gets immediate access
+- Approval-required communities: neighbor clicks "Join", sees the `JoinRequestForm` which creates both an auth account and a join request for steward review
+- Sign In works for both — existing members log in normally
 
