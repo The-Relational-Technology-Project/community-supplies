@@ -1,45 +1,61 @@
 
 
-## Welcome Email for New Community Members
+## Security Fixes: Email Validation, Community Isolation, and CORS Lockdown
 
-### What we're building
+### Three changes
 
-A welcome email sent to every new member with their community's name and URL (`https://communitysupplies.org/c/{slug}`). The email fires:
-- **Immediately after signup** for auto-join communities
-- **After steward approval** for approval-required communities
+**1. `create-community` -- Prevent email squatting**
 
-### Default join mode
+Before creating the auth user, check if an account with that email already exists using `supabaseAdmin.auth.admin.listUsers()`. If found, return 409 with a clear error message. This prevents someone from claiming another person's email.
 
-Already correct -- `join_mode` defaults to `'auto'` in the DB migration.
+Add after the reserved-slug check (~line 67), before community creation:
+```typescript
+const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+const emailTaken = existingUsers?.users?.some(u => u.email === stewardEmail);
+if (emailTaken) {
+  return new Response(
+    JSON.stringify({ error: "An account with this email already exists. Please sign in instead." }),
+    { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+```
 
-### Implementation
+**2. `bulk-create-users` -- Community data isolation**
 
-#### 1. New Edge Function: `send-welcome-email`
+After the steward check, query the steward's `community_id` from their profile. Then:
+- Filter `join_requests` by that `community_id`
+- Include `community_id` in `user_metadata` when creating auth users
+- Include `community_id` when manually creating profiles as fallback
 
-Uses Resend (consistent with existing notification functions). Accepts `memberName`, `memberEmail`, `communityName`, `communitySlug`. Sends a branded welcome email with:
-- Greeting with community name
-- Link to their community catalog (`https://communitysupplies.org/c/{slug}`)
-- Brief encouragement to browse and share items
+**3. CORS origin allowlist on 15 edge functions**
 
-File: `supabase/functions/send-welcome-email/index.ts`
-Config: `verify_jwt = false` (called from client after auth events)
+Replace `"Access-Control-Allow-Origin": "*"` with a dynamic check. Each function gets a helper:
 
-#### 2. Wire up in `AuthModal.tsx` -- auto-join flow
+```typescript
+const ALLOWED_ORIGINS = [
+  "https://communitysupplies.org",
+  "https://sunset-block-party-supplies.lovable.app",
+];
 
-After successful signup (`handleSignup`), if the community uses auto-join, invoke the welcome email. We need to look up the community's slug and join_mode. Since signup metadata includes `community_id`, we can query the community right after signup to get slug/name/join_mode, then send if auto-join.
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".lovable.app");
+  return {
+    "Access-Control-Allow-Origin": allowed ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
+```
 
-#### 3. Wire up in `JoinRequestsManager.tsx` -- approval flow
+**Exception**: `search-public-catalog` keeps `"*"` -- it's a federation endpoint.
 
-After steward approves a member (`handleApprove`), look up the member's community info and send the welcome email to the approved member.
+### Files modified
 
-#### 4. Update `supabase/config.toml`
+- `supabase/functions/create-community/index.ts` -- email-exists check
+- `supabase/functions/bulk-create-users/index.ts` -- community_id scoping
+- 15 edge functions (all except `search-public-catalog`) -- CORS allowlist
 
-Add the new function entry.
+### Deployment
 
-### Files changed
-
-- `supabase/functions/send-welcome-email/index.ts` (new)
-- `supabase/config.toml` -- add function entry
-- `src/components/auth/AuthModal.tsx` -- send welcome email after signup for auto-join communities
-- `src/components/steward/JoinRequestsManager.tsx` -- send welcome email after approval
+All modified edge functions will be redeployed after changes.
 
