@@ -7,6 +7,8 @@ import { Footer } from "./Footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Share2, HandHeart, ArrowRight } from "lucide-react";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { JoinRequestForm } from "./community/JoinRequestForm";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface LandingPageProps {
   onTabChange: (tab: string) => void;
@@ -17,7 +19,9 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
   const [modalMode, setModalMode] = useState<'login' | 'signup' | null>(null);
   const [illustrations, setIllustrations] = useState<string[]>([]);
   const [loadingIllustrations, setLoadingIllustrations] = useState(true);
-  const { communityName, communitySlug } = useCommunity();
+  const [joinMode, setJoinMode] = useState<string>('auto');
+  const [showJoinForm, setShowJoinForm] = useState(false);
+  const { communityId, communityName, communitySlug } = useCommunity();
   const isCommunitySpecific = communitySlug !== 'sunset-richmond';
 
   useEffect(() => {
@@ -31,6 +35,22 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Fetch join_mode for community-specific landing pages
+  useEffect(() => {
+    if (!isCommunitySpecific) return;
+    const fetchJoinMode = async () => {
+      const { data } = await supabase
+        .from('communities')
+        .select('join_mode')
+        .eq('id', communityId)
+        .single();
+      if (data?.join_mode) {
+        setJoinMode(data.join_mode);
+      }
+    };
+    fetchJoinMode();
+  }, [isCommunitySpecific, communityId]);
 
   useEffect(() => {
     const fetchIllustrations = async () => {
@@ -51,6 +71,14 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
     };
     fetchIllustrations();
   }, []);
+
+  const handleJoinClick = () => {
+    if (isCommunitySpecific && joinMode === 'approval_required') {
+      setShowJoinForm(true);
+    } else {
+      setModalMode('signup');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-sand flex flex-col">
@@ -86,7 +114,7 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
                   <Button
                     size="lg"
                     variant="outline"
-                    onClick={() => setModalMode('signup')}
+                    onClick={handleJoinClick}
                     className="border-2 border-primary text-primary hover:bg-primary/10 text-base px-8"
                   >
                     Join {communityName}
@@ -238,7 +266,7 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
             <div className="text-center mt-6 sm:mt-8">
               <Button
                 variant="link"
-                onClick={() => setModalMode('signup')}
+                onClick={handleJoinClick}
                 className="text-terracotta font-medium text-sm sm:text-base"
               >
                 Join to browse all →
@@ -250,11 +278,20 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
 
       <Footer />
 
+      {/* Join Request Form dialog for approval-required communities */}
+      <Dialog open={showJoinForm} onOpenChange={setShowJoinForm}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+          <JoinRequestForm />
+        </DialogContent>
+      </Dialog>
+
       <AuthModal
         isOpen={!!modalMode}
         mode={modalMode}
         onClose={() => setModalMode(null)}
         onSuccess={() => onTabChange('browse')}
+        communityId={isCommunitySpecific ? communityId : undefined}
+        communityName={isCommunitySpecific ? communityName : undefined}
       />
     </div>
   );
