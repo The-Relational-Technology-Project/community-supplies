@@ -1,12 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = [
+  "https://communitysupplies.org",
+  "https://sunset-block-party-supplies.lovable.app",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".lovable.app");
+  return {
+    "Access-Control-Allow-Origin": allowed ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -69,10 +80,27 @@ serve(async (req) => {
       );
     }
 
-    // Get vouched join requests that don't have corresponding auth users
+    // Get the steward's community_id to enforce data isolation
+    const { data: stewardProfile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('community_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !stewardProfile?.community_id) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Could not determine your community' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const communityId = stewardProfile.community_id;
+
+    // Get approved/vouched join requests scoped to steward's community only
     const { data: joinRequests, error: joinError } = await supabaseAdmin
       .from('join_requests')
       .select('name, email, status')
+      .eq('community_id', communityId)
       .in('status', ['approved', 'vouched']);
 
     if (joinError) throw joinError;
@@ -97,20 +125,21 @@ serve(async (req) => {
           continue;
         }
 
-        // Create auth user
+        // Create auth user with community_id in metadata
         const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
           email: request.email,
-          password: crypto.randomUUID(), // Generate a random password
-          email_confirm: true, // Auto-confirm email
+          password: crypto.randomUUID(),
+          email_confirm: true,
           user_metadata: {
-            name: request.name
+            name: request.name,
+            community_id: communityId,
           }
         });
 
         if (authError) throw authError;
 
         // The trigger should automatically create the profile, but let's verify
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second for trigger
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         const { data: profile } = await supabaseAdmin
           .from('profiles')
@@ -119,13 +148,14 @@ serve(async (req) => {
           .maybeSingle();
 
         if (!profile) {
-          // Create profile manually if trigger didn't work
+          // Create profile manually if trigger didn't work, scoped to community
           await supabaseAdmin
             .from('profiles')
             .insert({
               id: authUser.user.id,
               name: request.name,
               email: request.email,
+              community_id: communityId,
             });
         }
 
@@ -163,6 +193,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    const corsHeaders = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ 
         success: false, 

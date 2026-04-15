@@ -2,12 +2,20 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = [
+  "https://communitysupplies.org",
+  "https://sunset-block-party-supplies.lovable.app",
+];
 
-// Input validation schema - userId removed since we get it from JWT
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".lovable.app");
+  return {
+    "Access-Control-Allow-Origin": allowed ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
+
 const DraftItemSchema = z.object({
   imageUrl: z.string()
     .trim()
@@ -27,12 +35,13 @@ const DraftItemSchema = z.object({
 });
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify user authentication and vouched status
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -55,14 +64,10 @@ serve(async (req) => {
       );
     }
 
-
     const rawBody = await req.json();
-    
-    // Validate input
     const validationResult = DraftItemSchema.safeParse(rawBody);
     
     if (!validationResult.success) {
-      console.error("Validation error:", validationResult.error.errors);
       return new Response(
         JSON.stringify({ 
           error: "Invalid input data",
@@ -71,19 +76,13 @@ serve(async (req) => {
             message: e.message
           }))
         }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const { imageUrl } = validationResult.data;
-    
-    // Use authenticated user's ID instead of trusting client-provided userId
     const userId = user.id;
 
-    // Fetch user's most recent item for context
     const { data: recentItems } = await supabase
       .from('supplies')
       .select('*')
@@ -93,7 +92,6 @@ serve(async (req) => {
 
     const recentItem = recentItems?.[0];
 
-    // Build context from recent item
     let contextPrompt = '';
     if (recentItem) {
       contextPrompt = `\n\nThe user's most recent item listing:\n` +
@@ -103,7 +101,6 @@ serve(async (req) => {
         `Their previous items tend to be in this style of description.`;
     }
 
-    // Call Lovable AI to analyze the image and draft item details
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -129,14 +126,8 @@ Return ONLY valid JSON with these exact keys, no markdown formatting.`
           {
             role: 'user',
             content: [
-              {
-                type: 'text',
-                text: `Analyze this party supply item and create a listing.${contextPrompt}`
-              },
-              {
-                type: 'image_url',
-                image_url: { url: imageUrl }
-              }
+              { type: 'text', text: `Analyze this party supply item and create a listing.${contextPrompt}` },
+              { type: 'image_url', image_url: { url: imageUrl } }
             ]
           }
         ],
@@ -156,10 +147,8 @@ Return ONLY valid JSON with these exact keys, no markdown formatting.`
       throw new Error('No content received from AI');
     }
 
-    // Parse the AI response
     let draftedItem;
     try {
-      // Remove markdown code blocks if present
       const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       draftedItem = JSON.parse(cleanContent);
     } catch (e) {
@@ -167,7 +156,6 @@ Return ONLY valid JSON with these exact keys, no markdown formatting.`
       throw new Error('Failed to parse AI response');
     }
 
-    // Add context from recent item
     const result = {
       ...draftedItem,
       neighborhood: recentItem?.neighborhood || '',
@@ -176,20 +164,16 @@ Return ONLY valid JSON with these exact keys, no markdown formatting.`
       houseRules: recentItem?.house_rules || [],
     };
 
-    console.log('Successfully drafted item:', result);
-
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('Error in draft-item-from-image:', error);
+    const corsHeaders = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

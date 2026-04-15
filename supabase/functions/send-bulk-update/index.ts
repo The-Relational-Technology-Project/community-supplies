@@ -3,12 +3,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  "https://communitysupplies.org",
+  "https://sunset-block-party-supplies.lovable.app",
+];
 
-// Input validation schema
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".lovable.app");
+  return {
+    "Access-Control-Allow-Origin": allowed ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
+
 const SendBulkUpdateSchema = z.object({
   subject: z.string().min(1).max(200),
   excludeEmails: z.array(z.string().email()).optional().default([]),
@@ -16,25 +24,21 @@ const SendBulkUpdateSchema = z.object({
   communityId: z.string().uuid("Invalid community ID"),
 });
 
-// Escape HTML to prevent XSS
 function escapeHtml(text: string): string {
   const htmlEntities: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   };
   return text.replace(/[&<>"']/g, (char) => htmlEntities[char] || char);
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify steward authentication
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -57,7 +61,6 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is a steward
     const { data: isSteward } = await supabase.rpc('is_user_steward', { user_id: user.id });
     if (!isSteward) {
       return new Response(
@@ -71,17 +74,13 @@ serve(async (req) => {
     
     if (!validationResult.success) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Validation failed', 
-          details: validationResult.error.errors 
-        }),
+        JSON.stringify({ error: 'Validation failed', details: validationResult.error.errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const { subject, excludeEmails, dryRun, communityId } = validationResult.data;
 
-    // Fetch profiles for this community only, excluding specified emails
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('name, email')
@@ -100,16 +99,12 @@ serve(async (req) => {
       );
     }
 
-    // Filter out excluded emails (double-check)
     const recipients = profiles.filter(p => !excludeEmails.includes(p.email));
-
-    console.log(`Preparing to send emails to ${recipients.length} recipients`);
 
     if (dryRun) {
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          dryRun: true,
+          success: true, dryRun: true,
           recipientCount: recipients.length,
           recipients: recipients.map(r => ({ name: r.name, email: r.email }))
         }),
@@ -118,17 +113,13 @@ serve(async (req) => {
     }
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      throw new Error("RESEND_API_KEY is not configured");
-    }
+    if (!resendApiKey) throw new Error("RESEND_API_KEY is not configured");
 
     const resend = new Resend(resendApiKey);
 
-    // Image URLs from Supabase storage
     const booksImageUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/books.png`;
     const homeImageUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/home.png`;
 
-    // Prepare batch emails
     const emails = recipients.map(recipient => {
       const safeName = escapeHtml(recipient.name || 'Neighbor');
       const firstName = safeName.split(' ')[0];
@@ -164,29 +155,22 @@ serve(async (req) => {
     </div>
     <div class="content">
       <p>Hey ${firstName}!</p>
-      
       <p>Hope you're doing well! I wanted to share a couple of exciting updates to our community sharing site.</p>
-
       <div class="feature-section">
         <div class="feature-title">📚 New: Community Book Library</div>
         <p>You can now share books from your home library with neighbors! Just snap a photo of your bookshelf, and our AI will automatically detect all the titles. It's a super easy way to lend out books you've already read.</p>
         <img src="${booksImageUrl}" alt="Community Book Library screenshot" class="screenshot" />
       </div>
-
       <div class="feature-section">
         <div class="feature-title">✨ Fresh New Look</div>
         <p>The whole site got a visual refresh! The supplies catalog is now cleaner and easier to browse, with a warmer, more inviting design.</p>
         <img src="${homeImageUrl}" alt="Redesigned homepage screenshot" class="screenshot" />
       </div>
-
       <p>Come check it out when you get a chance:</p>
-      
       <p style="text-align: center;">
         <a href="https://sunset-block-party-supplies.lovable.app" class="cta-button">Visit the Site</a>
       </p>
-
       <p>As always, if you have party supplies, games, decorations, or now books you'd like to share with neighbors, we'd love to have you add them!</p>
-
       <p>Cheers,<br>Josh</p>
     </div>
     <div class="footer">
@@ -199,31 +183,23 @@ serve(async (req) => {
       };
     });
 
-    // Send emails in batches (Resend allows up to 100 per batch)
     const batchSize = 100;
     const results = [];
     
     for (let i = 0; i < emails.length; i += batchSize) {
       const batch = emails.slice(i, i + batchSize);
-      console.log(`Sending batch ${Math.floor(i / batchSize) + 1} with ${batch.length} emails`);
-      
       const batchResult = await resend.batch.send(batch);
       results.push(batchResult);
     }
 
-    console.log(`Successfully queued ${recipients.length} emails`);
-
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        recipientCount: recipients.length,
-        results: results
-      }),
+      JSON.stringify({ success: true, recipientCount: recipients.length, results }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: any) {
     console.error("Error sending bulk update:", error);
+    const corsHeaders = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

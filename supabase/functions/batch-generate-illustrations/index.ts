@@ -1,12 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = [
+  "https://communitysupplies.org",
+  "https://sunset-block-party-supplies.lovable.app",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".lovable.app");
+  return {
+    "Access-Control-Allow-Origin": allowed ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -22,7 +33,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify user authentication and steward status (batch operations are steward-only)
+    // Verify user authentication and steward status
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -41,7 +52,6 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is a steward (batch operations require steward role)
     const { data: isSteward } = await supabase.rpc('is_user_steward', { user_id: user.id });
     if (!isSteward) {
       return new Response(
@@ -52,7 +62,6 @@ serve(async (req) => {
 
     console.log('Batch illustration generation started by steward:', user.id);
 
-    // Fetch all supplies without illustrations
     const { data: supplies, error } = await supabase
       .from('supplies')
       .select('id, name, description, images, image_url')
@@ -70,7 +79,6 @@ serve(async (req) => {
     console.log(`Generating illustrations for ${supplies.length} items...`);
     const results = [];
 
-    // Generate illustrations one by one
     for (const supply of supplies) {
       try {
         const prompt = `Create a minimalist black and white line drawing illustration of: ${supply.name}. 
@@ -91,7 +99,6 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
 
         console.log(`Generating illustration for: ${supply.name}`);
 
-        // Generate the illustration using Lovable AI
         const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -100,12 +107,7 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
           },
           body: JSON.stringify({
             model: 'google/gemini-2.5-flash-image',
-            messages: [
-              {
-                role: 'user',
-                content: prompt
-              }
-            ],
+            messages: [{ role: 'user', content: prompt }],
             modalities: ['image', 'text']
           }),
         });
@@ -126,7 +128,6 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
           continue;
         }
 
-        // Update the supply record
         const { error: updateError } = await supabase
           .from('supplies')
           .update({ illustration_url: generatedImage })
@@ -140,7 +141,6 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
           results.push({ id: supply.id, name: supply.name, success: true });
         }
 
-        // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (itemError) {
         console.error(`Error processing ${supply.name}:`, itemError);
@@ -169,6 +169,7 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
 
   } catch (error) {
     console.error('Batch generation error:', error);
+    const corsHeaders = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Unknown error occurred' 
