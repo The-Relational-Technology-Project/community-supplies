@@ -1,61 +1,64 @@
 
 
-## Security Fixes: Email Validation, Community Isolation, and CORS Lockdown
+## Fix: Make Landing Page Community-Aware with Clear Sign In
 
-### Three changes
+### Problem
 
-**1. `create-community` -- Prevent email squatting**
+When a steward (or any member) visits their community URL (`/c/slug`) while logged out, they see a generic landing page hardcoded to "Sunset & Richmond Community" with no visible "Sign In" button. This blocks returning users from accessing their community.
 
-Before creating the auth user, check if an account with that email already exists using `supabaseAdmin.auth.admin.listUsers()`. If found, return 409 with a clear error message. This prevents someone from claiming another person's email.
+### Root Cause
 
-Add after the reserved-slug check (~line 67), before community creation:
-```typescript
-const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-const emailTaken = existingUsers?.users?.some(u => u.email === stewardEmail);
-if (emailTaken) {
-  return new Response(
-    JSON.stringify({ error: "An account with this email already exists. Please sign in instead." }),
-    { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
-}
+`LandingPage.tsx` doesn't use `useCommunity()` context. It hardcodes the flagship community name and only offers a "Join Sunset & Richmond Community" button (which confusingly opens the login modal).
+
+### Changes
+
+**File: `src/components/LandingPage.tsx`**
+
+1. Import and use `useCommunity()` to get `communityName`, `communitySlug`, `communityId`
+2. Detect whether we're on a non-default community (`communitySlug !== 'sunset-richmond'`)
+3. For community-specific landing pages (`/c/slug`):
+   - Show the community name in the hero heading instead of generic "Community Supplies"
+   - Replace "Join Sunset & Richmond Community" with **"Sign In"** as a clear primary CTA
+   - Add a secondary **"Request to Join"** or **"Create Account"** button for new members
+   - Hide the "Start a Sharing Community" CTA (irrelevant when visiting a specific community)
+   - Hide the community ticker and "start your own" section
+4. For the root landing page (`/`):
+   - Keep existing behavior (generic branding, flagship CTA)
+   - Add a visible "Already a member? Sign In" link so returning users of any community can log in
+
+**File: `src/components/auth/AuthModal.tsx`**
+
+- No changes needed — it already supports `login`, `signup`, and `join-request` modes
+
+### What the community-specific landing page will show
+
+```text
+┌─────────────────────────────────────────┐
+│                                         │
+│        [Community Name]                 │
+│   Borrow what you need.                 │
+│   Share what you have.                  │
+│                                         │
+│   ┌──────────┐  ┌──────────────────┐    │
+│   │ Sign In  │  │ Join Community   │    │
+│   └──────────┘  └──────────────────┘    │
+│                                         │
+│        Illustration gallery             │
+│                                         │
+│              Footer                     │
+└─────────────────────────────────────────┘
 ```
 
-**2. `bulk-create-users` -- Community data isolation**
+### What the root landing page will add
 
-After the steward check, query the steward's `community_id` from their profile. Then:
-- Filter `join_requests` by that `community_id`
-- Include `community_id` in `user_metadata` when creating auth users
-- Include `community_id` when manually creating profiles as fallback
+A "Already a member? Sign in" text link below the existing CTAs, opening the login modal.
 
-**3. CORS origin allowlist on 15 edge functions**
+### Technical Detail
 
-Replace `"Access-Control-Allow-Origin": "*"` with a dynamic check. Each function gets a helper:
+The `LandingPage` receives `onTabChange` but doesn't receive community info. We'll add `useCommunity()` inside the component (it's already wrapped in `CommunityProvider` via `Index`). The community-aware check is simply:
 
 ```typescript
-const ALLOWED_ORIGINS = [
-  "https://communitysupplies.org",
-  "https://sunset-block-party-supplies.lovable.app",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".lovable.app");
-  return {
-    "Access-Control-Allow-Origin": allowed ? origin : ALLOWED_ORIGINS[0],
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  };
-}
+const { communityName, communitySlug } = useCommunity();
+const isCommunitySpecific = communitySlug !== 'sunset-richmond';
 ```
-
-**Exception**: `search-public-catalog` keeps `"*"` -- it's a federation endpoint.
-
-### Files modified
-
-- `supabase/functions/create-community/index.ts` -- email-exists check
-- `supabase/functions/bulk-create-users/index.ts` -- community_id scoping
-- 15 edge functions (all except `search-public-catalog`) -- CORS allowlist
-
-### Deployment
-
-All modified edge functions will be redeployed after changes.
 
