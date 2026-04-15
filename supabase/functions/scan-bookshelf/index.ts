@@ -2,12 +2,20 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+const ALLOWED_ORIGINS = [
+  "https://communitysupplies.org",
+  "https://sunset-block-party-supplies.lovable.app",
+];
 
-// Input validation schema
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".lovable.app");
+  return {
+    "Access-Control-Allow-Origin": allowed ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  };
+}
+
 const ScanBookshelfSchema = z.object({
   imageUrl: z.string()
     .trim()
@@ -27,12 +35,13 @@ const ScanBookshelfSchema = z.object({
 });
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify user authentication and vouched status
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -55,14 +64,10 @@ serve(async (req) => {
       );
     }
 
-
     const rawBody = await req.json();
-    
-    // Validate input
     const validationResult = ScanBookshelfSchema.safeParse(rawBody);
     
     if (!validationResult.success) {
-      console.error("Validation error:", validationResult.error.errors);
       return new Response(
         JSON.stringify({ 
           error: "Invalid input data",
@@ -71,10 +76,7 @@ serve(async (req) => {
             message: e.message
           }))
         }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -117,9 +119,7 @@ Return ONLY the JSON array, no other text or markdown.`
               },
               {
                 type: "image_url",
-                image_url: {
-                  url: imageUrl
-                }
+                image_url: { url: imageUrl }
               }
             ]
           }
@@ -153,12 +153,8 @@ Return ONLY the JSON array, no other text or markdown.`
       throw new Error("No response from AI");
     }
 
-    console.log("AI response:", content);
-
-    // Parse the JSON response, handling potential markdown code blocks
     let books;
     try {
-      // Remove markdown code blocks if present
       let jsonStr = content.trim();
       if (jsonStr.startsWith("```json")) {
         jsonStr = jsonStr.slice(7);
@@ -169,19 +165,16 @@ Return ONLY the JSON array, no other text or markdown.`
         jsonStr = jsonStr.slice(0, -3);
       }
       jsonStr = jsonStr.trim();
-      
       books = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error("Failed to parse AI response as JSON:", parseError);
       throw new Error("Failed to parse book list from AI response");
     }
 
-    // Validate the structure
     if (!Array.isArray(books)) {
       throw new Error("AI response is not an array");
     }
 
-    // Clean and validate each book entry
     const validBooks = books
       .filter((book: any) => book && typeof book.title === 'string' && book.title.trim())
       .map((book: any) => ({
@@ -198,6 +191,7 @@ Return ONLY the JSON array, no other text or markdown.`
 
   } catch (error) {
     console.error("Error in scan-bookshelf:", error);
+    const corsHeaders = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

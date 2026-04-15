@@ -1,10 +1,20 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { Resend } from "https://esm.sh/resend@2.0.0";
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 import { z } from "https://esm.sh/zod@3.23.8";
+
+const ALLOWED_ORIGINS = [
+  "https://communitysupplies.org",
+  "https://sunset-block-party-supplies.lovable.app",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".lovable.app");
+  return {
+    "Access-Control-Allow-Origin": allowed ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 const BodySchema = z.object({
   communityName: z.string().min(2).max(200),
@@ -23,6 +33,8 @@ function escapeHtml(text: string): string {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -66,7 +78,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Create community
+    // 2. Check if email is already taken by an existing auth user
+    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) {
+      console.error("Error checking existing users:", listError);
+      return new Response(
+        JSON.stringify({ error: "Failed to validate email. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const emailTaken = existingUsers?.users?.some(u => u.email?.toLowerCase() === stewardEmail.toLowerCase());
+    if (emailTaken) {
+      return new Response(
+        JSON.stringify({ error: "An account with this email already exists. Please sign in instead." }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Create community
     const { data: community, error: communityError } = await supabaseAdmin
       .from("communities")
       .insert({ name: communityName, slug: communitySlug, description: location })
@@ -83,7 +113,7 @@ Deno.serve(async (req) => {
 
     const communityId = community.id;
 
-    // 3. Create auth user
+    // 4. Create auth user
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: stewardEmail,
       password: stewardPassword,
@@ -106,7 +136,7 @@ Deno.serve(async (req) => {
 
     const userId = authData.user.id;
 
-    // 4. Upsert profile (trigger may have created one, but ensure community_id and role)
+    // 5. Upsert profile (trigger may have created one, but ensure community_id and role)
     await supabaseAdmin
       .from("profiles")
       .upsert({
@@ -117,7 +147,7 @@ Deno.serve(async (req) => {
         role: "steward",
       }, { onConflict: "id" });
 
-    // 5. Insert steward role
+    // 6. Insert steward role
     await supabaseAdmin
       .from("user_roles")
       .upsert({
@@ -126,7 +156,7 @@ Deno.serve(async (req) => {
         community_id: communityId,
       }, { onConflict: "user_id,role" });
 
-    // 6. Record in community_steward_requests for audit
+    // 7. Record in community_steward_requests for audit
     await supabaseAdmin
       .from("community_steward_requests")
       .insert({
@@ -141,7 +171,7 @@ Deno.serve(async (req) => {
         reviewed_at: new Date().toISOString(),
       });
 
-    // 7. Send welcome email (non-blocking)
+    // 8. Send welcome email (non-blocking)
     const APP_URL = "https://communitysupplies.org";
     const communityUrl = `${APP_URL}/c/${communitySlug}`;
     const stewardUrl = `${APP_URL}/c/${communitySlug}/steward`;
