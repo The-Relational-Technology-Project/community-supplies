@@ -4,6 +4,7 @@ import { Supply } from "@/types/supply";
 import { MapPin } from "lucide-react";
 import { categories } from "@/data/categories";
 import { cn } from "@/lib/utils";
+import { getOptimizedImageUrl } from "@/lib/imageUrl";
 
 interface SupplyCardProps {
   supply: Supply;
@@ -37,7 +38,7 @@ export function SupplyCard({ supply, onViewContact }: SupplyCardProps) {
                 </p>
               </div>
               <img 
-                src={supply.illustration_url} 
+                src={getOptimizedImageUrl(supply.illustration_url, { width: 400, quality: 70 })}
                 alt={supply.name}
                 loading="lazy"
                 onLoad={() => setImageLoaded(true)}

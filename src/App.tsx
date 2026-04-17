@@ -1,18 +1,30 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
 import Index from "./pages/Index";
-import MySupplies from "./pages/MySupplies";
-import MyBooks from "./pages/MyBooks";
-import Profile from "./pages/Profile";
-import Steward from "./pages/Steward";
-import StartCommunity from "./pages/StartCommunity";
-import NotFound from "./pages/NotFound";
-import PrivacyTerms from "./pages/PrivacyTerms";
 import { CommunityProvider } from "./contexts/CommunityContext";
-import { CommunityStewardDashboard } from "./components/steward/CommunityStewardDashboard";
 import { AuthGuard } from "./components/auth/AuthGuard";
+
+const MySupplies = lazy(() => import("./pages/MySupplies"));
+const MyBooks = lazy(() => import("./pages/MyBooks"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Steward = lazy(() => import("./pages/Steward"));
+const StartCommunity = lazy(() => import("./pages/StartCommunity"));
+const PrivacyTerms = lazy(() => import("./pages/PrivacyTerms"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const CommunityStewardDashboard = lazy(() =>
+  import("./components/steward/CommunityStewardDashboard").then((m) => ({
+    default: m.CommunityStewardDashboard,
+  }))
+);
+
+const RouteFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-sand">
+    <div className="h-8 w-8 animate-spin rounded-full border-2 border-terracotta border-t-transparent" />
+  </div>
+);
 
 function CommunitySlugRoute() {
   const { communitySlug } = useParams();
@@ -39,19 +51,21 @@ const App = () => (
     <Toaster />
     <Sonner />
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<CommunityProvider><Index /></CommunityProvider>} />
-        <Route path="/my-supplies" element={<CommunityProvider><MySupplies /></CommunityProvider>} />
-        <Route path="/my-books" element={<CommunityProvider><MyBooks /></CommunityProvider>} />
-        <Route path="/profile" element={<CommunityProvider><Profile /></CommunityProvider>} />
-        <Route path="/steward" element={<CommunityProvider><Steward /></CommunityProvider>} />
-        <Route path="/start-community" element={<StartCommunity />} />
-        <Route path="/privacy" element={<PrivacyTerms />} />
-        <Route path="/c/:communitySlug" element={<CommunitySlugRoute />} />
-        <Route path="/c/:communitySlug/steward" element={<CommunityStewardRoute />} />
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="/" element={<CommunityProvider><Index /></CommunityProvider>} />
+          <Route path="/my-supplies" element={<CommunityProvider><MySupplies /></CommunityProvider>} />
+          <Route path="/my-books" element={<CommunityProvider><MyBooks /></CommunityProvider>} />
+          <Route path="/profile" element={<CommunityProvider><Profile /></CommunityProvider>} />
+          <Route path="/steward" element={<CommunityProvider><Steward /></CommunityProvider>} />
+          <Route path="/start-community" element={<StartCommunity />} />
+          <Route path="/privacy" element={<PrivacyTerms />} />
+          <Route path="/c/:communitySlug" element={<CommunitySlugRoute />} />
+          <Route path="/c/:communitySlug/steward" element={<CommunityStewardRoute />} />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   </TooltipProvider>
 );

@@ -108,23 +108,16 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
     setCommunity(prev => ({ ...prev, loading: true }));
 
     (async () => {
+      // Single joined query: profile + community in one round trip
       const { data: profile } = await supabase
         .from("profiles")
-        .select("community_id")
+        .select("community_id, communities!inner(id, name, slug)")
         .eq("id", user.id)
         .maybeSingle();
 
       if (cancelled) return;
 
-      const userCommunityId = profile?.community_id || DEFAULT_COMMUNITY_ID;
-
-      const { data: comm } = await supabase
-        .from("communities")
-        .select("id, name, slug")
-        .eq("id", userCommunityId)
-        .maybeSingle();
-
-      if (cancelled) return;
+      const comm = (profile as any)?.communities;
 
       if (comm) {
         setCommunity({
