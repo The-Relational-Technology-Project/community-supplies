@@ -1,65 +1,65 @@
 
 
-## Fix: Community Sign-Up Flow is Broken for Non-Flagship Communities
+## Fix: Auth Race Conditions Causing Sign-In Loop / Half-Logged-In State
 
-### Bugs Found
+### Root cause analysis
 
-**Bug 1: New members always join the flagship community, not the one they visited**
+The "signed in but with Sign In button + blank page + reload-loops-forever" symptom is caused by **multiple independent auth checks racing each other** across components. Five components each maintain their own auth state with their own `useEffect`:
 
-In `LandingPage.tsx` (line 253-258), the `AuthModal` is rendered **without** passing `communityId` or `communityName` props:
+| Component | Method | Problem |
+|---|---|---|
+| `Index.tsx` | `getSession()` + listener | Effect re-runs on `searchParams` changes (it calls `setSearchParams({})` itself → infinite re-subscribe risk) |
+| `AuthGuard.tsx` | `getSession()` + listener | Independent state |
+| `CatalogHeader.tsx` | `getUser()` + listener | Network call to `/auth/v1/user`, can be slow (25s symptom) |
+| `UserProfile.tsx` | `getUser()` + listener | Another network call |
+| `LandingPage.tsx` | `getUser()` + listener | Another network call |
 
-```tsx
-<AuthModal
-  isOpen={!!modalMode}
-  mode={modalMode}
-  onClose={() => setModalMode(null)}
-  onSuccess={() => onTabChange('browse')}
-/>
+The auth log confirms this: 4 separate `/user` requests fired at the same instant after sign-in. If any one of these stalls or returns `null` while others succeed, components disagree:
+
+- `Index` thinks user is signed in → renders `CatalogHeader` + `BrowseSupplies` (wrapped in AuthGuard)
+- `CatalogHeader` thinks user is null → shows "Sign In" button in nav
+- `AuthGuard` (around BrowseSupplies) is still `loading=true` → shows blank "Loading..." that never resolves because its independent listener already fired
+
+On refresh: `Index.tsx`'s effect depends on `[searchParams, setSearchParams]`. The effect calls `setSearchParams({})` inside itself, which re-triggers the effect. Each re-run creates a fresh auth subscription; if the timing is unlucky, `setLoading(false)` never fires for the new run → permanent loading spinner.
+
+### The fix
+
+**Create one shared auth hook and replace all 5 independent checks with it.**
+
+#### New file: `src/hooks/useAuth.ts`
+
+A single source of truth backed by `getSession()` (instant, reads from storage — no network call) and a single `onAuthStateChange` subscription. Returns `{ user, isReady }`. Per the Lovable stack-overflow guidance, this prevents components from querying before the session is restored.
+
+```typescript
+// Returns { user, isReady } — call once anywhere, get consistent state
+const { user, isReady } = useAuth();
 ```
 
-Inside `AuthModal.handleSignup` (line 96-102), `communityId` from props is checked — since it's undefined, it's never included in the signup metadata. The `handle_new_user` database trigger then defaults to the flagship community UUID. **Every user who signs up via `/c/some-slug` gets assigned to the wrong community.**
+The hook stores state in a module-level store so all consumers share the same value (no duplicate subscriptions, no duplicate network calls).
 
-**Bug 2: Approval-required communities have no proper join flow from the landing page**
+#### Replace `getUser()` calls
 
-The "Join [Community]" button on the community-specific landing page opens the `AuthModal` in `signup` mode, which creates an account directly. For communities with `join_mode = 'approval_required'`, this means:
-- The user account gets created with `vouched_at = null` (correct)
-- But **no join request record** is created for the steward to review
-- The steward has no way to know someone is waiting for approval
+`getUser()` is a network round-trip. `getSession()` reads from local storage and is synchronous-fast. Switch all components from `getUser()` to the shared `useAuth()` hook. This alone removes the 4 redundant `/user` requests and the 25-second slow load.
 
-The `JoinRequestForm` (which does create both an account AND a join request) only appears inside `AuthGuard` — a screen users would never reach from the landing page.
+#### Files modified
 
-### Fix
+1. **`src/hooks/useAuth.ts`** — new shared hook (module-singleton pattern)
+2. **`src/pages/Index.tsx`** — use `useAuth()`; remove the `[searchParams, setSearchParams]` dependency that re-runs the auth effect; only consume the URL params once on mount
+3. **`src/components/auth/AuthGuard.tsx`** — use `useAuth()`; keep the steward role query (gated by `isReady && user`)
+4. **`src/components/CatalogHeader.tsx`** — use `useAuth()` instead of `getUser()`
+5. **`src/components/auth/UserProfile.tsx`** — use `useAuth()` for the user; keep the profile/role fetch but gate on `isReady && user`
+6. **`src/components/LandingPage.tsx`** — use `useAuth()` instead of `getUser()`
 
-**File: `src/components/LandingPage.tsx`**
+### Expected outcome
 
-1. Pass `communityId` and `communityName` from the community context to `AuthModal`:
-```tsx
-<AuthModal
-  isOpen={!!modalMode}
-  mode={modalMode}
-  onClose={() => setModalMode(null)}
-  onSuccess={() => onTabChange('browse')}
-  communityId={isCommunitySpecific ? communityId : undefined}
-  communityName={isCommunitySpecific ? communityName : undefined}
-/>
-```
+- Magic-link sign-in returns to the catalog view in under 2s instead of 25s (no more redundant `/user` calls).
+- All header/nav/main components agree on auth state — no more "Sign In button visible while signed in".
+- Refresh while signed in restores the session immediately from storage; no infinite loading loop.
+- Sign-out and sign-in transitions propagate to every component through the single shared subscription.
 
-2. For communities with `join_mode = 'approval_required'`, the "Join" button should show the `JoinRequestForm` instead of the signup modal. Add state to track join mode and fetch it from the `communities` table. When `join_mode` is `approval_required`, render `JoinRequestForm` inline (or in a dialog) instead of opening the AuthModal in signup mode.
+### Why this won't break anything
 
-3. Import `communityId` from `useCommunity()` (it's already imported but only `communityName` and `communitySlug` are destructured).
-
-**File: `src/components/LandingPage.tsx` — detailed changes**
-
-- Destructure `communityId` from `useCommunity()`
-- Add state: `joinMode` (fetched from communities table) and `showJoinForm`
-- Add `useEffect` to fetch `join_mode` when `isCommunitySpecific`
-- For the "Join" CTA button: if `joinMode === 'approval_required'`, toggle `showJoinForm` state instead of opening AuthModal
-- Render `JoinRequestForm` in a dialog or inline section when `showJoinForm` is true
-- Pass `communityId` to `AuthModal` for auto-join communities
-
-### Result
-
-- Auto-join communities: neighbor clicks "Join", creates account with correct `community_id`, gets immediate access
-- Approval-required communities: neighbor clicks "Join", sees the `JoinRequestForm` which creates both an auth account and a join request for steward review
-- Sign In works for both — existing members log in normally
+- `getSession()` is the Supabase-recommended primary auth check for components (per project memory: `mem://auth/implementation-details`).
+- Functional behavior is unchanged — only the wiring is consolidated.
+- The steward-role check in AuthGuard and UserProfile remains intact, just gated behind `isReady`.
 
