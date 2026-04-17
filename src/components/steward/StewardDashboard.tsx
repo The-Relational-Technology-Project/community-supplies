@@ -8,6 +8,7 @@ import { RefreshIllustrations } from "./RefreshIllustrations";
 import { CommunityRequestsManager } from "./CommunityRequestsManager";
 import { NeighborCommunitiesManager } from "./NeighborCommunitiesManager";
 import { JoinModeToggle } from "./JoinModeToggle";
+import { StewardWelcomeBatch } from "./StewardWelcomeBatch";
 
 export function StewardDashboard() {
   return (
@@ -24,6 +25,8 @@ export function StewardDashboard() {
       </div>
 
       <JoinModeToggle />
+
+      <StewardWelcomeBatch />
 
       <Tabs defaultValue="members" className="space-y-4">
         <TabsList className="grid w-full grid-cols-5">
