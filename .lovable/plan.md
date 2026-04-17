@@ -1,66 +1,68 @@
 
-The screenshot changes the diagnosis: this is not the unauthenticated landing page. It is the authenticated catalog shell, which means refresh is restoring enough auth state to render the app, but profile/community-dependent data is not finishing cleanly afterward.
 
-What’s actually happening:
-- `Index.tsx` renders the main library as soon as `useAuth()` reports a user.
-- `UserProfile.tsx` separately fetches `profiles`, so the name can disappear even while the user is still technically signed in.
-- `CommunityContext.tsx` runs its own auth/session resolution and also does awaited work inside `onAuthStateChange`, which is a known Supabase race/deadlock risk.
-- Queries like `useSupplies()` depend on both auth and community context, but the app can render before those are fully settled.
+All six suggestions are sound. Let me prioritize by impact vs effort based on what I know about the codebase.
 
-Plan
+**Quick analysis of each:**
 
-1. Fix auth bootstrap at the source
-- Refactor `src/hooks/useAuth.ts` so auth becomes “ready” only after the initial `supabase.auth.getSession()` restore completes.
-- Keep `onAuthStateChange` for later sign-in/sign-out updates only.
-- Avoid awaited work inside auth callbacks.
+1. **Index on `community_id` + EXPLAIN the RPC** — Almost certainly the biggest win. `get_supplies_with_owners` filters `s.community_id = p_community_id` and joins profiles. Without an index, this is a seq scan every page load. High impact, trivial change.
 
-2. Remove the second auth race in community resolution
-- Refactor `src/contexts/CommunityContext.tsx` so it no longer performs its own competing auth boot flow.
-- Resolve the root-route community only after auth bootstrap is complete.
-- Move any async profile/community lookups out of the raw `onAuthStateChange` callback.
+2. **Preconnect to Supabase** — Free 100–300ms on first request. One line in `index.html`. No risk.
 
-3. Gate the UI on full app readiness, not partial auth
-- Update `src/pages/Index.tsx` to wait for both auth readiness and community resolution before deciding between:
-  - loading state
-  - landing page
-  - authenticated library
-- This prevents the app from showing the library shell while the underlying context is still in flux.
+3. **Combine profile+community fetch in `CommunityContext`** — Currently two serial round trips (profile → community). One JOIN saves one full RTT (~100–200ms). Easy win.
 
-4. Make the top-right nav resilient
-- Update `src/components/auth/UserProfile.tsx` and `src/components/CatalogHeader.tsx` so the auth area never goes blank.
-- While profile data is loading, show a lightweight placeholder/skeleton instead of disappearing entirely.
-- If the session is truly absent, keep Sign In / magic link access visible.
+4. **Parallel fetchSupplies** — Already mostly parallel via TanStack Query `enabled`. Marginal. Skip unless we find a real serialization.
 
-5. Re-check authenticated query gating
-- Confirm `src/hooks/useSupplies.ts`, `src/hooks/useBooks.ts`, and any role/profile fetches only run when:
-  - auth bootstrap is complete
-  - a user exists
-  - community loading is complete
-- This should eliminate the “flashing skeleton forever after refresh” state.
+5. **Supabase image transforms** — Big perceived-speed win on browse. The illustration grid loads many images; transforming to ~400px wide @ q70 can cut payload by 5–10x. Need to verify the `illustration_url` is a Supabase Storage URL (not external) before applying.
 
-Files to update
-- `src/hooks/useAuth.ts`
-- `src/contexts/CommunityContext.tsx`
-- `src/pages/Index.tsx`
-- `src/components/auth/UserProfile.tsx`
-- `src/components/CatalogHeader.tsx`
-- likely small follow-ups in `src/hooks/useSupplies.ts` / `src/hooks/useBooks.ts`
+6. **Route-level `React.lazy()`** — Real bundle-size win for first paint. Steward dashboard especially is heavy (multiple manager components, batch tools). Easy refactor in `App.tsx`.
 
-Technical details
-- The biggest bug is the duplicated auth/session resolution path plus awaited DB work inside `onAuthStateChange`.
-- The current root route can render too early because auth, community, and profile readiness are tracked separately.
-- The fix is to create one clear bootstrap order:
+**Plan — ship all six, ordered by impact**
 
-```text
-restore session
--> resolve user
--> resolve community
--> enable user/profile/role/library queries
--> render final shell
-```
+### 1. Database indexes (biggest win)
+- Add migration:
+  - `CREATE INDEX IF NOT EXISTS idx_supplies_community_id ON public.supplies(community_id);`
+  - `CREATE INDEX IF NOT EXISTS idx_supplies_community_created ON public.supplies(community_id, created_at DESC);` (matches RPC's ORDER BY)
+  - `CREATE INDEX IF NOT EXISTS idx_books_community_id ON public.books(community_id);`
+  - `CREATE INDEX IF NOT EXISTS idx_profiles_community_id ON public.profiles(community_id);`
+  - `CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON public.user_roles(user_id);` (used by `has_role`)
+- Run EXPLAIN ANALYZE on `get_supplies_with_owners` before/after for confirmation.
 
-Expected outcome
-- Refreshing `/` no longer drops the visible user identity.
-- Closing and reopening the tab preserves the signed-in experience.
-- If a session is gone, the app clearly shows Sign In again.
-- The item library stops getting stuck in the post-refresh skeleton state.
+### 2. Preconnect in `index.html`
+- Add `<link rel="preconnect" href="https://mbmmfgivhqzhjyneyelu.supabase.co" crossorigin>` next to the existing Google Fonts preconnects.
+
+### 3. Combine profile + community fetch
+- In `CommunityContext.tsx`, replace the two serial queries with one:
+  ```
+  supabase.from('profiles').select('community_id, communities!inner(id, name, slug)').eq('id', user.id).maybeSingle()
+  ```
+- Saves one RTT on every authenticated root load.
+
+### 4. Image transforms on illustrations
+- Verify `illustration_url` is a Supabase Storage URL.
+- Add a small helper `getOptimizedImageUrl(url, { width, quality })` that appends `?width=…&quality=…` for Storage URLs, passes through for others.
+- Apply in `SupplyCard.tsx` (browse grid: ~400px) and the landing page illustration gallery (~300px). Keep full-res on detail/zoom views.
+
+### 5. Route-level code splitting
+- In `App.tsx`, convert `MySupplies`, `MyBooks`, `Profile`, `Steward`, `StartCommunity`, `PrivacyTerms`, and `CommunityStewardDashboard` to `React.lazy()` with a `<Suspense>` fallback (reuse the existing spinner).
+- Keep `Index` eager (it's the landing route).
+
+### 6. Skip #4 from the user's list
+- `useSupplies` already gates on `isReady && user && communityId`. TanStack runs it as soon as those resolve. No change needed.
+
+**Files modified**
+- New migration: indexes
+- `index.html` — preconnect
+- `src/contexts/CommunityContext.tsx` — single joined query
+- `src/lib/imageUrl.ts` (new) — transform helper
+- `src/components/SupplyCard.tsx`, `src/components/LandingPage.tsx` — use helper
+- `src/App.tsx` — lazy routes + Suspense
+
+**Expected impact**
+- DB indexes: 200ms–2s off supplies/books queries on larger communities
+- Preconnect: 100–300ms off first Supabase request
+- Joined profile+community: ~100–200ms off authenticated boot
+- Image transforms: 50–80% smaller image payload on browse
+- Code splitting: smaller initial JS bundle, faster first paint on `/`
+
+After shipping I'll verify with `EXPLAIN ANALYZE` and ask you to hard-refresh and report perceived speed.
+
