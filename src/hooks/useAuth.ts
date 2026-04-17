@@ -20,17 +20,20 @@ function initialize() {
   if (initialized) return;
   initialized = true;
 
-  // Set up listener first
+  // Set up listener first — never await inside the callback
   supabase.auth.onAuthStateChange((_event, session) => {
+    // Synchronous-only: just update state. No DB calls here.
     setAuthState({ user: session?.user ?? null, isReady: true });
   });
 
-  // Restore session from storage (fast, no network)
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    setAuthState({ user: session?.user ?? null, isReady: true });
-  }).catch(() => {
-    setAuthState({ user: null, isReady: true });
-  });
+  // Restore session from storage. isReady flips true only after this completes.
+  supabase.auth.getSession()
+    .then(({ data: { session } }) => {
+      setAuthState({ user: session?.user ?? null, isReady: true });
+    })
+    .catch(() => {
+      setAuthState({ user: null, isReady: true });
+    });
 }
 
 export function useAuth(): AuthState {

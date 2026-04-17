@@ -54,9 +54,10 @@ const Index = () => {
     }
   }, [isReady, user, communityId, queryClient]);
 
-  const loading = !isReady;
+  // Wait for both auth bootstrap AND community resolution before rendering shell.
+  // This prevents flashing the authenticated library before community context is settled.
+  const loading = !isReady || (!!user && communityLoading);
 
-  // Show loading state while checking authentication
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">

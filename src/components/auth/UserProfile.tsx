@@ -61,7 +61,15 @@ export function UserProfile() {
     }
   };
 
-  if (!profile) return null;
+  // While profile loads, show a placeholder so the nav never goes blank.
+  if (!profile) {
+    return (
+      <Button variant="ghost" className="flex items-center gap-2 text-primary-foreground hover:bg-primary-foreground/10 px-2 sm:px-4" disabled>
+        <User className="h-4 w-4" />
+        <span className="hidden sm:inline opacity-60">Loading…</span>
+      </Button>
+    );
+  }
 
   return (
     <>
