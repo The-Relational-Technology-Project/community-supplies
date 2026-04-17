@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Supply } from "@/types/supply";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { useAuth } from "@/hooks/useAuth";
 
 export const SUPPLIES_QUERY_KEY = ['supplies'] as const;
 
