@@ -31,7 +31,16 @@ const persister = createSyncStoragePersister({
 createRoot(document.getElementById("root")!).render(
   <PersistQueryClientProvider
     client={queryClient}
-    persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000, buster: 'v4' }}
+    persistOptions={{
+      persister,
+      maxAge: 24 * 60 * 60 * 1000,
+      buster: 'v5',
+      dehydrateOptions: {
+        shouldDehydrateQuery: (query) =>
+          query.state.status === 'success' &&
+          (Array.isArray(query.state.data) ? query.state.data.length > 0 : true),
+      },
+    }}
   >
     <App />
   </PersistQueryClientProvider>
