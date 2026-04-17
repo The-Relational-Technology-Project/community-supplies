@@ -1,11 +1,11 @@
 import { Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 import { AuthButtons } from "./auth/AuthButtons";
 import { UserProfile } from "./auth/UserProfile";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { useAuth } from "@/hooks/useAuth";
 
 interface CatalogHeaderProps {
   onSearch?: (query: string) => void;
@@ -14,21 +14,9 @@ interface CatalogHeaderProps {
 }
 
 export const CatalogHeader = ({ onSearch, searchQuery = "", onNavigate }: CatalogHeaderProps) => {
-  const [user, setUser] = useState<any>(null);
+  const { user } = useAuth();
   const [localQuery, setLocalQuery] = useState(searchQuery);
   const { communityName } = useCommunity();
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

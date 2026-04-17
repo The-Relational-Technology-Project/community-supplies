@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { User, LogOut, Shield, Package, Settings, LayoutDashboard } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Profile {
   id: string;
@@ -16,48 +17,40 @@ interface Profile {
 
 export function UserProfile() {
   const navigate = useNavigate();
+  const { user, isReady } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isSteward, setIsSteward] = useState(false);
   const { toast } = useToast();
   const { communitySlug } = useCommunity();
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, name, email')
-          .eq('id', user.id)
-          .single();
-        
-        if (data) setProfile(data);
+    if (!isReady) return;
+    if (!user) {
+      setProfile(null);
+      setIsSteward(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .eq('id', user.id)
+        .single();
+      if (!cancelled && data) setProfile(data);
 
-        // Check steward role from user_roles table (authoritative source)
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .eq('role', 'steward')
-          .maybeSingle();
-        
-        setIsSteward(!!roleData);
-      }
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'steward')
+        .maybeSingle();
+      if (!cancelled) setIsSteward(!!roleData);
+    })();
+    return () => {
+      cancelled = true;
     };
-
-    fetchProfile();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setProfile(null);
-        setIsSteward(false);
-      } else if (event === 'SIGNED_IN' && session) {
-        fetchProfile();
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  }, [isReady, user]);
 
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
