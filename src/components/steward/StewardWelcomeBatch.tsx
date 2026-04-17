@@ -184,7 +184,7 @@ export function StewardWelcomeBatch() {
                     </AlertDialogTitle>
                     <AlertDialogDescription>
                       This will send the "Next steps for your community" email from
-                      hello@relationaltechproject.org to <strong>{finalCount}</strong> steward
+                      josh@relationaltechproject.org to <strong>{finalCount}</strong> steward
                       {finalCount === 1 ? "" : "s"} individually. This cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
