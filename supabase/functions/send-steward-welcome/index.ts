@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
-import { Resend } from "npm:resend@2.0.0";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const ALLOWED_ORIGINS = [
@@ -9,6 +8,8 @@ const ALLOWED_ORIGINS = [
 ];
 
 const FLAGSHIP_COMMUNITY_SLUG = "sunset-richmond";
+const FROM_ADDRESS = "Josh Nesbit <josh@relationaltechproject.org>";
+const REPLY_TO = "josh@relationaltechproject.org";
 
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get("Origin") || "";
@@ -19,11 +20,17 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-const BodySchema = z.object({
-  dryRun: z.boolean().optional().default(true),
-  sinceDays: z.number().int().min(1).max(60).optional().default(7),
-  excludeUserIds: z.array(z.string().uuid()).optional().default([]),
-});
+const BodySchema = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("list"), sinceDays: z.number().int().min(1).max(365).optional().default(30) }),
+  z.object({
+    mode: z.literal("send"),
+    userId: z.string().uuid().optional(),
+    overrideEmail: z.string().email().optional(),
+    overrideName: z.string().optional(),
+    overrideCommunityName: z.string().optional(),
+    overrideCommunitySlug: z.string().optional(),
+  }),
+]);
 
 function escapeHtml(text: string): string {
   const e: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -76,6 +83,27 @@ function buildHtml(stewardName: string, communityName: string, communitySlug: st
 </html>`;
 }
 
+async function sendViaResend(apiKey: string, to: string, subject: string, html: string) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to: [to],
+      reply_to: REPLY_TO,
+      subject,
+      html,
+    }),
+  });
+  const text = await res.text();
+  let payload: any = null;
+  try { payload = text ? JSON.parse(text) : null; } catch { payload = { raw: text }; }
+  return { ok: res.ok, status: res.status, payload };
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -95,7 +123,6 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Invalid or expired token' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Caller must be a steward of the flagship community
     const { data: callerProfile } = await supabase
       .from('profiles')
       .select('community_id, communities:community_id(slug)')
@@ -113,67 +140,106 @@ serve(async (req) => {
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: 'Validation failed', details: parsed.error.errors }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const { dryRun, sinceDays, excludeUserIds } = parsed.data;
 
-    // Fetch stewards created within window
-    const sinceIso = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
-    const { data: roles, error: rolesError } = await supabase
-      .from('user_roles')
-      .select('user_id, created_at, community_id')
-      .eq('role', 'steward')
-      .gte('created_at', sinceIso)
-      .order('created_at', { ascending: false });
+    if (parsed.data.mode === "list") {
+      const { sinceDays } = parsed.data;
+      const sinceIso = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
 
-    if (rolesError) throw new Error(`Failed to fetch stewards: ${rolesError.message}`);
+      const { data: roles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, created_at')
+        .eq('role', 'steward')
+        .gte('created_at', sinceIso)
+        .order('created_at', { ascending: false });
 
-    const userIds = (roles || []).map(r => r.user_id).filter(id => !excludeUserIds.includes(id));
-    if (userIds.length === 0) {
-      return new Response(JSON.stringify({ success: true, dryRun, recipientCount: 0, recipients: [] }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (rolesError) throw new Error(`Failed to fetch stewards: ${rolesError.message}`);
+
+      const userIds = (roles || []).map(r => r.user_id);
+      if (userIds.length === 0) {
+        return new Response(JSON.stringify({ recipients: [] }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name, email, communities:community_id(name, slug)')
+        .in('id', userIds);
+
+      if (profilesError) throw new Error(`Failed to fetch profiles: ${profilesError.message}`);
+
+      const recipients = (profiles || [])
+        .map((p: any) => ({
+          userId: p.id,
+          name: p.name,
+          email: p.email,
+          communityName: p.communities?.name || '',
+          communitySlug: p.communities?.slug || '',
+          stewardSince: roles?.find(r => r.user_id === p.id)?.created_at,
+        }))
+        .filter(r => r.email && r.communitySlug && r.communitySlug !== FLAGSHIP_COMMUNITY_SLUG);
+
+      console.log(`[list] caller=${user.email} sinceDays=${sinceDays} count=${recipients.length}`);
+      return new Response(JSON.stringify({ recipients }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, name, email, community_id, communities:community_id(name, slug)')
-      .in('id', userIds);
-
-    if (profilesError) throw new Error(`Failed to fetch profiles: ${profilesError.message}`);
-
-    const recipients = (profiles || [])
-      .map((p: any) => ({
-        userId: p.id,
-        name: p.name,
-        email: p.email,
-        communityName: p.communities?.name || '',
-        communitySlug: p.communities?.slug || '',
-        stewardSince: roles?.find(r => r.user_id === p.id)?.created_at,
-      }))
-      .filter(r => r.email && r.communitySlug && r.communitySlug !== FLAGSHIP_COMMUNITY_SLUG);
-
-    if (dryRun) {
-      return new Response(JSON.stringify({ success: true, dryRun: true, recipientCount: recipients.length, recipients }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
+    // mode === "send"
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) throw new Error("RESEND_API_KEY is not configured");
-    const resend = new Resend(resendApiKey);
-
-    const emails = recipients.map(r => ({
-      from: "Josh Nesbit <josh@relationaltechproject.org>",
-      to: [r.email],
-      reply_to: "josh@relationaltechproject.org",
-      subject: "Next steps for your community",
-      html: buildHtml(r.name, r.communityName, r.communitySlug),
-    }));
-
-    const batchSize = 100;
-    const results: any[] = [];
-    for (let i = 0; i < emails.length; i += batchSize) {
-      const batch = emails.slice(i, i + batchSize);
-      const batchResult = await resend.batch.send(batch);
-      results.push(batchResult);
+    if (!resendApiKey) {
+      return new Response(JSON.stringify({ error: "RESEND_API_KEY not configured" }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    return new Response(JSON.stringify({ success: true, recipientCount: recipients.length, results }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    let recipientEmail: string;
+    let recipientName: string;
+    let communityName: string;
+    let communitySlug: string;
+
+    if (parsed.data.overrideEmail) {
+      recipientEmail = parsed.data.overrideEmail;
+      recipientName = parsed.data.overrideName || 'there';
+      communityName = parsed.data.overrideCommunityName || 'your community';
+      communitySlug = parsed.data.overrideCommunitySlug || FLAGSHIP_COMMUNITY_SLUG;
+    } else if (parsed.data.userId) {
+      const { data: p, error: pErr } = await supabase
+        .from('profiles')
+        .select('id, name, email, communities:community_id(name, slug)')
+        .eq('id', parsed.data.userId)
+        .single();
+      if (pErr || !p) {
+        return new Response(JSON.stringify({ error: 'Recipient not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const comm = (p as any).communities;
+      if (!comm?.slug || comm.slug === FLAGSHIP_COMMUNITY_SLUG) {
+        return new Response(JSON.stringify({ error: 'Recipient is in flagship or has no community' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      recipientEmail = (p as any).email;
+      recipientName = (p as any).name || 'there';
+      communityName = comm.name || 'your community';
+      communitySlug = comm.slug;
+    } else {
+      return new Response(JSON.stringify({ error: 'Provide userId or overrideEmail' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const subject = "Next steps for your community";
+    const html = buildHtml(recipientName, communityName, communitySlug);
+
+    console.log(`[send] caller=${user.email} to=${recipientEmail} from=${FROM_ADDRESS} community=${communitySlug}`);
+    const result = await sendViaResend(resendApiKey, recipientEmail, subject, html);
+    console.log(`[send] resend status=${result.status} ok=${result.ok} payload=${JSON.stringify(result.payload)}`);
+
+    if (!result.ok) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: result.payload?.message || result.payload?.error || `Resend returned ${result.status}`,
+        status: result.status,
+        resendResponse: result.payload,
+        recipient: { email: recipientEmail, name: recipientName, communitySlug },
+      }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      id: result.payload?.id,
+      recipient: { email: recipientEmail, name: recipientName, communitySlug },
+    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (error: any) {
     console.error("send-steward-welcome error:", error);
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
