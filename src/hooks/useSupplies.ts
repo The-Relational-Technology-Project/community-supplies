@@ -44,10 +44,12 @@ export const fetchSupplies = async (communityId?: string): Promise<Supply[]> => 
 export function useSupplies() {
   const { toast } = useToast();
   const { communityId } = useCommunity();
+  const { user, isReady } = useAuth();
 
   const { data: supplies = [], isLoading: loading, error, refetch } = useQuery({
-    queryKey: [...SUPPLIES_QUERY_KEY, communityId],
+    queryKey: [...SUPPLIES_QUERY_KEY, communityId, user?.id],
     queryFn: () => fetchSupplies(communityId),
+    enabled: isReady && !!user,
     retry: 1,
   });
 
