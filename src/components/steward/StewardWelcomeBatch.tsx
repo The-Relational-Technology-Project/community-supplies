@@ -84,7 +84,7 @@ export function StewardWelcomeBatch() {
   const renderState = (s: SendState | undefined) => {
     if (!s || s.status === "idle") return null;
     if (s.status === "sending") return <span className="text-xs text-muted-foreground inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />sending…</span>;
-    if (s.status === "sent") return <span className="text-xs text-green-700 inline-flex items-center gap-1"><Check className="h-3 w-3" />sent {s.id ? `· ${s.id.slice(0, 8)}…` : ""}</span>;
+    if (s.status === "sent") return <span className="text-xs text-primary inline-flex items-center gap-1"><Check className="h-3 w-3" />sent {s.id ? `· ${s.id.slice(0, 8)}…` : ""}</span>;
     return <span className="text-xs text-destructive inline-flex items-center gap-1"><X className="h-3 w-3" />{s.message}</span>;
   };
 
