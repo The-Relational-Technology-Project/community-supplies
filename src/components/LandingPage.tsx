@@ -10,6 +10,7 @@ import { useCommunity } from "@/contexts/CommunityContext";
 import { JoinRequestForm } from "./community/JoinRequestForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { getOptimizedImageUrl } from "@/lib/imageUrl";
 
 interface LandingPageProps {
   onTabChange: (tab: string) => void;
@@ -242,7 +243,7 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
                     className="aspect-square bg-white border border-border rounded-sm overflow-hidden flex items-center justify-center"
                   >
                     <img
-                      src={url}
+                      src={getOptimizedImageUrl(url, { width: 300, quality: 70 })}
                       alt=""
                       className="w-full h-full object-contain p-3"
                       loading="lazy"
