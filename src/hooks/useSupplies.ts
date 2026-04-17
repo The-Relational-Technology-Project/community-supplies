@@ -49,7 +49,7 @@ export function useSupplies() {
   const { data: supplies = [], isLoading: loading, error, refetch } = useQuery({
     queryKey: [...SUPPLIES_QUERY_KEY, communityId, user?.id],
     queryFn: () => fetchSupplies(communityId),
-    enabled: isReady && !!user,
+    enabled: isReady && !!user && !!communityId,
     retry: 1,
   });
 

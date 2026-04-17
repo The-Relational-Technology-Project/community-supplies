@@ -48,7 +48,7 @@ export function useBooks() {
       if (error) throw error;
       return (data as RawBook[]).map(transformBook);
     },
-    enabled: isReady && !!user,
+    enabled: isReady && !!user && !!communityId,
   });
 
   const addBooks = useMutation({
