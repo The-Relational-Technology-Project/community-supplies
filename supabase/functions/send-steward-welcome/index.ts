@@ -8,8 +8,8 @@ const ALLOWED_ORIGINS = [
 ];
 
 const FLAGSHIP_COMMUNITY_SLUG = "sunset-richmond";
-const FROM_ADDRESS = "Josh Nesbit <josh@relationaltechproject.org>";
-const REPLY_TO = "josh@relationaltechproject.org";
+const FROM_ADDRESS = "Community Supplies <notifications@communitysupplies.org>";
+const REPLY_TO = "humans@relationaltechproject.org";
 
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get("Origin") || "";
