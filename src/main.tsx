@@ -34,7 +34,7 @@ createRoot(document.getElementById("root")!).render(
     persistOptions={{
       persister,
       maxAge: 24 * 60 * 60 * 1000,
-      buster: 'v5',
+      buster: 'v6',
       dehydrateOptions: {
         shouldDehydrateQuery: (query) =>
           query.state.status === 'success' &&
