@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Book, BookInsert } from "@/types/book";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { useAuth } from "@/hooks/useAuth";
 
 interface RawBook {
   id: string;
@@ -38,14 +39,16 @@ const transformBook = (raw: RawBook): Book => ({
 export function useBooks() {
   const queryClient = useQueryClient();
   const { communityId } = useCommunity();
+  const { user, isReady } = useAuth();
 
   const { data: books = [], isLoading: loading, error } = useQuery({
-    queryKey: ["books", communityId],
+    queryKey: ["books", communityId, user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_books_with_owners", { p_community_id: communityId });
       if (error) throw error;
       return (data as RawBook[]).map(transformBook);
     },
+    enabled: isReady && !!user,
   });
 
   const addBooks = useMutation({
