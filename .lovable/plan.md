@@ -1,68 +1,41 @@
 
+The user wants a one-shot, reliable way to send these welcome emails — not the fragile batch path. The simplest robust approach: replace the batch flow with a per-steward "Send" button in the existing Steward Welcome panel. Each click triggers one email, sees one real result, and you control exactly who gets one.
 
-All six suggestions are sound. Let me prioritize by impact vs effort based on what I know about the codebase.
+Why this fixes things:
+- No more `resend.batch.send()` silent-success bug — each call uses `resend.emails.send()` and returns the actual provider response (id or error).
+- One recipient = trivial to verify in Resend immediately after click.
+- You can send to yourself first as a real test, then click through the rest.
 
-**Quick analysis of each:**
+Plan
 
-1. **Index on `community_id` + EXPLAIN the RPC** — Almost certainly the biggest win. `get_supplies_with_owners` filters `s.community_id = p_community_id` and joins profiles. Without an index, this is a seq scan every page load. High impact, trivial change.
+1. Backend: rework `supabase/functions/send-steward-welcome/index.ts`
+   - Keep auth + flagship-steward gate exactly as is.
+   - Replace the body schema with two modes:
+     - `mode: "list"` (or default) — returns the same recipient list it does today (steward name, email, community name/slug, stewardSince). No sending. This populates the panel.
+     - `mode: "send"` with `userId: uuid` — looks up that one steward, builds the email, calls `resend.emails.send()` once, and returns `{ success, id, error, recipient }` based on the actual Resend response.
+   - Drop `resend.batch.send` entirely.
+   - Add structured `console.log` for: caller, mode, target email, from address, Resend response id or error.
+   - Return non-2xx when Resend returns an error so the UI can't show a false success.
 
-2. **Preconnect to Supabase** — Free 100–300ms on first request. One line in `index.html`. No risk.
+2. Frontend: update `src/components/steward/StewardWelcomeBatch.tsx`
+   - On open, call the function in `list` mode and render a table of stewards: name, community, email, "stewardSince", and a per-row **Send** button.
+   - Each Send button calls the function in `send` mode for that one `userId`, shows a spinner, then shows ✅ with the Resend message id or ❌ with the error message returned by the function.
+   - Disable the row's button after a successful send (and show the id) so you don't double-send by accident.
+   - Add a "Send test to me" button at the top that sends one email to your own address using the same `send` path with a synthetic recipient — useful as a first sanity check.
 
-3. **Combine profile+community fetch in `CommunityContext`** — Currently two serial round trips (profile → community). One JOIN saves one full RTT (~100–200ms). Easy win.
+3. Verification
+   - After deploy: open the panel → click "Send test to me" → confirm in Resend.
+   - Then click Send on each real steward row, one by one, watching Resend after each.
+   - Edge function logs will show one structured log line per click with the actual Resend id or error.
 
-4. **Parallel fetchSupplies** — Already mostly parallel via TanStack Query `enabled`. Marginal. Skip unless we find a real serialization.
+Files changed
+- `supabase/functions/send-steward-welcome/index.ts` — list/send modes, single-recipient sends, real error propagation, structured logs.
+- `src/components/steward/StewardWelcomeBatch.tsx` — per-row Send buttons, test-to-me button, real result display.
 
-5. **Supabase image transforms** — Big perceived-speed win on browse. The illustration grid loads many images; transforming to ~400px wide @ q70 can cut payload by 5–10x. Need to verify the `illustration_url` is a Supabase Storage URL (not external) before applying.
+Out of scope (intentionally)
+- Not touching `send-bulk-update` — you said this is a one-time use, so I'll leave the other admin email path alone unless you ask.
+- No queueing, no cron, no batching — explicit one-click-per-recipient is the whole point.
 
-6. **Route-level `React.lazy()`** — Real bundle-size win for first paint. Steward dashboard especially is heavy (multiple manager components, batch tools). Easy refactor in `App.tsx`.
-
-**Plan — ship all six, ordered by impact**
-
-### 1. Database indexes (biggest win)
-- Add migration:
-  - `CREATE INDEX IF NOT EXISTS idx_supplies_community_id ON public.supplies(community_id);`
-  - `CREATE INDEX IF NOT EXISTS idx_supplies_community_created ON public.supplies(community_id, created_at DESC);` (matches RPC's ORDER BY)
-  - `CREATE INDEX IF NOT EXISTS idx_books_community_id ON public.books(community_id);`
-  - `CREATE INDEX IF NOT EXISTS idx_profiles_community_id ON public.profiles(community_id);`
-  - `CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON public.user_roles(user_id);` (used by `has_role`)
-- Run EXPLAIN ANALYZE on `get_supplies_with_owners` before/after for confirmation.
-
-### 2. Preconnect in `index.html`
-- Add `<link rel="preconnect" href="https://mbmmfgivhqzhjyneyelu.supabase.co" crossorigin>` next to the existing Google Fonts preconnects.
-
-### 3. Combine profile + community fetch
-- In `CommunityContext.tsx`, replace the two serial queries with one:
-  ```
-  supabase.from('profiles').select('community_id, communities!inner(id, name, slug)').eq('id', user.id).maybeSingle()
-  ```
-- Saves one RTT on every authenticated root load.
-
-### 4. Image transforms on illustrations
-- Verify `illustration_url` is a Supabase Storage URL.
-- Add a small helper `getOptimizedImageUrl(url, { width, quality })` that appends `?width=…&quality=…` for Storage URLs, passes through for others.
-- Apply in `SupplyCard.tsx` (browse grid: ~400px) and the landing page illustration gallery (~300px). Keep full-res on detail/zoom views.
-
-### 5. Route-level code splitting
-- In `App.tsx`, convert `MySupplies`, `MyBooks`, `Profile`, `Steward`, `StartCommunity`, `PrivacyTerms`, and `CommunityStewardDashboard` to `React.lazy()` with a `<Suspense>` fallback (reuse the existing spinner).
-- Keep `Index` eager (it's the landing route).
-
-### 6. Skip #4 from the user's list
-- `useSupplies` already gates on `isReady && user && communityId`. TanStack runs it as soon as those resolve. No change needed.
-
-**Files modified**
-- New migration: indexes
-- `index.html` — preconnect
-- `src/contexts/CommunityContext.tsx` — single joined query
-- `src/lib/imageUrl.ts` (new) — transform helper
-- `src/components/SupplyCard.tsx`, `src/components/LandingPage.tsx` — use helper
-- `src/App.tsx` — lazy routes + Suspense
-
-**Expected impact**
-- DB indexes: 200ms–2s off supplies/books queries on larger communities
-- Preconnect: 100–300ms off first Supabase request
-- Joined profile+community: ~100–200ms off authenticated boot
-- Image transforms: 50–80% smaller image payload on browse
-- Code splitting: smaller initial JS bundle, faster first paint on `/`
-
-After shipping I'll verify with `EXPLAIN ANALYZE` and ask you to hard-refresh and report perceived speed.
-
+Expected outcome
+- Every click produces a real, observable send (or a real, observable error) in both the UI and Resend.
+- You can confidently send to all current stewards once, then walk away from this feature.
