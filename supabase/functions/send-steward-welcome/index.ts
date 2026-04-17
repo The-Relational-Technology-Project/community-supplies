@@ -158,9 +158,9 @@ serve(async (req) => {
     const resend = new Resend(resendApiKey);
 
     const emails = recipients.map(r => ({
-      from: "Josh Nesbit <hello@relationaltechproject.org>",
+      from: "Josh Nesbit <josh@relationaltechproject.org>",
       to: [r.email],
-      reply_to: "hello@relationaltechproject.org",
+      reply_to: "josh@relationaltechproject.org",
       subject: "Next steps for your community",
       html: buildHtml(r.name, r.communityName, r.communitySlug),
     }));
