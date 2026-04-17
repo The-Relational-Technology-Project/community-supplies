@@ -11,78 +11,50 @@ import { StewardOnboarding } from "@/components/community/StewardOnboarding";
 
 import { StewardDashboard } from "@/components/steward/StewardDashboard";
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { SUPPLIES_QUERY_KEY, fetchSupplies } from "@/hooks/useSupplies";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { communityId, communityName, communitySlug, loading: communityLoading, notFound } = useCommunity();
+  const { user, isReady } = useAuth();
   const [activeTab, setActiveTab] = useState('browse');
   const [searchQuery, setSearchQuery] = useState("");
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
+  // Read URL params once on mount
   useEffect(() => {
-    // Check for tab parameter in URL
     const tabParam = searchParams.get('tab');
     if (tabParam && ['browse', 'add', 'bulk-add', 'steward'].includes(tabParam)) {
       setActiveTab(tabParam);
-      setSearchParams({});
     }
-    
     const onboardingParam = searchParams.get('onboarding');
     if (onboardingParam === 'true') {
       setShowOnboarding(true);
-      searchParams.delete('onboarding');
-      setSearchParams(searchParams);
     }
+    if (tabParam || onboardingParam) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('tab');
+      next.delete('onboarding');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    let mounted = true;
+  // Prefetch supplies once user + community are ready
+  useEffect(() => {
+    if (isReady && user && communityId) {
+      queryClient.prefetchQuery({
+        queryKey: [...SUPPLIES_QUERY_KEY, communityId],
+        queryFn: () => fetchSupplies(communityId),
+      });
+    }
+  }, [isReady, user, communityId, queryClient]);
 
-    const checkUser = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (!mounted) return;
-        
-        if (error) {
-          console.error('Auth error:', error);
-          setUser(null);
-        } else {
-          setUser(session?.user ?? null);
-          if (session?.user) {
-            queryClient.prefetchQuery({ queryKey: [...SUPPLIES_QUERY_KEY, communityId], queryFn: () => fetchSupplies(communityId) });
-          }
-        }
-      } catch (error) {
-        console.error('Failed to check user:', error);
-        if (mounted) setUser(null);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    // Set up auth listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event);
-      if (mounted) {
-        setUser(session?.user || null);
-        setLoading(false);
-      }
-    });
-
-    // Then check current user
-    checkUser();
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [searchParams, setSearchParams]);
+  const loading = !isReady;
 
   // Show loading state while checking authentication
   if (loading) {

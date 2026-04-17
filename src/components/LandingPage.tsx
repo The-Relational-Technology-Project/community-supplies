@@ -9,13 +9,14 @@ import { Users, Share2, HandHeart, ArrowRight } from "lucide-react";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { JoinRequestForm } from "./community/JoinRequestForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useAuth } from "@/hooks/useAuth";
 
 interface LandingPageProps {
   onTabChange: (tab: string) => void;
 }
 
 export function LandingPage({ onTabChange }: LandingPageProps) {
-  const [user, setUser] = useState<any>(null);
+  const { user } = useAuth();
   const [modalMode, setModalMode] = useState<'login' | 'signup' | null>(null);
   const [illustrations, setIllustrations] = useState<string[]>([]);
   const [loadingIllustrations, setLoadingIllustrations] = useState(true);
@@ -23,18 +24,6 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
   const [showJoinForm, setShowJoinForm] = useState(false);
   const { communityId, communityName, communitySlug } = useCommunity();
   const isCommunitySpecific = communitySlug !== 'sunset-richmond';
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    checkUser();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
 
   // Fetch join_mode for community-specific landing pages
   useEffect(() => {

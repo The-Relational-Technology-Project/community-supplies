@@ -6,6 +6,7 @@ import { AuthButtons } from "./AuthButtons";
 import { JoinRequestForm } from "../community/JoinRequestForm";
 import { Shield, Users } from "lucide-react";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -13,72 +14,42 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, requireSteward = false }: AuthGuardProps) {
-  const [user, setUser] = useState<any>(null);
+  const { user, isReady } = useAuth();
   const [isSteward, setIsSteward] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [roleChecked, setRoleChecked] = useState(false);
   const [showJoinForm, setShowJoinForm] = useState(false);
   const { communityName } = useCommunity();
 
   useEffect(() => {
     let mounted = true;
-
-    const checkAuth = async () => {
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
+    if (!isReady) return;
+    if (!user) {
+      setIsSteward(false);
+      setRoleChecked(true);
+      return;
+    }
+    if (!requireSteward) {
+      setRoleChecked(true);
+      return;
+    }
+    setRoleChecked(false);
+    supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'steward')
+      .maybeSingle()
+      .then(({ data }) => {
         if (!mounted) return;
-        
-        if (sessionError) {
-          console.error('AuthGuard session error:', sessionError);
-          setLoading(false);
-          return;
-        }
-        
-        const user = session?.user ?? null;
-        setUser(user);
-        
-        if (user) {
-          // Check steward role from user_roles table (authoritative source)
-          const { data: roleData } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', user.id)
-            .eq('role', 'steward')
-            .maybeSingle();
-          
-          if (!mounted) return;
-          setIsSteward(!!roleData);
-        }
-        
-        if (mounted) setLoading(false);
-      } catch (error) {
-        console.error('AuthGuard error:', error);
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
-      
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setIsSteward(false);
-        setLoading(false);
-      } else if (event === 'SIGNED_IN' && session) {
-        setLoading(true);
-        checkAuth();
-      }
-    });
-
-    checkAuth();
-
+        setIsSteward(!!data);
+        setRoleChecked(true);
+      });
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
-  }, []);
+  }, [isReady, user, requireSteward]);
+
+  const loading = !isReady || (!!user && requireSteward && !roleChecked);
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
