@@ -293,7 +293,7 @@ export function AddSupply() {
                   Upload a Photo
                 </h2>
                 <p className="text-muted-foreground">
-                  Take a photo of your item and our AI will help draft the listing
+                  AI will draft a starting point from your photo — please review and correct anything before publishing.
                 </p>
               </div>
 
@@ -353,7 +353,7 @@ export function AddSupply() {
                   className="w-full h-64 object-cover rounded-sm"
                 />
                 <p className="text-sm text-muted-foreground mt-4">
-                  Review and edit the details below before publishing
+                  AI draft — please review and edit anything below before publishing. The AI sometimes guesses wrong.
                 </p>
               </div>
             )}
