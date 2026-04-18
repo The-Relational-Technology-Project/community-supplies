@@ -1,41 +1,36 @@
 
-The user wants a one-shot, reliable way to send these welcome emails — not the fragile batch path. The simplest robust approach: replace the batch flow with a per-steward "Send" button in the existing Steward Welcome panel. Each click triggers one email, sees one real result, and you control exactly who gets one.
+Scope based on user feedback:
 
-Why this fixes things:
-- No more `resend.batch.send()` silent-success bug — each call uses `resend.emails.send()` and returns the actual provider response (id or error).
-- One recipient = trivial to verify in Resend immediately after click.
-- You can send to yourself first as a real test, then click through the rest.
+**1. Easy item editing (item #2)**
+- Verify owners can edit their items. Likely path: from `MySupplies` page or supply detail. Need to check current edit affordances and add helper text on the AI draft form like "AI draft — edit anything below before publishing."
+- Add an obvious "Edit" button on owner's own items in browse/detail and on `MySupplies`.
 
-Plan
+**2. Persistent nav with community name as home link (item #3)**
+- The Steward page (`/steward`) uses its own header (or none), so users get stranded. Fix: make `CatalogHeader` render on the Steward page too, OR ensure Steward page includes the same header with the community name linking back to `/c/:slug`.
+- Confirm community name in `CatalogHeader` is already a home link — it is (`onNavigate?.("home")`), but on `Steward.tsx` the header may differ. Need to check `src/pages/Steward.tsx`.
 
-1. Backend: rework `supabase/functions/send-steward-welcome/index.ts`
-   - Keep auth + flagship-steward gate exactly as is.
-   - Replace the body schema with two modes:
-     - `mode: "list"` (or default) — returns the same recipient list it does today (steward name, email, community name/slug, stewardSince). No sending. This populates the panel.
-     - `mode: "send"` with `userId: uuid` — looks up that one steward, builds the email, calls `resend.emails.send()` once, and returns `{ success, id, error, recipient }` based on the actual Resend response.
-   - Drop `resend.batch.send` entirely.
-   - Add structured `console.log` for: caller, mode, target email, from address, Resend response id or error.
-   - Return non-2xx when Resend returns an error so the UI can't show a false success.
+**3. First-item location handling (item #6)**
+- In `AddSupply.tsx` + `draft-item-from-image` edge function: stop AI from inventing neighborhood/cross-streets. Leave both blank for first-time users; they fill in ZIP + cross streets / location markers as free text themselves.
+- Tighten edge function prompt: "Do NOT guess location, neighborhood, or cross streets. Always return empty strings for those fields."
+- Remove any pre-fill of `neighborhood`/`crossStreets` from `recentItem` when it's the user's first item, and never inject SF defaults.
 
-2. Frontend: update `src/components/steward/StewardWelcomeBatch.tsx`
-   - On open, call the function in `list` mode and render a table of stewards: name, community, email, "stewardSince", and a per-row **Send** button.
-   - Each Send button calls the function in `send` mode for that one `userId`, shows a spinner, then shows ✅ with the Resend message id or ❌ with the error message returned by the function.
-   - Disable the row's button after a successful send (and show the id) so you don't double-send by accident.
-   - Add a "Send test to me" button at the top that sends one email to your own address using the same `send` path with a synthetic recipient — useful as a first sanity check.
+**4. House Rules delete/edit bug (item #7)**
+- Refactor `HouseRules.tsx` to use stable IDs (assign `crypto.randomUUID()` to each rule internally) so removing multiple rules in succession works reliably.
+- Make each rule **editable inline** (click to edit, save on blur/Enter) in addition to deletable.
+- Dedupe AI-suggested rules on load.
 
-3. Verification
-   - After deploy: open the panel → click "Send test to me" → confirm in Resend.
-   - Then click Send on each real steward row, one by one, watching Resend after each.
-   - Edge function logs will show one structured log line per click with the actual Resend id or error.
+**Files to change:**
+- `src/pages/Steward.tsx` — ensure `CatalogHeader` renders so community-name home link is always available.
+- `src/components/AddSupply.tsx` — soften AI copy ("AI draft — please review and edit"); skip neighborhood/cross-streets pre-fill from AI; ensure user's manually entered ZIP/cross-streets persist.
+- `supabase/functions/draft-item-from-image/index.ts` — instruct AI to return empty location fields; stop returning location pre-fills.
+- `src/components/HouseRules.tsx` — internal stable IDs, dedupe, inline edit + reliable delete.
+- `src/components/SupplyCard.tsx` or `MySupplies.tsx` — add a clear Edit affordance for the owner (small change; confirm existing path first).
 
-Files changed
-- `supabase/functions/send-steward-welcome/index.ts` — list/send modes, single-recipient sends, real error propagation, structured logs.
-- `src/components/steward/StewardWelcomeBatch.tsx` — per-row Send buttons, test-to-me button, real result display.
+**Out of scope (per user):**
+- AI accuracy improvements, profile photos, multi-item add flow changes, illustration fallback to user photo.
 
-Out of scope (intentionally)
-- Not touching `send-bulk-update` — you said this is a one-time use, so I'll leave the other admin email path alone unless you ask.
-- No queueing, no cron, no batching — explicit one-click-per-recipient is the whole point.
-
-Expected outcome
-- Every click produces a real, observable send (or a real, observable error) in both the UI and Resend.
-- You can confidently send to all current stewards once, then walk away from this feature.
+**Verification after build:**
+- Add first item with no priors → neighborhood/cross-streets stay blank; user types them in → saves correctly.
+- Load default house rules → delete two in a row → both stay gone. Click a rule → edit text → saves.
+- From Steward dashboard → click community name in header → returns to community home.
+- Open own item → Edit button visible → edits save.
