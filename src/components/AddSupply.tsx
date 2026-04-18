@@ -120,17 +120,18 @@ export function AddSupply() {
           return;
         }
 
-        // Pre-fill form with AI-generated data
-        const savedNeighborhood = localStorage.getItem('lastNeighborhood');
-        const savedCrossStreets = localStorage.getItem('lastCrossStreets');
-        
+        // Pre-fill form with AI-generated data.
+        // Location fields come from saved-locally only — never from AI guesses.
+        const savedNeighborhood = localStorage.getItem('lastNeighborhood') || "";
+        const savedCrossStreets = localStorage.getItem('lastCrossStreets') || "";
+
         setFormData({
           name: data.name || "",
           description: data.description || "",
           category: data.category || "",
           condition: data.condition || "good",
-          neighborhood: data.neighborhood || savedNeighborhood || "",
-          crossStreets: data.crossStreets || savedCrossStreets || "",
+          neighborhood: savedNeighborhood,
+          crossStreets: savedCrossStreets,
           contactEmail: data.contactEmail || userProfile?.email || currentUser.email || "",
           images: [compressedImage],
         });
@@ -138,7 +139,7 @@ export function AddSupply() {
         setHouseRules(data.houseRules || []);
         setShowForm(true);
         setIsDraftingWithAI(false);
-        toast.success("✨ Item details drafted by AI! Review and edit as needed.");
+        toast.success("✨ AI draft ready — please review and edit any details before publishing.");
       } catch (error: any) {
         console.error('Error processing image:', error);
         toast.error('Failed to process image. Please try again.');
@@ -292,7 +293,7 @@ export function AddSupply() {
                   Upload a Photo
                 </h2>
                 <p className="text-muted-foreground">
-                  Take a photo of your item and our AI will help draft the listing
+                  AI will draft a starting point from your photo — please review and correct anything before publishing.
                 </p>
               </div>
 
@@ -352,7 +353,7 @@ export function AddSupply() {
                   className="w-full h-64 object-cover rounded-sm"
                 />
                 <p className="text-sm text-muted-foreground mt-4">
-                  Review and edit the details below before publishing
+                  AI draft — please review and edit anything below before publishing. The AI sometimes guesses wrong.
                 </p>
               </div>
             )}
