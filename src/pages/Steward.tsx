@@ -4,16 +4,24 @@ import { ArrowLeft } from "lucide-react";
 import { Header } from "@/components/Header";
 import { StewardDashboard } from "@/components/steward/StewardDashboard";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 export default function Steward() {
   const navigate = useNavigate();
+  const { communitySlug } = useCommunity();
+
+  const communityHome = communitySlug ? `/c/${communitySlug}` : '/';
 
   const handleGoBack = () => {
-    navigate('/');
+    navigate(communityHome);
   };
 
   const handleTabChange = (tab: string) => {
-    navigate(`/?tab=${tab}`);
+    if (tab === 'home') {
+      navigate(communityHome);
+      return;
+    }
+    navigate(`${communityHome}?tab=${tab}`);
   };
 
   return (

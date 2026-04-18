@@ -94,11 +94,10 @@ serve(async (req) => {
 
     let contextPrompt = '';
     if (recentItem) {
-      contextPrompt = `\n\nThe user's most recent item listing:\n` +
-        `Location: ${recentItem.location || 'Not specified'}\n` +
+      contextPrompt = `\n\nThe user's most recent item listing used this contact info and rules style:\n` +
         `Contact: ${recentItem.contact_email || 'Not specified'}\n` +
         `House Rules: ${recentItem.house_rules?.join(', ') || 'None specified'}\n` +
-        `Their previous items tend to be in this style of description.`;
+        `Match their tone for the description, but DO NOT carry over location data.`;
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -114,14 +113,16 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an assistant that helps create item listings for a party supply sharing community. 
+            content: `You are an assistant that helps create item listings for a party supply sharing community.
 Analyze the uploaded image and create a draft listing with:
 - name: Short, descriptive name (max 60 chars)
 - description: Helpful description (2-3 sentences, max 200 chars)
 - category: One of: tools, home-diy, art-craft, camping-outdoors, sports, beach-surf, party-events, kitchen, kids, misc
 - condition: One of: excellent, good, fair
 
-Return ONLY valid JSON with these exact keys, no markdown formatting.`
+CRITICAL: Do NOT guess or invent location, neighborhood, or cross streets. The user will fill those in themselves. Only return the four fields above.
+
+Return ONLY valid JSON with these exact keys (name, description, category, condition), no markdown formatting.`
           },
           {
             role: 'user',
@@ -156,10 +157,16 @@ Return ONLY valid JSON with these exact keys, no markdown formatting.`
       throw new Error('Failed to parse AI response');
     }
 
+    // Strip any location fields the model may have produced anyway —
+    // the user enters those manually for accuracy.
+    delete (draftedItem as any).neighborhood;
+    delete (draftedItem as any).crossStreets;
+    delete (draftedItem as any).location;
+
     const result = {
       ...draftedItem,
-      neighborhood: recentItem?.neighborhood || '',
-      crossStreets: recentItem?.cross_streets || '',
+      neighborhood: '',
+      crossStreets: '',
       contactEmail: recentItem?.contact_email || '',
       houseRules: recentItem?.house_rules || [],
     };
