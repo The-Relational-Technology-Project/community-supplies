@@ -142,10 +142,10 @@ export default function PrivacyTerms() {
         <section id="community-care" className="mb-10">
           <h2 className="text-lg font-sans font-semibold text-foreground mb-4">Community Care</h2>
           <p className="text-sm leading-relaxed mb-3">
-            We know things don't always go perfectly. If a misunderstanding, conflict, or problem arises between neighbors using this tool, we're happy to help talk it through. That's the nature of community: we figure things out together.
+            We know things don't always go perfectly. Each sharing community on Community Supplies is cared for by a local steward — a neighbor who helps welcome new members and keep things running smoothly. If a misunderstanding, conflict, or problem comes up between neighbors, your community steward is the best first point of contact.
           </p>
           <p className="text-sm leading-relaxed mb-4">
-            If an item gets damaged, lost, or a sharing arrangement goes sideways, reach out. We can't resolve it for you, but we can help facilitate a conversation between neighbors so you can find a path forward.
+            If an item gets damaged, lost, or a sharing arrangement goes sideways, talk to your neighbor first — most things resolve with a direct conversation. If you need help facilitating that conversation, reach out to your community steward. They can't resolve it for you, but they can help you find a path forward together.
           </p>
           <ul className="space-y-2.5">
             {[
@@ -153,7 +153,8 @@ export default function PrivacyTerms() {
               "Communicate clearly about pickup, return, and expectations.",
               "Treat borrowed items at least as well as you'd treat your own.",
               "If something goes wrong, talk to your neighbor first. Most things resolve with a conversation.",
-              "If you need help, reach out to us.",
+              "For questions or help with your sharing community, contact your community steward.",
+              "For questions about the site itself (bugs, account issues, privacy), email hello@relationaltechproject.org.",
             ].map((item, i) => (
               <li key={i} className="flex gap-3 text-sm leading-relaxed">
                 <span className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
@@ -168,12 +169,20 @@ export default function PrivacyTerms() {
         {/* Contact */}
         <section id="contact" className="mb-10">
           <h2 className="text-lg font-sans font-semibold text-foreground mb-4">Questions?</h2>
-          <div className="bg-card rounded-lg p-5 border border-border">
-            <p className="text-sm leading-relaxed mb-2">
-              Community Supplies is stewarded by volunteer neighbors.
-            </p>
-            <p className="text-sm leading-relaxed mb-2">For questions about these policies, your account, or the platform:</p>
-            <p className="text-sm font-semibold">hello@relationaltechproject.org</p>
+          <div className="bg-card rounded-lg p-5 border border-border space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">About your sharing community</p>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                For questions about membership, items, conflicts, or anything happening in your local community, contact your community steward.
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">About the site</p>
+              <p className="text-sm leading-relaxed text-muted-foreground mb-1">
+                For questions about these policies, your account, bugs, or the platform itself:
+              </p>
+              <p className="text-sm font-semibold">hello@relationaltechproject.org</p>
+            </div>
           </div>
         </section>
 
