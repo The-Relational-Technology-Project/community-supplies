@@ -1,36 +1,32 @@
 
-Scope based on user feedback:
+Good catch. The current "Community Care" section says "reach out to us" for conflicts, but in a multi-tenant model the steward of each community is the right first point of contact for sharing-related issues. The Relational Tech team should only be the contact for site/platform questions.
 
-**1. Easy item editing (item #2)**
-- Verify owners can edit their items. Likely path: from `MySupplies` page or supply detail. Need to check current edit affordances and add helper text on the AI draft form like "AI draft — edit anything below before publishing."
-- Add an obvious "Edit" button on owner's own items in browse/detail and on `MySupplies`.
+## Change
 
-**2. Persistent nav with community name as home link (item #3)**
-- The Steward page (`/steward`) uses its own header (or none), so users get stranded. Fix: make `CatalogHeader` render on the Steward page too, OR ensure Steward page includes the same header with the community name linking back to `/c/:slug`.
-- Confirm community name in `CatalogHeader` is already a home link — it is (`onNavigate?.("home")`), but on `Steward.tsx` the header may differ. Need to check `src/pages/Steward.tsx`.
+Edit `src/pages/PrivacyTerms.tsx` — rewrite the Community Care section to route people correctly:
 
-**3. First-item location handling (item #6)**
-- In `AddSupply.tsx` + `draft-item-from-image` edge function: stop AI from inventing neighborhood/cross-streets. Leave both blank for first-time users; they fill in ZIP + cross streets / location markers as free text themselves.
-- Tighten edge function prompt: "Do NOT guess location, neighborhood, or cross streets. Always return empty strings for those fields."
-- Remove any pre-fill of `neighborhood`/`crossStreets` from `recentItem` when it's the user's first item, and never inject SF defaults.
+**New copy structure:**
 
-**4. House Rules delete/edit bug (item #7)**
-- Refactor `HouseRules.tsx` to use stable IDs (assign `crypto.randomUUID()` to each rule internally) so removing multiple rules in succession works reliably.
-- Make each rule **editable inline** (click to edit, save on blur/Enter) in addition to deletable.
-- Dedupe AI-suggested rules on load.
+1. Opening paragraph stays warm but clarifies the two-tier support model:
+   > "We know things don't always go perfectly. Each sharing community on Community Supplies is cared for by a local steward — a neighbor who helps welcome new members and keep things running smoothly. If a misunderstanding, conflict, or problem comes up between neighbors, your community steward is the best first point of contact."
 
-**Files to change:**
-- `src/pages/Steward.tsx` — ensure `CatalogHeader` renders so community-name home link is always available.
-- `src/components/AddSupply.tsx` — soften AI copy ("AI draft — please review and edit"); skip neighborhood/cross-streets pre-fill from AI; ensure user's manually entered ZIP/cross-streets persist.
-- `supabase/functions/draft-item-from-image/index.ts` — instruct AI to return empty location fields; stop returning location pre-fills.
-- `src/components/HouseRules.tsx` — internal stable IDs, dedupe, inline edit + reliable delete.
-- `src/components/SupplyCard.tsx` or `MySupplies.tsx` — add a clear Edit affordance for the owner (small change; confirm existing path first).
+2. Second paragraph on damaged/lost items:
+   > "If an item gets damaged, lost, or a sharing arrangement goes sideways, talk to your neighbor first — most things resolve with a direct conversation. If you need help facilitating that conversation, reach out to your community steward. They can't resolve it for you, but they can help you find a path forward together."
 
-**Out of scope (per user):**
-- AI accuracy improvements, profile photos, multi-item add flow changes, illustration fallback to user photo.
+3. Keep the bulleted norms (honest about condition, clear communication, treat items well, talk to neighbor first).
 
-**Verification after build:**
-- Add first item with no priors → neighborhood/cross-streets stay blank; user types them in → saves correctly.
-- Load default house rules → delete two in a row → both stay gone. Click a rule → edit text → saves.
-- From Steward dashboard → click community name in header → returns to community home.
-- Open own item → Edit button visible → edits save.
+4. Replace the final "If you need help, reach out to us" bullet with a clearer split:
+   - "For questions or help with your sharing community, contact your community steward."
+   - "For questions about the site itself (bugs, account issues, privacy), email hello@relationaltechproject.org."
+
+## Also update the "Questions?" section
+
+Currently it implies "us" handles everything. Tighten it to clarify the same split:
+- Steward = community-level questions
+- hello@relationaltechproject.org = platform/site-level questions
+
+## Out of scope
+- Adding a UI surface that shows each community's steward contact info (worth considering separately — right now stewards' emails aren't necessarily exposed in-app, so the policy will say "contact your community steward" generically). If you want, we can follow up with a small "Your community steward" card on the community home page that shows the steward's name and a contact button.
+
+## Files to change
+- `src/pages/PrivacyTerms.tsx` — rewrite Community Care section and tweak Questions section.
