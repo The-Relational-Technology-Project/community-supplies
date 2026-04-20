@@ -22,6 +22,7 @@ export const categories: Category[] = [
   { id: "party-events", name: "Party & Events", icon: PartyPopper },
   { id: "kitchen", name: "Kitchen & Cooking", icon: UtensilsCrossed },
   { id: "kids", name: "Kids Gear", icon: Baby },
+  { id: "tech", name: "Tech", icon: Laptop },
   { id: "misc", name: "Miscellaneous", icon: Box },
 ];
 
