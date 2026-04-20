@@ -1,6 +1,6 @@
 import { 
   Wrench, Home, Palette, Tent, Trophy, Waves, 
-  PartyPopper, UtensilsCrossed, Baby, Box, BookOpen 
+  PartyPopper, UtensilsCrossed, Baby, Box, BookOpen, Laptop 
 } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 
