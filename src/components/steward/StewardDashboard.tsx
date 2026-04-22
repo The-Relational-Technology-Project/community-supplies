@@ -9,6 +9,7 @@ import { CommunityRequestsManager } from "./CommunityRequestsManager";
 import { NeighborCommunitiesManager } from "./NeighborCommunitiesManager";
 import { JoinModeToggle } from "./JoinModeToggle";
 import { StewardWelcomeBatch } from "./StewardWelcomeBatch";
+import { InviteNeighborsButton } from "./InviteNeighborsButton";
 
 export function StewardDashboard() {
   return (
@@ -19,7 +20,8 @@ export function StewardDashboard() {
           <h1 className="text-3xl font-bold">Steward Dashboard</h1>
           <p className="text-muted-foreground">Community overview and activity</p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <InviteNeighborsButton />
           <RefreshIllustrations />
         </div>
       </div>
