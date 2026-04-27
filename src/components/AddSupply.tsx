@@ -219,23 +219,22 @@ export function AddSupply() {
         }
       });
 
-      // Send notification email (only for the default Sunset & Richmond community)
-      if (communityId === 'a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4') {
-        supabase.functions.invoke('send-supply-notification', {
-          body: {
-            itemName: formData.name,
-            category: formData.category,
-            ownerName: userProfile?.name || user?.email || 'Unknown',
-            ownerEmail: formData.contactEmail,
-            description: formData.description,
-            neighborhood: formData.neighborhood
-          }
-        }).then(({ error: emailError }) => {
-          if (emailError) {
-            console.error('Failed to send notification email:', emailError);
-          }
-        });
-      }
+      // Notify the community's stewards
+      supabase.functions.invoke('send-supply-notification', {
+        body: {
+          communityId,
+          itemName: formData.name,
+          category: formData.category,
+          ownerName: userProfile?.name || user?.email || 'Unknown',
+          ownerEmail: formData.contactEmail,
+          description: formData.description,
+          neighborhood: formData.neighborhood
+        }
+      }).then(({ error: emailError }) => {
+        if (emailError) {
+          console.error('Failed to send notification email:', emailError);
+        }
+      });
 
       toast.success("Item added successfully! Generating illustration...");
       

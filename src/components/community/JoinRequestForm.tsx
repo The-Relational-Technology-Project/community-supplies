@@ -102,9 +102,10 @@ export function JoinRequestForm() {
           variant: "destructive" 
         });
       } else {
-        // Send notification email
+        // Notify the community's stewards
         supabase.functions.invoke('send-join-notification', {
           body: {
+            communityId,
             name,
             email,
             referralSource,
