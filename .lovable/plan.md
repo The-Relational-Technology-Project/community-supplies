@@ -1,47 +1,42 @@
-## Goal
+## Problem
 
-Stop routing every "new supply / new join request" email to `josh@relationaltechproject.org`. Instead, send each notification to the steward(s) of the community where the event happened. No BCC to Josh.
+Deb Greene's profile, user_role, and her two supplies ("Tamper", "Ladders") are all assigned to the Sunset/Richmond flagship community (`a0a0a0a0-...-e4e4e4e4e4e4`) instead of Old East Durham (`32ced731-eb7a-41f3-be63-be68db74b255`). That's why her items appear in your local library.
 
-## Affected edge functions
+She didn't join your community on purpose — the system silently put her there. The hardcoded Sunset UUID is the default value on the `profiles`, `user_roles`, `supplies`, and `books` tables, and is also the fallback inside `handle_new_user` / `handle_new_user_role` when `raw_user_meta_data.community_id` is missing. If she signed up through a flow that didn't pass that metadata (e.g. an old invite link, the bare `/auth` page, or a join form that didn't forward the slug), she'd land in Sunset by default.
 
-1. `send-supply-notification` — fired when a single supply is added (`AddSupply.tsx`)
-2. `send-bulk-supply-notification` — fired when items are bulk-added (`BulkAddSupplies.tsx`)
-3. `send-join-notification` — fired when someone requests to join (`JoinRequestForm.tsx`)
-4. `send-community-request-notification` — leave as-is. This fires before any community/steward exists, so Josh is the correct recipient.
+## Fix — Part 1: Move Deb's data to Old East Durham
 
-## Changes
+One migration that updates her three records:
 
-### 1. Pass `communityId` from the client
+```sql
+-- Move Deb Greene (debg@cozad.com / bd6a4897-9d82-476f-97d9-74552ae7a616) to Old East Durham
+UPDATE public.profiles
+   SET community_id = '32ced731-eb7a-41f3-be63-be68db74b255'
+ WHERE id = 'bd6a4897-9d82-476f-97d9-74552ae7a616';
 
-- `AddSupply.tsx`: include `communityId` (from `CommunityContext`) in the `send-supply-notification` invoke body.
-- `BulkAddSupplies.tsx`: same for `send-bulk-supply-notification`.
-- `JoinRequestForm.tsx`: include the `community_id` of the community being joined in the `send-join-notification` body.
+UPDATE public.user_roles
+   SET community_id = '32ced731-eb7a-41f3-be63-be68db74b255'
+ WHERE user_id = 'bd6a4897-9d82-476f-97d9-74552ae7a616';
 
-### 2. Update the three edge functions
+UPDATE public.supplies
+   SET community_id = '32ced731-eb7a-41f3-be63-be68db74b255'
+ WHERE owner_id = 'bd6a4897-9d82-476f-97d9-74552ae7a616';
+```
 
-For each function:
-- Add `communityId: z.string().uuid()` to the Zod schema.
-- Create a Supabase admin client inside the function using `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (already configured).
-- Look up steward emails for that community by joining `user_roles` (where `role = 'steward'` and `community_id = :communityId`) to `profiles` for the email.
-- Look up the community name for the subject/body.
-- Set `to:` to the list of steward emails. If none found (defensive fallback only), log a warning and skip sending rather than emailing Josh.
-- Update subject lines to include the community name, e.g. `New Supply Added in Old East Durham: Ladders`.
+After this runs, Tamper and Ladders will disappear from Sunset/Richmond and show up in Old East Durham, and Deb will see the correct community when she logs in.
 
-No BCC. Josh is removed entirely from these three flows.
+## Fix — Part 2: Audit the signup flow (recommended, separate step)
 
-### 3. Leave alone
+Before approving the data fix, I'd also like to investigate **how** she ended up in Sunset, so this doesn't keep happening to other Old East Durham (and other community) signups. Specifically I'd:
 
-- `send-community-request-notification` — pre-community, Josh is correct.
-- `send-contact-message`, `send-bulk-update`, `send-steward-welcome`, `send-welcome-email` — these are already user-to-user or platform-to-user, not platform admin notifications.
+1. Read `JoinRequestForm.tsx`, the auth modal, and any invite-link handler to confirm `community_id` is always written into `supabase.auth.signUp({ options: { data: { community_id } } })`.
+2. Check whether there's a path (e.g. signing up from the generic landing page, or an OAuth flow) that bypasses the slug.
+3. Look for other users besides Deb whose `profiles.community_id` is Sunset but who clearly belong elsewhere (e.g. recent signups whose `intro_text` or email domain points elsewhere).
 
-## Out of scope
-
-- No DB schema changes. `user_roles`, `profiles`, and `communities` already have what's needed.
-- No steward dashboard UI changes.
-- No per-community notification preferences table yet — can add later if stewards want to opt out of certain types.
+I'll only run a query for #3 — no code changes — and report back. If a real bug exists I'll propose a follow-up plan rather than bundling it into this one.
 
 ## Verification
 
-- Add a test supply in Old East Durham; confirm the email goes to the OED steward(s) and not to you.
-- Submit a test join request; same check.
-- Spot-check Resend dashboard / `email_send_log` to confirm `to:` is the steward, not Josh.
+- Re-run the supplies query for Deb's items and confirm `community_id = old-east-durham`.
+- Refresh your local library — Tamper and Ladders should be gone.
+- Confirm Deb (if she logs in) sees Old East Durham at `/c/old-east-durham`.
