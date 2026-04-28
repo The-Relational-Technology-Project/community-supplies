@@ -93,12 +93,17 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, commu
     }
     
     // Simplified signup without emailRedirectTo to avoid hanging
+    // Always tag the new user with the community they're signing up from.
+    // Fall back to the URL-derived community context so callers that don't
+    // pass an explicit communityId prop (e.g. the header "Sign Up" button)
+    // don't silently dump users into the default flagship community.
+    const effectiveCommunityIdForSignup = communityId || contextCommunityId;
     const metadata: Record<string, string> = { 
       name,
       connection_context: connectionContext 
     };
-    if (communityId) {
-      metadata.community_id = communityId;
+    if (effectiveCommunityIdForSignup) {
+      metadata.community_id = effectiveCommunityIdForSignup;
     }
     const { data, error } = await supabase.auth.signUp({
       email,
