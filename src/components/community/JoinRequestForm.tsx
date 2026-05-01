@@ -122,17 +122,12 @@ export function JoinRequestForm() {
           }
         });
 
-        toast({ 
-          title: "Request submitted!", 
-          description: "A community steward will review your application." 
+        toast({
+          title: "Request submitted!",
+          description: "A community steward will review your application."
         });
-        setName("");
-        setEmail("");
-        setPassword("");
-        setCrossStreets("");
-        setReferralSource("");
-        setPhoneNumber("");
-        setCaptchaAnswer("");
+        setSubmittedEmail(email);
+        setSubmitted(true);
       }
     } catch (error) {
       toast({
@@ -144,6 +139,41 @@ export function JoinRequestForm() {
 
     setLoading(false);
   };
+
+  if (submitted) {
+    return (
+      <Card className="max-w-2xl mx-auto my-4 sm:my-8">
+        <CardHeader className="px-4 sm:px-6 pt-6 sm:pt-8 text-center">
+          <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-terracotta/10 flex items-center justify-center">
+            <CheckCircle2 className="h-7 w-7 text-terracotta" />
+          </div>
+          <CardTitle className="text-xl sm:text-2xl font-serif">You're on the list!</CardTitle>
+          <CardDescription className="text-sm sm:text-base">
+            Your request to join <strong>{communityName}</strong> has been received.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
+          <div className="bg-peach/30 border border-border rounded-sm p-4 mb-4">
+            <h3 className="font-serif font-semibold text-deep-brown text-sm mb-2">What happens next</h3>
+            <ol className="space-y-2 text-sm text-deep-brown list-decimal list-inside">
+              <li>A community steward will review your request (usually within 1–2 days).</li>
+              <li>You'll get an email at <strong>{submittedEmail}</strong> once you're approved.</li>
+              <li>After approval, sign in to browse and request supplies from neighbors.</li>
+            </ol>
+          </div>
+          <div className="flex items-start gap-2 text-xs text-muted-foreground mb-5">
+            <Mail className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span>
+              Check your inbox (and spam folder) for a verification email — confirming your address helps stewards review your request faster.
+            </span>
+          </div>
+          <Button asChild variant="outline" className="w-full">
+            <Link to="/">Back to home</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="max-w-2xl mx-auto my-4 sm:my-8">
