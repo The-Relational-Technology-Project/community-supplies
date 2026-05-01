@@ -74,33 +74,87 @@ export type Database = {
           },
         ]
       }
-      communities: {
+      city_centroids: {
         Row: {
-          created_at: string
-          description: string | null
+          city_display: string
+          city_normalized: string
           id: string
-          join_mode: string
-          name: string
-          slug: string
-          updated_at: string
+          latitude: number
+          longitude: number
+          state_code: string
         }
         Insert: {
-          created_at?: string
-          description?: string | null
+          city_display: string
+          city_normalized: string
           id?: string
-          join_mode?: string
-          name: string
-          slug: string
-          updated_at?: string
+          latitude: number
+          longitude: number
+          state_code: string
         }
         Update: {
+          city_display?: string
+          city_normalized?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          state_code?: string
+        }
+        Relationships: []
+      }
+      communities: {
+        Row: {
+          coarse_latitude: number | null
+          coarse_longitude: number | null
+          country_code: string | null
+          created_at: string
+          description: string | null
+          discoverable: boolean
+          id: string
+          intl_label: string | null
+          join_mode: string
+          latitude: number | null
+          longitude: number | null
+          name: string
+          public_location_label: string | null
+          slug: string
+          updated_at: string
+          zip_code: string | null
+        }
+        Insert: {
+          coarse_latitude?: number | null
+          coarse_longitude?: number | null
+          country_code?: string | null
           created_at?: string
           description?: string | null
+          discoverable?: boolean
           id?: string
+          intl_label?: string | null
           join_mode?: string
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          public_location_label?: string | null
+          slug: string
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Update: {
+          coarse_latitude?: number | null
+          coarse_longitude?: number | null
+          country_code?: string | null
+          created_at?: string
+          description?: string | null
+          discoverable?: boolean
+          id?: string
+          intl_label?: string | null
+          join_mode?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
+          public_location_label?: string | null
           slug?: string
           updated_at?: string
+          zip_code?: string | null
         }
         Relationships: []
       }
@@ -521,6 +575,13 @@ export type Database = {
         Args: { request_email: string }
         Returns: boolean
       }
+      get_anonymous_pins: {
+        Args: never
+        Returns: {
+          lat: number
+          lng: number
+        }[]
+      }
       get_books_with_owners:
         | {
             Args: never
@@ -558,6 +619,23 @@ export type Database = {
               updated_at: string
             }[]
           }
+      get_discoverable_communities: {
+        Args: never
+        Returns: {
+          join_mode: string
+          latitude: number
+          longitude: number
+          name: string
+          public_location_label: string
+          slug: string
+        }[]
+      }
+      get_intl_communities: {
+        Args: never
+        Returns: {
+          intl_label: string
+        }[]
+      }
       get_public_illustrations:
         | {
             Args: never
