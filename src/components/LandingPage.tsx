@@ -9,6 +9,7 @@ import { Users, Share2, HandHeart, ArrowRight } from "lucide-react";
 import { SpreadMap } from "./SpreadMap";
 import { DiscoverableCommunitiesList } from "./DiscoverableCommunitiesList";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { CommunityHero } from "./community/CommunityHero";
 import { JoinRequestForm } from "./community/JoinRequestForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
