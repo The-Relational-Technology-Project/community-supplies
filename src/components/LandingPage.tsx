@@ -160,6 +160,11 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
         </div>
       </section>
 
+      {/* Community context hero - only on community-specific landing */}
+      {isCommunitySpecific && (
+        <CommunityHero slug={communitySlug} onJoinClick={handleJoinClick} />
+      )}
+
       {/* How It Works - only on root landing */}
       {!isCommunitySpecific && (
         <section className="container mx-auto px-4 pb-12 sm:pb-16">
