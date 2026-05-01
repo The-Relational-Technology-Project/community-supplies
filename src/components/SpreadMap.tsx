@@ -55,7 +55,7 @@ export function SpreadMap() {
         <p className="text-sm text-muted-foreground mt-1">
           {loading
             ? "Mapping sharing communities…"
-            : `${totalPins} sharing communities across the country${intl.length ? `, plus ${intl.length} more around the world` : ""}.`}
+            : "120+ sharing communities across the United States, and more around the world."}
         </p>
       </div>
 
