@@ -200,20 +200,19 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
 
       {/* Start your own CTA - only on root landing */}
       {!isCommunitySpecific && (
-        <section className="pb-10 sm:pb-14">
-            <div className="max-w-2xl mx-auto bg-card border-2 border-dashed border-terracotta/30 rounded-sm p-5 sm:p-6 text-center">
-              <p className="text-deep-brown font-medium mb-2">
-                Want to start a sharing community in your neighborhood?
-              </p>
-              <p className="text-sm text-muted-foreground mb-4">
-                It's free and open source. We'll help you get set up.
-              </p>
-              <Button variant="outline" asChild className="border-primary text-primary hover:bg-primary/10">
-                <Link to="/start-community">
-                  Get Started <ArrowRight className="h-4 w-4 ml-1" />
-                </Link>
-              </Button>
-            </div>
+        <section className="container mx-auto px-4 pb-10 sm:pb-14">
+          <div className="max-w-2xl mx-auto bg-card border-2 border-dashed border-terracotta/30 rounded-sm p-5 sm:p-6 text-center">
+            <p className="text-deep-brown font-medium mb-2">
+              Want to start a sharing community in your neighborhood?
+            </p>
+            <p className="text-sm text-muted-foreground mb-4">
+              It's free and open source. We'll help you get set up.
+            </p>
+            <Button variant="outline" asChild className="border-primary text-primary hover:bg-primary/10">
+              <Link to="/start-community">
+                Get Started <ArrowRight className="h-4 w-4 ml-1" />
+              </Link>
+            </Button>
           </div>
         </section>
       )}
