@@ -195,21 +195,12 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
         </section>
       )}
 
-      {/* Community Ticker - only on root landing */}
+      {/* Spread Map - only on root landing */}
+      {!isCommunitySpecific && <SpreadMap />}
+
+      {/* Start your own CTA - only on root landing */}
       {!isCommunitySpecific && (
         <section className="pb-10 sm:pb-14">
-          <div className="overflow-hidden relative">
-            <div className="flex whitespace-nowrap animate-[marquee_25s_linear_infinite]">
-              {[0, 1].map((copy) => (
-                <span key={copy} className="inline-block px-4 text-sm sm:text-base text-dusk-pink font-medium tracking-wide">
-                  Outer Sunset, SF &nbsp;·&nbsp; Chevy Chase, MD &nbsp;·&nbsp; Mission District, SF &nbsp;·&nbsp; Baldwin Acres, VA &nbsp;·&nbsp; Cedars of Carrboro, NC &nbsp;·&nbsp; South Central Austin, TX &nbsp;·&nbsp; and spreading! &nbsp;&nbsp;&nbsp;&nbsp;
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Start your own CTA */}
-          <div className="container mx-auto px-4 mt-8">
             <div className="max-w-2xl mx-auto bg-card border-2 border-dashed border-terracotta/30 rounded-sm p-5 sm:p-6 text-center">
               <p className="text-deep-brown font-medium mb-2">
                 Want to start a sharing community in your neighborhood?
