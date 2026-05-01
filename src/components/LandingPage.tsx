@@ -7,6 +7,7 @@ import { Footer } from "./Footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Share2, HandHeart, ArrowRight } from "lucide-react";
 import { SpreadMap } from "./SpreadMap";
+import { DiscoverableCommunitiesList } from "./DiscoverableCommunitiesList";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { JoinRequestForm } from "./community/JoinRequestForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -197,6 +198,9 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
 
       {/* Spread Map - only on root landing */}
       {!isCommunitySpecific && <SpreadMap />}
+
+      {/* Discoverable communities list - only on root landing */}
+      {!isCommunitySpecific && <DiscoverableCommunitiesList />}
 
       {/* Start your own CTA - only on root landing */}
       {!isCommunitySpecific && (
