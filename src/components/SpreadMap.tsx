@@ -1,41 +1,39 @@
-import { useEffect, useState } from "react";
 import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect, useState } from "react";
+import { useDiscoverableCommunities } from "@/hooks/useDiscoverableCommunities";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 // US states GeoJSON — bundled via CDN, cached after first load
 const US_TOPO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
 
 interface AnonPin { lat: number; lng: number; }
-interface DiscoverablePin {
-  slug: string;
-  name: string;
-  public_location_label: string | null;
-  latitude: number;
-  longitude: number;
-  join_mode: string;
-}
 
 export function SpreadMap() {
   const [anonPins, setAnonPins] = useState<AnonPin[]>([]);
-  const [discoverable, setDiscoverable] = useState<DiscoverablePin[]>([]);
   const [intl, setIntl] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingMisc, setLoadingMisc] = useState(true);
+  const { data: discoverable = [], isLoading: loadingDisc } = useDiscoverableCommunities();
 
   useEffect(() => {
     (async () => {
-      const [anonRes, discRes, intlRes] = await Promise.all([
+      const [anonRes, intlRes] = await Promise.all([
         supabase.rpc("get_anonymous_pins"),
-        supabase.rpc("get_discoverable_communities"),
         supabase.rpc("get_intl_communities"),
       ]);
       setAnonPins((anonRes.data ?? []).map((r: any) => ({ lat: Number(r.lat), lng: Number(r.lng) })));
-      setDiscoverable((discRes.data ?? []) as DiscoverablePin[]);
       setIntl((intlRes.data ?? []).map((r: any) => r.intl_label).filter(Boolean));
-      setLoading(false);
+      setLoadingMisc(false);
     })();
   }, []);
+
+  const loading = loadingMisc || loadingDisc;
 
   // Group anonymous pins by rounded lat/lng so multi-community cities show as one stronger dot
   const grouped = new Map<string, { lat: number; lng: number; count: number }>();
@@ -108,20 +106,56 @@ export function SpreadMap() {
                 </Marker>
               ))}
 
-              {/* Discoverable pins — clickable, labeled */}
-              {discoverable.map((c) => (
-                <Marker key={c.slug} coordinates={[Number(c.longitude), Number(c.latitude)]}>
-                  <Link to={`/c/${c.slug}`}>
-                    <circle
-                      r={5}
-                      fill="hsl(var(--deep-brown))"
-                      stroke="white"
-                      strokeWidth={1.5}
-                      style={{ cursor: "pointer" }}
-                    />
-                  </Link>
-                </Marker>
-              ))}
+              {/* Discoverable pins — clickable, labeled, tooltips on hover */}
+              {discoverable.map((c) => {
+                const isOpen = c.join_mode === "auto";
+                return (
+                  <Marker key={c.slug} coordinates={[c.longitude, c.latitude]}>
+                    <HoverCard openDelay={80} closeDelay={120}>
+                      <HoverCardTrigger asChild>
+                        <g style={{ cursor: "pointer" }}>
+                          {/* Pulse ring */}
+                          <circle
+                            r={9}
+                            fill="hsl(var(--terracotta))"
+                            fillOpacity={0.18}
+                            className="animate-pulse"
+                          />
+                          {/* Larger transparent hit area for taps */}
+                          <circle r={14} fill="transparent" />
+                          <circle
+                            r={7}
+                            fill="hsl(var(--deep-brown))"
+                            stroke="white"
+                            strokeWidth={1.5}
+                          />
+                        </g>
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-60 p-3" side="top">
+                        <div className="space-y-1.5">
+                          <div className="font-serif font-semibold text-deep-brown text-sm leading-tight">
+                            {c.name}
+                          </div>
+                          {c.public_location_label && (
+                            <div className="text-xs text-muted-foreground">
+                              {c.public_location_label}
+                            </div>
+                          )}
+                          <div className="text-[10px] uppercase tracking-wide text-terracotta font-medium">
+                            {isOpen ? "Open — join instantly" : "Apply to join"}
+                          </div>
+                          <Link
+                            to={`/c/${c.slug}`}
+                            className="inline-block mt-1 text-xs font-medium text-terracotta hover:underline"
+                          >
+                            Visit community →
+                          </Link>
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </Marker>
+                );
+              })}
             </ComposableMap>
           )}
 
@@ -134,7 +168,7 @@ export function SpreadMap() {
             {discoverable.length > 0 && (
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-deep-brown border border-white" />
-                Open to new neighbors — click to visit
+                Open to new neighbors — hover or tap
               </span>
             )}
           </div>

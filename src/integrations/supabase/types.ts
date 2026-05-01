@@ -619,6 +619,21 @@ export type Database = {
               updated_at: string
             }[]
           }
+      get_community_public_stats: {
+        Args: { p_slug: string }
+        Returns: {
+          book_count: number
+          description: string
+          discoverable: boolean
+          id: string
+          join_mode: string
+          member_count: number
+          name: string
+          public_location_label: string
+          slug: string
+          supply_count: number
+        }[]
+      }
       get_discoverable_communities: {
         Args: never
         Returns: {

@@ -7,7 +7,9 @@ import { Footer } from "./Footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Share2, HandHeart, ArrowRight } from "lucide-react";
 import { SpreadMap } from "./SpreadMap";
+import { DiscoverableCommunitiesList } from "./DiscoverableCommunitiesList";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { CommunityHero } from "./community/CommunityHero";
 import { JoinRequestForm } from "./community/JoinRequestForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -158,6 +160,11 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
         </div>
       </section>
 
+      {/* Community context hero - only on community-specific landing */}
+      {isCommunitySpecific && (
+        <CommunityHero slug={communitySlug} onJoinClick={handleJoinClick} />
+      )}
+
       {/* How It Works - only on root landing */}
       {!isCommunitySpecific && (
         <section className="container mx-auto px-4 pb-12 sm:pb-16">
@@ -197,6 +204,9 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
 
       {/* Spread Map - only on root landing */}
       {!isCommunitySpecific && <SpreadMap />}
+
+      {/* Discoverable communities list - only on root landing */}
+      {!isCommunitySpecific && <DiscoverableCommunitiesList />}
 
       {/* Start your own CTA - only on root landing */}
       {!isCommunitySpecific && (
