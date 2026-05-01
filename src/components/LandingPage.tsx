@@ -6,6 +6,7 @@ import { AuthModal } from "./auth/AuthModal";
 import { Footer } from "./Footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Share2, HandHeart, ArrowRight } from "lucide-react";
+import { SpreadMap } from "./SpreadMap";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { JoinRequestForm } from "./community/JoinRequestForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
