@@ -29,6 +29,8 @@ export function StewardDashboard() {
 
       <JoinModeToggle />
 
+      <DiscoverabilityToggle />
+
       <StewardWelcomeBatch />
 
       <Tabs defaultValue="members" className="space-y-4">
