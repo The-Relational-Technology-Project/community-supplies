@@ -76,6 +76,26 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, commu
     setLoading(false);
   };
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      toast({ title: "Enter your email first", description: "We'll send a reset link to that address.", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    if (error) {
+      toast({ title: "Couldn't send reset email", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({
+      title: "Check your email",
+      description: "We sent you a link to reset your password.",
+    });
+  };
+
   const handleSignup = async () => {
     setLoading(true);
     
@@ -353,13 +373,23 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, commu
               )}
               
               {mode === 'login' && (
-                <button
-                  type="button"
-                  onClick={() => setUseMagicLink(!useMagicLink)}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto block min-h-[44px] flex items-center justify-center"
-                >
-                  {useMagicLink ? 'Use password instead' : 'Email me a magic link'}
-                </button>
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setUseMagicLink(!useMagicLink)}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] flex items-center justify-center"
+                  >
+                    {useMagicLink ? 'Use password instead' : 'Email me a magic link'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={loading}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[36px] flex items-center justify-center disabled:opacity-50"
+                  >
+                    Forgot your password?
+                  </button>
+                </div>
               )}
             </>
           )}
