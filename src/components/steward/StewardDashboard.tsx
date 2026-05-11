@@ -9,6 +9,7 @@ import { CommunityRequestsManager } from "./CommunityRequestsManager";
 import { NeighborCommunitiesManager } from "./NeighborCommunitiesManager";
 import { JoinModeToggle } from "./JoinModeToggle";
 import { DiscoverabilityToggle } from "./DiscoverabilityToggle";
+import { RenameCommunity } from "./RenameCommunity";
 import { StewardWelcomeBatch } from "./StewardWelcomeBatch";
 import { InviteNeighborsButton } from "./InviteNeighborsButton";
 
@@ -26,6 +27,8 @@ export function StewardDashboard() {
           <RefreshIllustrations />
         </div>
       </div>
+
+      <RenameCommunity />
 
       <JoinModeToggle />
 
