@@ -13,6 +13,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Steward = lazy(() => import("./pages/Steward"));
 const StartCommunity = lazy(() => import("./pages/StartCommunity"));
 const PrivacyTerms = lazy(() => import("./pages/PrivacyTerms"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CommunityStewardDashboard = lazy(() =>
   import("./components/steward/CommunityStewardDashboard").then((m) => ({
@@ -60,6 +61,7 @@ const App = () => (
           <Route path="/steward" element={<CommunityProvider><Steward /></CommunityProvider>} />
           <Route path="/start-community" element={<StartCommunity />} />
           <Route path="/privacy" element={<PrivacyTerms />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/c/:communitySlug" element={<CommunitySlugRoute />} />
           <Route path="/c/:communitySlug/steward" element={<CommunityStewardRoute />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
