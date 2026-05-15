@@ -290,7 +290,7 @@ export function BulkAddSupplies() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
               {images.map((img, i) => (
                 <div key={i} className="relative group">
-                  <img src={img} alt={`Item ${i + 1}`} className="w-full h-28 object-cover rounded-sm border border-border" />
+                  <img src={img.previewUrl} alt={`Item ${i + 1}`} className="w-full h-28 object-cover rounded-sm border border-border" />
                   <button
                     onClick={() => removeImage(i)}
                     className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
