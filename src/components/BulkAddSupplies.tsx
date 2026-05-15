@@ -35,7 +35,7 @@ export function BulkAddSupplies() {
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [step, setStep] = useState<Step>("upload");
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<{ blob: Blob; previewUrl: string }[]>([]);
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
