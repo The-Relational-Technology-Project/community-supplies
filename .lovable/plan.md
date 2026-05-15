@@ -1,73 +1,30 @@
-# Discovery → Join Flow Polish
+# Fix: Add Item crashes after AI analysis
 
-Four targeted improvements so visitors landing from the map have a smooth, confidence-building path into a community.
+## Diagnosis
+- The edge function `draft-item-from-image` is healthy — recent calls all return 200 in 4–7s. The crash is on the client.
+- In `AddSupply.tsx` → `handleImageUpload`, a raw photo is held in memory three times simultaneously (FileReader base64 → `<img>` → canvas → `toDataURL` base64 → `fetch().blob()`). On modern phones a 5–10 MB photo blows past Mobile Safari's per-tab memory budget and the tab silently reloads — exactly matching Karen's "it crashes after analyzing".
+- Secondary risk: HEIC photos that some browsers can't decode would currently surface as a generic "Failed to process image" toast, not a clear message.
 
-## 1. Map tooltips + bigger tap targets (`SpreadMap.tsx`)
+## Changes
 
-Make discoverable pins informative and easy to hit:
+**`src/lib/imageCompression.ts`** — add `compressFile(file)` that uses `URL.createObjectURL` + `canvas.toBlob` and returns `{ blob, previewUrl }`. No base64 round-trip. Surface a clear error if `img.onerror` fires (likely HEIC).
 
-- Wrap each discoverable `<Marker>` in a Radix `HoverCard` (desktop hover) + `Popover` (mobile tap) so users see the community name, public location label, and join mode ("Open to apply" vs "Auto-join") before clicking through.
-- Increase pin radius from 5 → 7, and add a transparent 14px hit-circle behind each pin for easier mobile tapping.
-- Add a subtle pulse animation (Tailwind `animate-pulse` on a secondary ring) to discoverable pins so they read as "active" vs the static anonymous dots.
-- Tooltip CTA: "Visit community →" linking to `/c/:slug`.
+**`src/components/AddSupply.tsx` — `handleImageUpload`**
+- Guard: if `file.size > 25 MB`, toast a friendly message and stop.
+- Replace the FileReader/nested-callback flow with a flat `async` using `compressFile`.
+- Upload the returned `Blob` directly to `tmp/<uuid>.jpg`, pass the public URL to the edge function as today.
+- Use the returned object-URL `previewUrl` for `setUploadedImage` (small in React state).
+- Wrap each phase (compress / upload / invoke) in its own try so errors are specific.
+- Keep the temp-file cleanup in `finally`.
 
-## 2. Discoverable communities list (new `DiscoverableCommunitiesList.tsx`)
+## Out of scope
+- No edge-function changes.
+- No form/UI redesign.
+- Not changing how `images` is persisted on submit (separate issue).
 
-Below the map, render a responsive grid of cards (one per discoverable community). This solves overlapping-pin problems and gives mobile users a non-map entry point.
+## Verify
+- Upload a >5 MB JPEG on the preview — preview renders, AI draft populates, submit succeeds.
+- Re-check edge function logs still 200.
 
-Each card shows:
-- Community name (serif, deep-brown)
-- `public_location_label` (e.g., "Sunset & Richmond, San Francisco")
-- Join mode badge: "Apply to join" or "Open — join instantly"
-- Short `description` excerpt (first ~140 chars) if present
-- "Visit community →" link to `/c/:slug`
-
-Data source: reuse the existing `get_discoverable_communities` RPC result already fetched by `SpreadMap` — lift state up or expose via a small shared hook (`useDiscoverableCommunities`) so we fetch once.
-
-Sort alphabetically by name. Empty state: hide the section entirely when none exist.
-
-## 3. Community landing page context (`src/pages/Index.tsx` / community-routed view)
-
-When someone lands on `/c/:slug` from the map, they currently see the catalog/auth gate without context about the community itself. Add a compact hero above the existing content (only shown to non-members on discoverable communities):
-
-- Community name (already in context)
-- `public_location_label` and member count (count via `profiles` filtered by `community_id` — add a small RPC `get_community_public_stats(slug)` returning `{ member_count, supply_count, book_count, description, public_location_label, join_mode }`)
-- Description text
-- 3 stat chips: "N neighbors • N supplies • N books"
-- Primary CTA: "Request to join" (scrolls to / opens `JoinRequestForm`)
-
-Members and signed-in users in this community skip the hero (it's a recruiting surface, not a logged-in surface).
-
-## 4. JoinRequestForm post-submit success state (`JoinRequestForm.tsx`)
-
-Replace the "clear all fields + toast" pattern with a dedicated success view rendered in place of the form:
-
-- Heading: "You're on the list!"
-- Bulleted "What happens next":
-  1. A community steward will review your request (usually within 1–2 days).
-  2. You'll get an email at `{email}` once approved.
-  3. After approval, sign in to browse and request supplies.
-- Note about the verification email Supabase already sends (check inbox / spam).
-- Secondary link: "Back to home" → `/`.
-
-Track success via local `submitted` boolean state. Keep the toast for transient feedback but the inline state is the primary signal.
-
-## Technical Notes
-
-- New RPC `get_community_public_stats(p_slug text)` — `SECURITY DEFINER`, returns a single row with non-sensitive fields. Safe for `anon`.
-- New shared hook `src/hooks/useDiscoverableCommunities.ts` — TanStack Query wrapper around `get_discoverable_communities` with 5-min stale time so map + list share one fetch.
-- Tooltip layer: use `<HoverCard>` (already in project) with `<PopoverPrimitive>`-style touch handling. `react-simple-maps` `<Marker>` renders SVG, so wrap the trigger in a `<g>` and use a foreignObject-free approach: portal the HoverCard to body via Radix defaults, anchor on the SVG node.
-- Hero only renders when `community.discoverable === true` AND viewer is not a vouched member of that community. Pull `discoverable` via the existing slug-resolution query in `CommunityContext` (add the field to the select).
-- All four changes are additive; no DB schema changes beyond the new read-only RPC.
-
-## Files
-
-- edit: `src/components/SpreadMap.tsx` (tooltips, larger hit targets)
-- new: `src/components/DiscoverableCommunitiesList.tsx`
-- new: `src/hooks/useDiscoverableCommunities.ts`
-- edit: `src/components/LandingPage.tsx` (mount the list under the map)
-- new: `src/components/community/CommunityHero.tsx`
-- edit: `src/pages/Index.tsx` (mount hero on `/c/:slug` for non-members)
-- edit: `src/contexts/CommunityContext.tsx` (also fetch `discoverable`, `public_location_label`, `description`)
-- edit: `src/components/community/JoinRequestForm.tsx` (success state)
-- new migration: add `get_community_public_stats(text)` RPC
+## Reply to Karen (after deploy)
+> Hi Karen — thanks for flagging this. Large phone photos were overwhelming the browser before the AI step finished. We've shipped a fix; could you try Add Item again? If it still misbehaves, please try a JPEG instead of HEIC.
