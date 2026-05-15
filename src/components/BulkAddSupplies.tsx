@@ -15,7 +15,9 @@ import { categories } from "@/data/categories";
 import { useCommunity } from "@/contexts/CommunityContext";
 
 interface DraftItem {
-  compressedImage: string;
+  storagePath: string;
+  publicUrl: string;
+  previewUrl: string;
   name: string;
   description: string;
   category: string;
