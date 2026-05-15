@@ -378,7 +378,7 @@ export function BulkAddSupplies() {
             <Check className="h-8 w-8 text-accent" />
           </div>
           <h2 className="text-2xl font-serif font-semibold text-deep-brown">All Done!</h2>
-          <p className="text-muted-foreground">Your items are now in the catalog. Illustrations are generating in the background.</p>
+          <p className="text-muted-foreground">Your items are now in the catalog.</p>
           <div className="flex gap-4 justify-center">
             <Button onClick={() => navigate(`/c/${communitySlug}?tab=browse`)}>Browse Catalog</Button>
             <Button variant="outline" onClick={() => {
