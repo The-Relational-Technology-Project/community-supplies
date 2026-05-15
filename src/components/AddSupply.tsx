@@ -262,21 +262,8 @@ export function AddSupply() {
 
       const supplyId = insertedData[0].id;
 
-      // Auto-generate illustration in the background
-      supabase.functions.invoke('generate-illustration', {
-        body: {
-          supplyId,
-          itemName: formData.name,
-          description: formData.description,
-          imageUrl: formData.images[0]
-        }
-      }).then(({ error: illustrationError }) => {
-        if (illustrationError) {
-          console.error('Illustration generation failed:', illustrationError);
-        }
-      });
-
-      // Notify the community's stewards
+      // Notify the community's stewards. Illustration generation is no longer
+      // auto-triggered here — stewards can batch-generate illustrations later.
       supabase.functions.invoke('send-supply-notification', {
         body: {
           communityId,
@@ -293,7 +280,8 @@ export function AddSupply() {
         }
       });
 
-      toast.success("Item added successfully! Generating illustration...");
+      toast.success("Item added!");
+
       
       // Reset form but keep location data
       const savedNeighborhood = localStorage.getItem('lastNeighborhood') || '';
