@@ -331,17 +331,17 @@ export function AddSupply() {
                   <Upload className="w-12 h-12 text-accent" />
                 </div>
               </div>
-              
+
               <div>
                 <h2 className="text-2xl font-serif font-semibold text-deep-brown mb-2">
-                  Upload a Photo
+                  Add an item
                 </h2>
                 <p className="text-muted-foreground">
-                  AI will draft a starting point from your photo — please review and correct anything before publishing.
+                  Snap a photo and let AI draft the listing for you, or skip the photo and write a quick description yourself.
                 </p>
               </div>
 
-              <div>
+              <div className="flex flex-col items-center gap-3">
                 <input
                   type="file"
                   accept="image/*"
@@ -362,7 +362,7 @@ export function AddSupply() {
                       {isDraftingWithAI ? (
                         <>
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Analyzing with AI...
+                          Uploading & analyzing...
                         </>
                       ) : (
                         <>
@@ -373,6 +373,15 @@ export function AddSupply() {
                     </span>
                   </Button>
                 </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={openManualForm}
+                  disabled={isDraftingWithAI}
+                >
+                  Skip — write it myself
+                </Button>
               </div>
 
               <p className="text-sm text-muted-foreground">
@@ -388,16 +397,16 @@ export function AddSupply() {
                 <div className="flex items-center gap-4 mb-4">
                   <Sparkles className="w-5 h-5 text-accent" />
                   <h2 className="text-lg font-serif font-semibold text-deep-brown">
-                    AI-Drafted Listing
+                    Your photo
                   </h2>
                 </div>
-                <img 
-                  src={uploadedImage} 
-                  alt="Uploaded item" 
+                <img
+                  src={uploadedImage}
+                  alt="Uploaded item"
                   className="w-full h-64 object-cover rounded-sm"
                 />
                 <p className="text-sm text-muted-foreground mt-4">
-                  AI draft — please review and edit anything below before publishing. The AI sometimes guesses wrong.
+                  Review and edit anything below before publishing. AI suggestions are a starting point — please correct anything wrong.
                 </p>
               </div>
             )}
