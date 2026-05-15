@@ -453,7 +453,7 @@ export function BulkAddSupplies() {
           {drafts.map((draft, i) => (
             <div key={i} className={`bg-card border rounded-sm p-6 ${draft.error ? 'border-destructive' : 'border-border'}`}>
               <div className="flex gap-6">
-                <img src={draft.compressedImage} alt={draft.name || `Item ${i + 1}`} className="w-32 h-32 object-cover rounded-sm flex-shrink-0" />
+                <img src={draft.previewUrl || draft.publicUrl} alt={draft.name || `Item ${i + 1}`} className="w-32 h-32 object-cover rounded-sm flex-shrink-0" />
                 <div className="flex-1 space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 space-y-4">
