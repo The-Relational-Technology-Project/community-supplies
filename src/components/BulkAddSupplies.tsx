@@ -232,8 +232,8 @@ export function BulkAddSupplies() {
             neighborhood: sharedFields.neighborhood,
             cross_streets: sharedFields.crossStreets,
             contact_email: sharedFields.contactEmail,
-            images: [draft.compressedImage],
-            image_url: draft.compressedImage,
+            images: draft.publicUrl ? [draft.publicUrl] : [],
+            image_url: draft.publicUrl || null,
             house_rules: houseRules,
             owner_id: user.id,
             community_id: communityId,
@@ -244,18 +244,7 @@ export function BulkAddSupplies() {
 
         published++;
         publishedNames.push(draft.name);
-
-        // Fire illustration generation in background
-        if (insertedData?.[0]) {
-          supabase.functions.invoke('generate-illustration', {
-            body: {
-              supplyId: insertedData[0].id,
-              itemName: draft.name,
-              description: draft.description,
-              imageUrl: draft.compressedImage,
-            }
-          }).catch(e => console.error('Illustration gen failed:', e));
-        }
+        // Illustration auto-gen removed — stewards can batch-generate later.
       } catch (error: any) {
         console.error(`Failed to publish "${draft.name}":`, error);
       }
