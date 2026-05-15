@@ -71,6 +71,16 @@ export function AddSupply() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Reset the input so re-selecting the same file still triggers onChange.
+    event.target.value = "";
+
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error(
+        "That photo is over 25 MB. Please pick a smaller one — most phone photos work great."
+      );
+      return;
+    }
+
     // Re-check auth directly to avoid stale state race condition
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
@@ -81,78 +91,88 @@ export function AddSupply() {
 
     setIsDraftingWithAI(true);
 
-    // Convert image to data URL for display
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      let tempFilePath: string | null = null;
+    let tempFilePath: string | null = null;
+    let previewUrlToRevoke: string | null = null;
+
+    try {
+      // 1. Memory-safe compression (no base64 round-trip).
+      console.info("[AddSupply] compressing", { size: file.size, type: file.type });
+      let compressed: { blob: Blob; previewUrl: string };
       try {
-        const imageDataUrl = reader.result as string;
-
-        // Compress image before display and upload
-        const compressedImage = await compressImage(imageDataUrl);
-        setUploadedImage(compressedImage);
-
-        // Convert compressed base64 to blob for storage upload
-        const res = await fetch(compressedImage);
-        const blob = await res.blob();
-        tempFilePath = `tmp/${crypto.randomUUID()}.jpg`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('supply-images')
-          .upload(tempFilePath, blob, { contentType: 'image/jpeg' });
-
-        if (uploadError) throw uploadError;
-
-        // Get the public URL to pass to edge function
-        const { data: urlData } = supabase.storage
-          .from('supply-images')
-          .getPublicUrl(tempFilePath);
-
-        // Call AI to draft the item using the short URL
-        const { data, error } = await supabase.functions.invoke('draft-item-from-image', {
-          body: { imageUrl: urlData.publicUrl }
-        });
-
-        if (error) {
-          console.error('AI draft error:', error);
-          toast.error('Failed to analyze image. Please try again.');
-          setIsDraftingWithAI(false);
-          return;
-        }
-
-        // Pre-fill form with AI-generated data.
-        // Location fields come from saved-locally only — never from AI guesses.
-        const savedNeighborhood = localStorage.getItem('lastNeighborhood') || "";
-        const savedCrossStreets = localStorage.getItem('lastCrossStreets') || "";
-
-        setFormData({
-          name: data.name || "",
-          description: data.description || "",
-          category: data.category || "",
-          condition: data.condition || "good",
-          neighborhood: savedNeighborhood,
-          crossStreets: savedCrossStreets,
-          contactEmail: data.contactEmail || userProfile?.email || currentUser.email || "",
-          images: [compressedImage],
-        });
-
-        setHouseRules(data.houseRules || []);
-        setShowForm(true);
+        compressed = await compressFile(file);
+      } catch (err: any) {
+        console.error("[AddSupply] compression failed", err);
+        toast.error(err?.message || "Couldn't process that photo. Please try a different one.");
         setIsDraftingWithAI(false);
-        toast.success("✨ AI draft ready — please review and edit any details before publishing.");
-      } catch (error: any) {
-        console.error('Error processing image:', error);
-        toast.error('Failed to process image. Please try again.');
-        setIsDraftingWithAI(false);
-      } finally {
-        // Clean up temp file from storage
-        if (tempFilePath) {
-          supabase.storage.from('supply-images').remove([tempFilePath]).catch(() => {});
-        }
+        return;
       }
-    };
+      previewUrlToRevoke = compressed.previewUrl;
+      setUploadedImage(compressed.previewUrl);
 
-    reader.readAsDataURL(file);
+      // 2. Upload compressed blob to temp storage.
+      console.info("[AddSupply] uploading", { compressedSize: compressed.blob.size });
+      tempFilePath = `tmp/${crypto.randomUUID()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('supply-images')
+        .upload(tempFilePath, compressed.blob, { contentType: 'image/jpeg' });
+
+      if (uploadError) {
+        console.error("[AddSupply] upload failed", uploadError);
+        toast.error("Couldn't upload your photo. Please check your connection and try again.");
+        setIsDraftingWithAI(false);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('supply-images')
+        .getPublicUrl(tempFilePath);
+
+      // 3. Call AI to draft the item.
+      console.info("[AddSupply] invoking draft-item-from-image");
+      const { data, error } = await supabase.functions.invoke('draft-item-from-image', {
+        body: { imageUrl: urlData.publicUrl }
+      });
+
+      if (error || !data) {
+        console.error('[AddSupply] AI draft error', error);
+        toast.error('Failed to analyze image. Please try again.');
+        setIsDraftingWithAI(false);
+        return;
+      }
+
+      // 4. Pre-fill form. Location fields come from local storage only.
+      const savedNeighborhood = localStorage.getItem('lastNeighborhood') || "";
+      const savedCrossStreets = localStorage.getItem('lastCrossStreets') || "";
+
+      setFormData({
+        name: data.name || "",
+        description: data.description || "",
+        category: data.category || "",
+        condition: data.condition || "good",
+        neighborhood: savedNeighborhood,
+        crossStreets: savedCrossStreets,
+        contactEmail: data.contactEmail || userProfile?.email || currentUser.email || "",
+        images: [compressed.previewUrl],
+      });
+
+      setHouseRules(data.houseRules || []);
+      setShowForm(true);
+      setIsDraftingWithAI(false);
+      // Preview URL is now owned by the form; don't revoke it on cleanup.
+      previewUrlToRevoke = null;
+      toast.success("✨ AI draft ready — please review and edit any details before publishing.");
+    } catch (error: any) {
+      console.error('[AddSupply] unexpected error', error);
+      toast.error('Something went wrong processing that photo. Please try again.');
+      setIsDraftingWithAI(false);
+    } finally {
+      if (tempFilePath) {
+        supabase.storage.from('supply-images').remove([tempFilePath]).catch(() => {});
+      }
+      if (previewUrlToRevoke) {
+        URL.revokeObjectURL(previewUrlToRevoke);
+      }
+    }
   };
 
 
