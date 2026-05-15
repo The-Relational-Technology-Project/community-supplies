@@ -1,30 +1,50 @@
-# Fix: Add Item crashes after AI analysis
+## Findings
 
-## Diagnosis
-- The edge function `draft-item-from-image` is healthy — recent calls all return 200 in 4–7s. The crash is on the client.
-- In `AddSupply.tsx` → `handleImageUpload`, a raw photo is held in memory three times simultaneously (FileReader base64 → `<img>` → canvas → `toDataURL` base64 → `fetch().blob()`). On modern phones a 5–10 MB photo blows past Mobile Safari's per-tab memory budget and the tab silently reloads — exactly matching Karen's "it crashes after analyzing".
-- Secondary risk: HEIC photos that some browsers can't decode would currently surface as a generic "Failed to process image" toast, not a clear message.
+- Karen’s account exists and she is a steward for **Elon Community Church UCC**, but she has **no saved supplies** yet.
+- She has **9 temp image uploads** in `supply-images/tmp/` from today, all around **223 KB**, which means browser compression and storage upload succeeded repeatedly.
+- Lovable AI credits are currently available: a direct gateway check returned **200 OK**.
+- The AI image-description call works against Karen’s uploaded image in about **2–3 seconds** and returns a valid draft.
+- The most likely remaining crash point is **after AI succeeds**, when the current Add Item flow converts the compressed image Blob back into a base64 data URL and stores that string in React state/database. It is smaller than before, but still adds avoidable memory pressure on mobile Safari at exactly the moment Karen described: “AI had generated a description… then it crashed.”
+- Storage cleanup is not working for temp images under `tmp/...` because the delete policy requires the first folder segment to equal the user id, but temp uploads are stored under `tmp/`. That leaves temp files behind.
+- Bulk Add still uses the older base64 compression path and should be treated as a related risk.
 
-## Changes
+## Proposed changes
 
-**`src/lib/imageCompression.ts`** — add `compressFile(file)` that uses `URL.createObjectURL` + `canvas.toBlob` and returns `{ blob, previewUrl }`. No base64 round-trip. Surface a clear error if `img.onerror` fires (likely HEIC).
+1. **Make manual Add Item available first-class**
+   - On the Add Item screen, add a simple “Add manually” path that opens the same listing form without requiring a photo or AI.
+   - Update the copy so AI is clearly optional, not the default required path.
+   - Keep photo upload + AI as a convenience option.
 
-**`src/components/AddSupply.tsx` — `handleImageUpload`**
-- Guard: if `file.size > 25 MB`, toast a friendly message and stop.
-- Replace the FileReader/nested-callback flow with a flat `async` using `compressFile`.
-- Upload the returned `Blob` directly to `tmp/<uuid>.jpg`, pass the public URL to the edge function as today.
-- Use the returned object-URL `previewUrl` for `setUploadedImage` (small in React state).
-- Wrap each phase (compress / upload / invoke) in its own try so errors are specific.
-- Keep the temp-file cleanup in `finally`.
+2. **Make AI failure non-blocking**
+   - If image upload succeeds but AI drafting fails, still open the form with the photo attached and empty editable fields.
+   - Show a friendly message like: “We couldn’t draft the text, but you can finish the listing manually.”
+   - Do not force the user to restart.
 
-## Out of scope
-- No edge-function changes.
-- No form/UI redesign.
-- Not changing how `images` is persisted on submit (separate issue).
+3. **Remove the post-AI base64 conversion from Add Item**
+   - Store the compressed image as a normal Storage public URL instead of converting it back into a base64 data URL.
+   - Use the object URL only for the on-screen preview.
+   - On publish, insert the Storage URL into `supplies.images` and `image_url`.
+   - This removes the remaining avoidable mobile memory spike after AI succeeds.
 
-## Verify
-- Upload a >5 MB JPEG on the preview — preview renders, AI draft populates, submit succeeds.
-- Re-check edge function logs still 200.
+4. **Fix temp-file storage policy and path**
+   - Change temp uploads to live under the user folder, e.g. `{userId}/tmp/{uuid}.jpg`, so existing owner-based storage policies can delete them.
+   - Add or adjust storage delete policy if needed so users can clean up their own temp uploads safely.
+   - Keep public read access because the AI gateway must fetch the image.
 
-## Reply to Karen (after deploy)
-> Hi Karen — thanks for flagging this. Large phone photos were overwhelming the browser before the AI step finished. We've shipped a fix; could you try Add Item again? If it still misbehaves, please try a JPEG instead of HEIC.
+5. **Defer/remove automatic illustration generation from the publish path**
+   - The app currently launches `generate-illustration` immediately after publish. That uses AI again and sends the base64 image today.
+   - For reliability, stop calling illustration generation automatically from the Add Item submit flow, or invoke it without the uploaded photo since the prompt does not actually use `imageUrl`.
+   - Existing steward batch illustration tools can still generate illustrations later.
+
+6. **Bring Bulk Add into the same safer model**
+   - Replace its old `FileReader`/base64 upload path with the same memory-safe `compressFile` helper.
+   - If AI fails for an item, create an editable manual draft instead of blocking the whole flow.
+
+7. **Verification**
+   - Test AI gateway with a small request to confirm credits still work.
+   - Test Karen’s uploaded image through the AI prompt.
+   - Use browser/network checks on the Add Item flow to confirm: upload succeeds, AI success opens the form, manual path opens the form, publish inserts a supply, and temp cleanup no longer leaves orphaned `tmp/` objects.
+
+## Reply to Karen after deploying
+
+“Thanks, Karen — we found the crash was happening after the AI step had already succeeded, while the browser was handling the photo for the listing. We made AI optional and made the photo flow lighter. You can now either upload a photo and let AI suggest text, or skip AI and write the short description yourself.”

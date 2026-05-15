@@ -10,12 +10,14 @@ import { Loader2, Upload, Sparkles, X, AlertCircle, Check } from "lucide-react";
 import { toast } from "sonner";
 import { HouseRules } from "@/components/HouseRules";
 import { supabase } from "@/integrations/supabase/client";
-import { compressFileToDataUrl, compressImage } from "@/lib/imageCompression";
+import { compressFile } from "@/lib/imageCompression";
 import { categories } from "@/data/categories";
 import { useCommunity } from "@/contexts/CommunityContext";
 
 interface DraftItem {
-  compressedImage: string;
+  storagePath: string;
+  publicUrl: string;
+  previewUrl: string;
   name: string;
   description: string;
   category: string;
@@ -33,7 +35,7 @@ export function BulkAddSupplies() {
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [step, setStep] = useState<Step>("upload");
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<{ blob: Blob; previewUrl: string }[]>([]);
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
@@ -86,13 +88,19 @@ export function BulkAddSupplies() {
     const toProcess = Math.min(files.length, remaining);
     if (toProcess === 0) return;
 
-    const newImages: string[] = [];
+    const newImages: { blob: Blob; previewUrl: string }[] = [];
     for (let i = 0; i < toProcess; i++) {
+      const f = files[i];
+      if (f.size > 25 * 1024 * 1024) {
+        toast.error(`Skipping a photo over 25 MB.`);
+        continue;
+      }
       try {
-        const compressed = await compressFileToDataUrl(files[i]);
+        const compressed = await compressFile(f);
         newImages.push(compressed);
-      } catch (e) {
+      } catch (e: any) {
         console.error('Failed to compress image:', e);
+        toast.error(e?.message || 'Failed to process a photo');
       }
     }
     setImages(prev => [...prev, ...newImages]);
@@ -100,7 +108,11 @@ export function BulkAddSupplies() {
   };
 
   const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
+    setImages(prev => {
+      const removed = prev[index];
+      if (removed) URL.revokeObjectURL(removed.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const analyzeAll = async () => {
@@ -117,32 +129,28 @@ export function BulkAddSupplies() {
       setProgressLabel(`Analyzing item ${i + 1} of ${images.length}...`);
       setProgress(((i) / images.length) * 100);
 
-      let tempFilePath: string | null = null;
-      try {
-        // Upload compressed image to temp storage
-        const res = await fetch(images[i]);
-        const blob = await res.blob();
-        tempFilePath = `tmp/${crypto.randomUUID()}.jpg`;
+      const item = images[i];
+      const storagePath = `${user.id}/${crypto.randomUUID()}.jpg`;
+      let publicUrl = '';
+      let uploadedOk = false;
 
+      try {
         const { error: uploadError } = await supabase.storage
           .from('supply-images')
-          .upload(tempFilePath, blob, { contentType: 'image/jpeg' });
-
+          .upload(storagePath, item.blob, { contentType: 'image/jpeg' });
         if (uploadError) throw uploadError;
+        uploadedOk = true;
+        publicUrl = supabase.storage.from('supply-images').getPublicUrl(storagePath).data.publicUrl;
 
-        const { data: urlData } = supabase.storage
-          .from('supply-images')
-          .getPublicUrl(tempFilePath);
-
-        // Call AI
         const { data, error } = await supabase.functions.invoke('draft-item-from-image', {
-          body: { imageUrl: urlData.publicUrl }
+          body: { imageUrl: publicUrl }
         });
-
         if (error) throw error;
 
         results.push({
-          compressedImage: images[i],
+          storagePath,
+          publicUrl,
+          previewUrl: item.previewUrl,
           name: data.name || "",
           description: data.description || "",
           category: data.category || "",
@@ -151,18 +159,16 @@ export function BulkAddSupplies() {
       } catch (error: any) {
         console.error(`Failed to analyze image ${i + 1}:`, error);
         results.push({
-          compressedImage: images[i],
+          storagePath: uploadedOk ? storagePath : '',
+          publicUrl,
+          previewUrl: item.previewUrl,
           name: "",
           description: "",
           category: "",
           condition: "good",
-          error: error.message || "Analysis failed",
+          error: error?.message || "Analysis failed — fill in manually",
         });
       } finally {
-        if (tempFilePath) {
-          supabase.storage.from('supply-images').remove([tempFilePath]).catch(() => {});
-        }
-        // Rate limit: 2s between AI calls
         if (i < images.length - 1) {
           await new Promise(r => setTimeout(r, 2000));
         }
@@ -172,11 +178,11 @@ export function BulkAddSupplies() {
     setProgress(100);
     setDrafts(results);
     setStep("review");
-    
+
     const successCount = results.filter(r => !r.error).length;
     const failCount = results.filter(r => r.error).length;
     if (failCount > 0) {
-      toast.warning(`${successCount} items analyzed, ${failCount} failed. You can edit failed ones manually.`);
+      toast.warning(`${successCount} items analyzed, ${failCount} need manual entry.`);
     } else {
       toast.success(`All ${successCount} items analyzed! Review and publish.`);
     }
@@ -226,8 +232,8 @@ export function BulkAddSupplies() {
             neighborhood: sharedFields.neighborhood,
             cross_streets: sharedFields.crossStreets,
             contact_email: sharedFields.contactEmail,
-            images: [draft.compressedImage],
-            image_url: draft.compressedImage,
+            images: draft.publicUrl ? [draft.publicUrl] : [],
+            image_url: draft.publicUrl || null,
             house_rules: houseRules,
             owner_id: user.id,
             community_id: communityId,
@@ -238,18 +244,7 @@ export function BulkAddSupplies() {
 
         published++;
         publishedNames.push(draft.name);
-
-        // Fire illustration generation in background
-        if (insertedData?.[0]) {
-          supabase.functions.invoke('generate-illustration', {
-            body: {
-              supplyId: insertedData[0].id,
-              itemName: draft.name,
-              description: draft.description,
-              imageUrl: draft.compressedImage,
-            }
-          }).catch(e => console.error('Illustration gen failed:', e));
-        }
+        // Illustration auto-gen removed — stewards can batch-generate later.
       } catch (error: any) {
         console.error(`Failed to publish "${draft.name}":`, error);
       }
@@ -295,7 +290,7 @@ export function BulkAddSupplies() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
               {images.map((img, i) => (
                 <div key={i} className="relative group">
-                  <img src={img} alt={`Item ${i + 1}`} className="w-full h-28 object-cover rounded-sm border border-border" />
+                  <img src={img.previewUrl} alt={`Item ${i + 1}`} className="w-full h-28 object-cover rounded-sm border border-border" />
                   <button
                     onClick={() => removeImage(i)}
                     className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -383,7 +378,7 @@ export function BulkAddSupplies() {
             <Check className="h-8 w-8 text-accent" />
           </div>
           <h2 className="text-2xl font-serif font-semibold text-deep-brown">All Done!</h2>
-          <p className="text-muted-foreground">Your items are now in the catalog. Illustrations are generating in the background.</p>
+          <p className="text-muted-foreground">Your items are now in the catalog.</p>
           <div className="flex gap-4 justify-center">
             <Button onClick={() => navigate(`/c/${communitySlug}?tab=browse`)}>Browse Catalog</Button>
             <Button variant="outline" onClick={() => {
@@ -458,7 +453,7 @@ export function BulkAddSupplies() {
           {drafts.map((draft, i) => (
             <div key={i} className={`bg-card border rounded-sm p-6 ${draft.error ? 'border-destructive' : 'border-border'}`}>
               <div className="flex gap-6">
-                <img src={draft.compressedImage} alt={draft.name || `Item ${i + 1}`} className="w-32 h-32 object-cover rounded-sm flex-shrink-0" />
+                <img src={draft.previewUrl || draft.publicUrl} alt={draft.name || `Item ${i + 1}`} className="w-32 h-32 object-cover rounded-sm flex-shrink-0" />
                 <div className="flex-1 space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 space-y-4">
