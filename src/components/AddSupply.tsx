@@ -140,7 +140,16 @@ export function AddSupply() {
         return;
       }
 
-      // 4. Pre-fill form. Location fields come from local storage only.
+      // 4. Build a persistable data URL from the already-compressed blob.
+      // The blob is small (~100–300KB), so base64 here is safe.
+      const persistableDataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as string);
+        r.onerror = () => reject(new Error('Failed to read compressed image'));
+        r.readAsDataURL(compressed.blob);
+      });
+
+      // 5. Pre-fill form. Location fields come from local storage only.
       const savedNeighborhood = localStorage.getItem('lastNeighborhood') || "";
       const savedCrossStreets = localStorage.getItem('lastCrossStreets') || "";
 
@@ -152,7 +161,7 @@ export function AddSupply() {
         neighborhood: savedNeighborhood,
         crossStreets: savedCrossStreets,
         contactEmail: data.contactEmail || userProfile?.email || currentUser.email || "",
-        images: [compressed.previewUrl],
+        images: [persistableDataUrl],
       });
 
       setHouseRules(data.houseRules || []);
