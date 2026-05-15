@@ -10,7 +10,7 @@ import { Loader2, Upload, Sparkles, X, AlertCircle, Check } from "lucide-react";
 import { toast } from "sonner";
 import { HouseRules } from "@/components/HouseRules";
 import { supabase } from "@/integrations/supabase/client";
-import { compressFileToDataUrl, compressImage } from "@/lib/imageCompression";
+import { compressFile } from "@/lib/imageCompression";
 import { categories } from "@/data/categories";
 import { useCommunity } from "@/contexts/CommunityContext";
 
