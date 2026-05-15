@@ -88,13 +88,19 @@ export function BulkAddSupplies() {
     const toProcess = Math.min(files.length, remaining);
     if (toProcess === 0) return;
 
-    const newImages: string[] = [];
+    const newImages: { blob: Blob; previewUrl: string }[] = [];
     for (let i = 0; i < toProcess; i++) {
+      const f = files[i];
+      if (f.size > 25 * 1024 * 1024) {
+        toast.error(`Skipping a photo over 25 MB.`);
+        continue;
+      }
       try {
-        const compressed = await compressFileToDataUrl(files[i]);
+        const compressed = await compressFile(f);
         newImages.push(compressed);
-      } catch (e) {
+      } catch (e: any) {
         console.error('Failed to compress image:', e);
+        toast.error(e?.message || 'Failed to process a photo');
       }
     }
     setImages(prev => [...prev, ...newImages]);
@@ -102,7 +108,11 @@ export function BulkAddSupplies() {
   };
 
   const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
+    setImages(prev => {
+      const removed = prev[index];
+      if (removed) URL.revokeObjectURL(removed.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const analyzeAll = async () => {
@@ -119,32 +129,28 @@ export function BulkAddSupplies() {
       setProgressLabel(`Analyzing item ${i + 1} of ${images.length}...`);
       setProgress(((i) / images.length) * 100);
 
-      let tempFilePath: string | null = null;
-      try {
-        // Upload compressed image to temp storage
-        const res = await fetch(images[i]);
-        const blob = await res.blob();
-        tempFilePath = `tmp/${crypto.randomUUID()}.jpg`;
+      const item = images[i];
+      const storagePath = `${user.id}/${crypto.randomUUID()}.jpg`;
+      let publicUrl = '';
+      let uploadedOk = false;
 
+      try {
         const { error: uploadError } = await supabase.storage
           .from('supply-images')
-          .upload(tempFilePath, blob, { contentType: 'image/jpeg' });
-
+          .upload(storagePath, item.blob, { contentType: 'image/jpeg' });
         if (uploadError) throw uploadError;
+        uploadedOk = true;
+        publicUrl = supabase.storage.from('supply-images').getPublicUrl(storagePath).data.publicUrl;
 
-        const { data: urlData } = supabase.storage
-          .from('supply-images')
-          .getPublicUrl(tempFilePath);
-
-        // Call AI
         const { data, error } = await supabase.functions.invoke('draft-item-from-image', {
-          body: { imageUrl: urlData.publicUrl }
+          body: { imageUrl: publicUrl }
         });
-
         if (error) throw error;
 
         results.push({
-          compressedImage: images[i],
+          storagePath,
+          publicUrl,
+          previewUrl: item.previewUrl,
           name: data.name || "",
           description: data.description || "",
           category: data.category || "",
@@ -153,18 +159,16 @@ export function BulkAddSupplies() {
       } catch (error: any) {
         console.error(`Failed to analyze image ${i + 1}:`, error);
         results.push({
-          compressedImage: images[i],
+          storagePath: uploadedOk ? storagePath : '',
+          publicUrl,
+          previewUrl: item.previewUrl,
           name: "",
           description: "",
           category: "",
           condition: "good",
-          error: error.message || "Analysis failed",
+          error: error?.message || "Analysis failed — fill in manually",
         });
       } finally {
-        if (tempFilePath) {
-          supabase.storage.from('supply-images').remove([tempFilePath]).catch(() => {});
-        }
-        // Rate limit: 2s between AI calls
         if (i < images.length - 1) {
           await new Promise(r => setTimeout(r, 2000));
         }
@@ -174,11 +178,11 @@ export function BulkAddSupplies() {
     setProgress(100);
     setDrafts(results);
     setStep("review");
-    
+
     const successCount = results.filter(r => !r.error).length;
     const failCount = results.filter(r => r.error).length;
     if (failCount > 0) {
-      toast.warning(`${successCount} items analyzed, ${failCount} failed. You can edit failed ones manually.`);
+      toast.warning(`${successCount} items analyzed, ${failCount} need manual entry.`);
     } else {
       toast.success(`All ${successCount} items analyzed! Review and publish.`);
     }
