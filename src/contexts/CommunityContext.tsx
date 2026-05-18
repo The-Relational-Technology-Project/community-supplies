@@ -10,6 +10,7 @@ interface CommunityContextType {
   communityId: string;
   communitySlug: string;
   communityName: string;
+  aiFeaturesEnabled: boolean;
   loading: boolean;
   notFound: boolean;
 }
@@ -18,6 +19,7 @@ const CommunityContext = createContext<CommunityContextType>({
   communityId: DEFAULT_COMMUNITY_ID,
   communitySlug: DEFAULT_COMMUNITY_SLUG,
   communityName: DEFAULT_COMMUNITY_NAME,
+  aiFeaturesEnabled: true,
   loading: false,
   notFound: false,
 });
@@ -37,6 +39,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
     communityId: DEFAULT_COMMUNITY_ID,
     communitySlug: slug || DEFAULT_COMMUNITY_SLUG,
     communityName: DEFAULT_COMMUNITY_NAME,
+    aiFeaturesEnabled: true,
     loading: true,
     notFound: false,
   });
@@ -46,21 +49,10 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
     if (!slug) return;
     let cancelled = false;
 
-    if (slug === DEFAULT_COMMUNITY_SLUG) {
-      setCommunity({
-        communityId: DEFAULT_COMMUNITY_ID,
-        communitySlug: DEFAULT_COMMUNITY_SLUG,
-        communityName: DEFAULT_COMMUNITY_NAME,
-        loading: false,
-        notFound: false,
-      });
-      return;
-    }
-
     (async () => {
       const { data, error } = await supabase
         .from("communities")
-        .select("id, name, slug")
+        .select("id, name, slug, ai_features_enabled")
         .eq("slug", slug)
         .maybeSingle();
 
@@ -70,14 +62,16 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           communityId: DEFAULT_COMMUNITY_ID,
           communitySlug: slug,
           communityName: DEFAULT_COMMUNITY_NAME,
+          aiFeaturesEnabled: true,
           loading: false,
-          notFound: true,
+          notFound: slug !== DEFAULT_COMMUNITY_SLUG,
         });
       } else {
         setCommunity({
           communityId: data.id,
           communitySlug: data.slug,
           communityName: data.name,
+          aiFeaturesEnabled: (data as any).ai_features_enabled ?? true,
           loading: false,
           notFound: false,
         });
@@ -99,6 +93,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
         communityId: DEFAULT_COMMUNITY_ID,
         communitySlug: DEFAULT_COMMUNITY_SLUG,
         communityName: DEFAULT_COMMUNITY_NAME,
+        aiFeaturesEnabled: true,
         loading: false,
         notFound: false,
       });
@@ -108,10 +103,9 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
     setCommunity(prev => ({ ...prev, loading: true }));
 
     (async () => {
-      // Single joined query: profile + community in one round trip
       const { data: profile } = await supabase
         .from("profiles")
-        .select("community_id, communities!inner(id, name, slug)")
+        .select("community_id, communities!inner(id, name, slug, ai_features_enabled)")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -124,6 +118,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           communityId: comm.id,
           communitySlug: comm.slug,
           communityName: comm.name,
+          aiFeaturesEnabled: comm.ai_features_enabled ?? true,
           loading: false,
           notFound: false,
         });
@@ -132,6 +127,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           communityId: DEFAULT_COMMUNITY_ID,
           communitySlug: DEFAULT_COMMUNITY_SLUG,
           communityName: DEFAULT_COMMUNITY_NAME,
+          aiFeaturesEnabled: true,
           loading: false,
           notFound: false,
         });

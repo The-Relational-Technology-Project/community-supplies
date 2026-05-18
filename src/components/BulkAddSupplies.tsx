@@ -30,7 +30,7 @@ type Step = "upload" | "processing" | "review" | "publishing" | "done";
 
 export function BulkAddSupplies() {
   const navigate = useNavigate();
-  const { communityId, communitySlug } = useCommunity();
+  const { communityId, communitySlug, aiFeaturesEnabled } = useCommunity();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -188,6 +188,57 @@ export function BulkAddSupplies() {
     }
   };
 
+  // Upload all selected photos without AI — creates blank editable drafts.
+  const uploadAllManual = async () => {
+    if (!user) {
+      toast.error("You must be logged in");
+      return;
+    }
+    setStep("processing");
+    setProgress(0);
+    const results: DraftItem[] = [];
+
+    for (let i = 0; i < images.length; i++) {
+      setProgressLabel(`Uploading photo ${i + 1} of ${images.length}...`);
+      setProgress((i / images.length) * 100);
+      const item = images[i];
+      const storagePath = `${user.id}/${crypto.randomUUID()}.jpg`;
+      try {
+        const { error: uploadError } = await supabase.storage
+          .from('supply-images')
+          .upload(storagePath, item.blob, { contentType: 'image/jpeg' });
+        if (uploadError) throw uploadError;
+        const publicUrl = supabase.storage.from('supply-images').getPublicUrl(storagePath).data.publicUrl;
+        results.push({
+          storagePath,
+          publicUrl,
+          previewUrl: item.previewUrl,
+          name: "",
+          description: "",
+          category: "",
+          condition: "good",
+        });
+      } catch (error: any) {
+        console.error(`Failed to upload image ${i + 1}:`, error);
+        results.push({
+          storagePath: '',
+          publicUrl: '',
+          previewUrl: item.previewUrl,
+          name: "",
+          description: "",
+          category: "",
+          condition: "good",
+          error: "Photo upload failed — please try again",
+        });
+      }
+    }
+
+    setProgress(100);
+    setDrafts(results);
+    setStep("review");
+    toast.success(`${results.length} photo${results.length !== 1 ? 's' : ''} uploaded. Add details for each below.`);
+  };
+
   const updateDraft = (index: number, field: keyof DraftItem, value: string) => {
     setDrafts(prev => prev.map((d, i) => i === index ? { ...d, [field]: value, error: undefined } : d));
   };
@@ -324,10 +375,21 @@ export function BulkAddSupplies() {
             />
 
             {images.length > 0 && (
-              <div className="mt-6 flex gap-4">
-                <Button onClick={analyzeAll} size="lg" className="flex-1">
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Analyze {images.length} Item{images.length !== 1 ? 's' : ''} with AI
+              <div className="mt-6 flex gap-3 flex-wrap">
+                {aiFeaturesEnabled && (
+                  <Button onClick={analyzeAll} size="lg" className="flex-1 min-w-[200px]">
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    Analyze {images.length} Item{images.length !== 1 ? 's' : ''} with AI
+                  </Button>
+                )}
+                <Button
+                  onClick={uploadAllManual}
+                  size="lg"
+                  variant={aiFeaturesEnabled ? "secondary" : "default"}
+                  className="flex-1 min-w-[200px]"
+                >
+                  <Upload className="mr-2 h-5 w-5" />
+                  Upload &amp; add details myself
                 </Button>
                 <Button variant="outline" size="lg" onClick={() => setImages([])}>
                   Clear All

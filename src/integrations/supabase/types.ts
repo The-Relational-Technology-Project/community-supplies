@@ -103,6 +103,7 @@ export type Database = {
       }
       communities: {
         Row: {
+          ai_features_enabled: boolean
           coarse_latitude: number | null
           coarse_longitude: number | null
           country_code: string | null
@@ -121,6 +122,7 @@ export type Database = {
           zip_code: string | null
         }
         Insert: {
+          ai_features_enabled?: boolean
           coarse_latitude?: number | null
           coarse_longitude?: number | null
           country_code?: string | null
@@ -139,6 +141,7 @@ export type Database = {
           zip_code?: string | null
         }
         Update: {
+          ai_features_enabled?: boolean
           coarse_latitude?: number | null
           coarse_longitude?: number | null
           country_code?: string | null

@@ -15,10 +15,11 @@ import { useCommunity } from "@/contexts/CommunityContext";
 
 export function AddSupply() {
   const navigate = useNavigate();
-  const { communityId, communitySlug } = useCommunity();
+  const { communityId, communitySlug, aiFeaturesEnabled } = useCommunity();
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isDraftingWithAI, setIsDraftingWithAI] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string>("");
   const [showForm, setShowForm] = useState(false);
@@ -40,14 +41,14 @@ export function AddSupply() {
     const getUserAndProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-      
+
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
-        
+
         if (profile) {
           setUserProfile(profile);
         }
@@ -55,7 +56,6 @@ export function AddSupply() {
     };
     getUserAndProfile();
 
-    // Load saved location data from localStorage
     const savedNeighborhood = localStorage.getItem('lastNeighborhood');
     const savedCrossStreets = localStorage.getItem('lastCrossStreets');
     if (savedNeighborhood || savedCrossStreets) {
@@ -67,7 +67,7 @@ export function AddSupply() {
     }
   }, []);
 
-  const openManualForm = async () => {
+  const openManualForm = async (publicUrl?: string) => {
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
       toast.error("You must be logged in to add items");
@@ -84,28 +84,64 @@ export function AddSupply() {
       neighborhood: savedNeighborhood,
       crossStreets: savedCrossStreets,
       contactEmail: userProfile?.email || currentUser.email || "",
-      images: [],
+      images: publicUrl ? [publicUrl] : [],
     });
     setHouseRules([]);
-    setUploadedImage("");
+    if (!publicUrl) setUploadedImage("");
     setShowForm(true);
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Compress + upload a single file, returning the public URL.
+  // Throws on failure.
+  const compressAndUpload = async (file: File, currentUserId: string): Promise<{ publicUrl: string; previewUrl: string }> => {
+    if (file.size > 25 * 1024 * 1024) {
+      throw new Error("That photo is over 25 MB. Please pick a smaller one — most phone photos work great.");
+    }
+    const compressed = await compressFile(file);
+    const storagePath = `${currentUserId}/${crypto.randomUUID()}.jpg`;
+    const { error: uploadError } = await supabase.storage
+      .from('supply-images')
+      .upload(storagePath, compressed.blob, { contentType: 'image/jpeg' });
+    if (uploadError) {
+      URL.revokeObjectURL(compressed.previewUrl);
+      throw new Error("Couldn't upload your photo. Please check your connection and try again.");
+    }
+    const publicUrl = supabase.storage.from('supply-images').getPublicUrl(storagePath).data.publicUrl;
+    return { publicUrl, previewUrl: compressed.previewUrl };
+  };
+
+  // Manual path: upload photo, open form, no AI involved.
+  const handlePhotoUploadManual = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    // Reset the input so re-selecting the same file still triggers onChange.
     event.target.value = "";
 
-    if (file.size > 25 * 1024 * 1024) {
-      toast.error(
-        "That photo is over 25 MB. Please pick a smaller one — most phone photos work great."
-      );
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) {
+      toast.error("You must be logged in to add items");
       return;
     }
+    if (!user) setUser(currentUser);
 
-    // Re-check auth directly to avoid stale state race condition
+    setIsUploadingPhoto(true);
+    try {
+      const { publicUrl, previewUrl } = await compressAndUpload(file, currentUser.id);
+      setUploadedImage(previewUrl);
+      await openManualForm(publicUrl);
+    } catch (err: any) {
+      console.error("[AddSupply] manual upload failed", err);
+      toast.error(err?.message || "Couldn't process that photo. Please try a different one.");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  // AI path: upload photo, open form, then attempt AI draft in background.
+  const handlePhotoUploadWithAI = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = "";
+
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
       toast.error("You must be logged in to add items");
@@ -114,104 +150,46 @@ export function AddSupply() {
     if (!user) setUser(currentUser);
 
     setIsDraftingWithAI(true);
-
-    let storagePath: string | null = null;
-    let publicUrl: string | null = null;
-    let previewUrlToRevoke: string | null = null;
-    let formOpened = false;
-
+    let publicUrl = "";
     try {
-      // 1. Memory-safe compression (no base64 round-trip).
-      console.info("[AddSupply] compressing", { size: file.size, type: file.type });
-      let compressed: { blob: Blob; previewUrl: string };
-      try {
-        compressed = await compressFile(file);
-      } catch (err: any) {
-        console.error("[AddSupply] compression failed", err);
-        toast.error(err?.message || "Couldn't process that photo. Please try a different one.");
-        return;
-      }
-      previewUrlToRevoke = compressed.previewUrl;
-      setUploadedImage(compressed.previewUrl);
+      const uploaded = await compressAndUpload(file, currentUser.id);
+      publicUrl = uploaded.publicUrl;
+      setUploadedImage(uploaded.previewUrl);
+      await openManualForm(publicUrl);
+    } catch (err: any) {
+      console.error("[AddSupply] AI upload failed", err);
+      toast.error(err?.message || "Couldn't process that photo. Please try a different one.");
+      setIsDraftingWithAI(false);
+      return;
+    }
 
-      // 2. Upload compressed blob to user-scoped storage path so it survives publish
-      //    and so storage RLS allows future cleanup.
-      console.info("[AddSupply] uploading", { compressedSize: compressed.blob.size });
-      storagePath = `${currentUser.id}/${crypto.randomUUID()}.jpg`;
-      const { error: uploadError } = await supabase.storage
-        .from('supply-images')
-        .upload(storagePath, compressed.blob, { contentType: 'image/jpeg' });
-
-      if (uploadError) {
-        console.error("[AddSupply] upload failed", uploadError);
-        toast.error("Couldn't upload your photo. Please check your connection and try again.");
-        storagePath = null;
-        return;
-      }
-
-      publicUrl = supabase.storage.from('supply-images').getPublicUrl(storagePath).data.publicUrl;
-
-      // 3. Open the form immediately with the photo attached so the user can
-      //    keep working even if the AI step fails or is slow.
-      const savedNeighborhood = localStorage.getItem('lastNeighborhood') || "";
-      const savedCrossStreets = localStorage.getItem('lastCrossStreets') || "";
-      setFormData({
-        name: "",
-        description: "",
-        category: "",
-        condition: "good",
-        neighborhood: savedNeighborhood,
-        crossStreets: savedCrossStreets,
-        contactEmail: userProfile?.email || currentUser.email || "",
-        images: [publicUrl],
+    // Non-blocking AI draft.
+    try {
+      const { data, error } = await supabase.functions.invoke('draft-item-from-image', {
+        body: { imageUrl: publicUrl }
       });
-      setHouseRules([]);
-      setShowForm(true);
-      formOpened = true;
-      // Preview URL is now owned by the form; don't revoke it on cleanup.
-      previewUrlToRevoke = null;
-
-      // 4. Try AI drafting — non-blocking. If it fails the form is already open.
-      console.info("[AddSupply] invoking draft-item-from-image");
-      try {
-        const { data, error } = await supabase.functions.invoke('draft-item-from-image', {
-          body: { imageUrl: publicUrl }
-        });
-        if (error || !data) throw error || new Error('No draft data');
-
-        setFormData(prev => ({
-          ...prev,
-          name: data.name || prev.name,
-          description: data.description || prev.description,
-          category: data.category || prev.category,
-          condition: data.condition || prev.condition,
-          contactEmail: data.contactEmail || prev.contactEmail,
-        }));
-        if (Array.isArray(data.houseRules) && data.houseRules.length) {
-          setHouseRules(data.houseRules);
-        }
-        toast.success("✨ AI draft ready — please review and edit before publishing.");
-      } catch (aiErr) {
-        console.error('[AddSupply] AI draft failed', aiErr);
-        toast.message("Photo uploaded — please fill in the details below.", {
-          description: "AI couldn't draft this one. You can write a brief description yourself.",
-        });
+      if (error || !data) throw error || new Error('No draft data');
+      setFormData(prev => ({
+        ...prev,
+        name: data.name || prev.name,
+        description: data.description || prev.description,
+        category: data.category || prev.category,
+        condition: data.condition || prev.condition,
+        contactEmail: data.contactEmail || prev.contactEmail,
+      }));
+      if (Array.isArray(data.houseRules) && data.houseRules.length) {
+        setHouseRules(data.houseRules);
       }
-    } catch (error: any) {
-      console.error('[AddSupply] unexpected error', error);
-      toast.error('Something went wrong processing that photo. Please try again.');
+      toast.success("✨ AI draft ready — please review and edit before publishing.");
+    } catch (aiErr) {
+      console.error('[AddSupply] AI draft failed', aiErr);
+      toast.message("Photo uploaded — please fill in the details below.", {
+        description: "AI couldn't draft this one. You can write a brief description yourself.",
+      });
     } finally {
       setIsDraftingWithAI(false);
-      // Only delete the uploaded photo if the form never opened (failure path).
-      if (!formOpened && storagePath) {
-        supabase.storage.from('supply-images').remove([storagePath]).catch(() => {});
-      }
-      if (previewUrlToRevoke) {
-        URL.revokeObjectURL(previewUrlToRevoke);
-      }
     }
   };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -337,50 +315,92 @@ export function AddSupply() {
                   Add an item
                 </h2>
                 <p className="text-muted-foreground">
-                  Snap a photo and let AI draft the listing for you, or skip the photo and write a quick description yourself.
+                  {aiFeaturesEnabled
+                    ? "Add a photo and write the details yourself, let AI draft them from your photo, or skip the photo entirely."
+                    : "Add a photo and write a short description, or skip the photo entirely."}
                 </p>
               </div>
 
               <div className="flex flex-col items-center gap-3">
+                {/* Manual photo upload — always available, never calls AI */}
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={handleImageUpload}
+                  onChange={handlePhotoUploadManual}
                   className="hidden"
-                  id="image-upload"
-                  disabled={isDraftingWithAI}
+                  id="image-upload-manual"
+                  disabled={isUploadingPhoto || isDraftingWithAI}
                 />
-                <label htmlFor="image-upload">
+                <label htmlFor="image-upload-manual">
                   <Button
                     type="button"
                     size="lg"
                     className="cursor-pointer"
-                    disabled={isDraftingWithAI}
+                    disabled={isUploadingPhoto || isDraftingWithAI}
                     asChild
                   >
                     <span>
-                      {isDraftingWithAI ? (
+                      {isUploadingPhoto ? (
                         <>
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Uploading & analyzing...
+                          Uploading photo...
                         </>
                       ) : (
                         <>
-                          <Sparkles className="mr-2 h-5 w-5" />
-                          Choose Photo
+                          <Upload className="mr-2 h-5 w-5" />
+                          Add a photo & write it myself
                         </>
                       )}
                     </span>
                   </Button>
                 </label>
+
+                {/* Optional AI photo path */}
+                {aiFeaturesEnabled && (
+                  <>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUploadWithAI}
+                      className="hidden"
+                      id="image-upload-ai"
+                      disabled={isUploadingPhoto || isDraftingWithAI}
+                    />
+                    <label htmlFor="image-upload-ai">
+                      <Button
+                        type="button"
+                        size="lg"
+                        variant="secondary"
+                        className="cursor-pointer"
+                        disabled={isUploadingPhoto || isDraftingWithAI}
+                        asChild
+                      >
+                        <span>
+                          {isDraftingWithAI ? (
+                            <>
+                              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                              Uploading & analyzing...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="mr-2 h-5 w-5" />
+                              Use AI to draft from photo
+                            </>
+                          )}
+                        </span>
+                      </Button>
+                    </label>
+                  </>
+                )}
+
                 <Button
                   type="button"
                   variant="outline"
                   size="lg"
-                  onClick={openManualForm}
-                  disabled={isDraftingWithAI}
+                  onClick={() => openManualForm()}
+                  disabled={isUploadingPhoto || isDraftingWithAI}
                 >
-                  Skip — write it myself
+                  Skip the photo — write it myself
                 </Button>
               </div>
 

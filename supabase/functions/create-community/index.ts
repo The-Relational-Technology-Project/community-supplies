@@ -25,6 +25,7 @@ const BodySchema = z.object({
   stewardName: z.string().min(1).max(200),
   stewardEmail: z.string().email().max(255),
   stewardPassword: z.string().min(6).max(200),
+  aiFeaturesEnabled: z.boolean().optional().default(true),
 });
 
 function escapeHtml(text: string): string {
@@ -48,7 +49,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { communityName, communitySlug, location, reason, questions, stewardName, stewardEmail, stewardPassword } = parsed.data;
+    const { communityName, communitySlug, location, reason, questions, stewardName, stewardEmail, stewardPassword, aiFeaturesEnabled } = parsed.data;
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -99,7 +100,7 @@ Deno.serve(async (req) => {
     // 3. Create community
     const { data: community, error: communityError } = await supabaseAdmin
       .from("communities")
-      .insert({ name: communityName, slug: communitySlug, description: location })
+      .insert({ name: communityName, slug: communitySlug, description: location, ai_features_enabled: aiFeaturesEnabled ?? true })
       .select("id")
       .single();
 
