@@ -12,6 +12,7 @@ import { DiscoverabilityToggle } from "./DiscoverabilityToggle";
 import { RenameCommunity } from "./RenameCommunity";
 import { StewardWelcomeBatch } from "./StewardWelcomeBatch";
 import { InviteNeighborsButton } from "./InviteNeighborsButton";
+import { CommunityAiSettings } from "./CommunityAiSettings";
 
 export function StewardDashboard() {
   return (
@@ -33,6 +34,8 @@ export function StewardDashboard() {
       <JoinModeToggle />
 
       <DiscoverabilityToggle />
+
+      <CommunityAiSettings />
 
       <StewardWelcomeBatch />
 

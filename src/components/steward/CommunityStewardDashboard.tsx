@@ -4,6 +4,7 @@ import { SupplyRequestsManager } from "./SupplyRequestsManager";
 import { JoinRequestsManager } from "./JoinRequestsManager";
 import { JoinModeToggle } from "./JoinModeToggle";
 import { StewardWelcomeBatch } from "./StewardWelcomeBatch";
+import { CommunityAiSettings } from "./CommunityAiSettings";
 import { Users, MessageSquare, UserPlus } from "lucide-react";
 
 export function CommunityStewardDashboard() {
@@ -12,6 +13,7 @@ export function CommunityStewardDashboard() {
       <h1 className="text-2xl font-serif font-bold text-deep-brown mb-6">Steward Dashboard</h1>
       <div className="mb-6 space-y-6">
         <JoinModeToggle />
+        <CommunityAiSettings />
         <StewardWelcomeBatch />
       </div>
       <Tabs defaultValue="members" className="space-y-4">
