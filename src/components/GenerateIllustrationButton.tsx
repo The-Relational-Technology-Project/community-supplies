@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { useGenerateIllustration } from "@/hooks/useGenerateIllustration";
+import { useCommunity } from "@/contexts/CommunityContext";
 
 interface GenerateIllustrationButtonProps {
   supplyId: string;
@@ -18,6 +19,9 @@ export const GenerateIllustrationButton = ({
   onGenerated
 }: GenerateIllustrationButtonProps) => {
   const { generateIllustration, loading } = useGenerateIllustration();
+  const { aiFeaturesEnabled } = useCommunity();
+
+  if (!aiFeaturesEnabled) return null;
 
   const handleGenerate = async () => {
     try {
