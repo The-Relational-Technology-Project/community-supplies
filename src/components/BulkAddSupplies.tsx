@@ -375,10 +375,21 @@ export function BulkAddSupplies() {
             />
 
             {images.length > 0 && (
-              <div className="mt-6 flex gap-4">
-                <Button onClick={analyzeAll} size="lg" className="flex-1">
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Analyze {images.length} Item{images.length !== 1 ? 's' : ''} with AI
+              <div className="mt-6 flex gap-3 flex-wrap">
+                {aiFeaturesEnabled && (
+                  <Button onClick={analyzeAll} size="lg" className="flex-1 min-w-[200px]">
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    Analyze {images.length} Item{images.length !== 1 ? 's' : ''} with AI
+                  </Button>
+                )}
+                <Button
+                  onClick={uploadAllManual}
+                  size="lg"
+                  variant={aiFeaturesEnabled ? "secondary" : "default"}
+                  className="flex-1 min-w-[200px]"
+                >
+                  <Upload className="mr-2 h-5 w-5" />
+                  Upload &amp; add details myself
                 </Button>
                 <Button variant="outline" size="lg" onClick={() => setImages([])}>
                   Clear All
