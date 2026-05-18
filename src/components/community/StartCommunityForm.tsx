@@ -37,6 +37,7 @@ export function StartCommunityForm() {
 
   // Account creation
   const [password, setPassword] = useState("");
+  const [aiFeaturesEnabled, setAiFeaturesEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -81,6 +82,7 @@ export function StartCommunityForm() {
           stewardName: stewardName.trim(),
           stewardEmail: stewardEmail.trim(),
           stewardPassword: password,
+          aiFeaturesEnabled,
         },
       });
 
