@@ -150,6 +150,33 @@ export function StartCommunityForm() {
                 autoComplete="new-password"
               />
             </div>
+
+            <div className="rounded-md border border-border p-4 space-y-3 bg-muted/30">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-medium text-deep-brown">AI features</div>
+                  <p className="text-sm text-muted-foreground">
+                    Recommended: keep on. You can change this anytime.
+                  </p>
+                </div>
+                <label className="inline-flex items-center cursor-pointer select-none gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {aiFeaturesEnabled ? "On" : "Off"}
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-9 appearance-none rounded-full bg-muted relative cursor-pointer transition-colors checked:bg-primary before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-4 before:w-4 before:rounded-full before:bg-background before:transition-transform checked:before:translate-x-4"
+                    checked={aiFeaturesEnabled}
+                    onChange={(e) => setAiFeaturesEnabled(e.target.checked)}
+                  />
+                </label>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {aiFeaturesEnabled
+                  ? "With AI on, members can optionally take a photo and let AI draft an item's name, description, and category for them. AI can also generate a clean catalog-style illustration of each item. Members can always skip AI and write their own listings."
+                  : "With AI off, members add photos and write descriptions themselves. The AI draft option and catalog illustration tools will be hidden across your site."}
+              </p>
+            </div>
             <div className="flex gap-3">
               <Button type="button" variant="outline" onClick={() => setStep("details")} className="gap-2">
                 <ArrowLeft className="h-4 w-4" /> Back
