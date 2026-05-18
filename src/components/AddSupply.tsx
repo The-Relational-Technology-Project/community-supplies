@@ -409,64 +409,6 @@ export function AddSupply() {
               </p>
             </div>
           </div>
-
-              <div>
-                <h2 className="text-2xl font-serif font-semibold text-deep-brown mb-2">
-                  Add an item
-                </h2>
-                <p className="text-muted-foreground">
-                  Snap a photo and let AI draft the listing for you, or skip the photo and write a quick description yourself.
-                </p>
-              </div>
-
-              <div className="flex flex-col items-center gap-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  id="image-upload"
-                  disabled={isDraftingWithAI}
-                />
-                <label htmlFor="image-upload">
-                  <Button
-                    type="button"
-                    size="lg"
-                    className="cursor-pointer"
-                    disabled={isDraftingWithAI}
-                    asChild
-                  >
-                    <span>
-                      {isDraftingWithAI ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Uploading & analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="mr-2 h-5 w-5" />
-                          Choose Photo
-                        </>
-                      )}
-                    </span>
-                  </Button>
-                </label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  onClick={openManualForm}
-                  disabled={isDraftingWithAI}
-                >
-                  Skip — write it myself
-                </Button>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                Photos are automatically compressed — any size works
-              </p>
-            </div>
-          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Image Preview */}
