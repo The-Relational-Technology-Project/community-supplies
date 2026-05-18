@@ -30,7 +30,7 @@ type Step = "upload" | "processing" | "review" | "publishing" | "done";
 
 export function BulkAddSupplies() {
   const navigate = useNavigate();
-  const { communityId, communitySlug } = useCommunity();
+  const { communityId, communitySlug, aiFeaturesEnabled } = useCommunity();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
