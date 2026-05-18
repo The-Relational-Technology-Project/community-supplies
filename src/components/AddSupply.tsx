@@ -315,6 +315,106 @@ export function AddSupply() {
                   Add an item
                 </h2>
                 <p className="text-muted-foreground">
+                  {aiFeaturesEnabled
+                    ? "Add a photo and write the details yourself, let AI draft them from your photo, or skip the photo entirely."
+                    : "Add a photo and write a short description, or skip the photo entirely."}
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center gap-3">
+                {/* Manual photo upload — always available, never calls AI */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUploadManual}
+                  className="hidden"
+                  id="image-upload-manual"
+                  disabled={isUploadingPhoto || isDraftingWithAI}
+                />
+                <label htmlFor="image-upload-manual">
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="cursor-pointer"
+                    disabled={isUploadingPhoto || isDraftingWithAI}
+                    asChild
+                  >
+                    <span>
+                      {isUploadingPhoto ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Uploading photo...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="mr-2 h-5 w-5" />
+                          Add a photo & write it myself
+                        </>
+                      )}
+                    </span>
+                  </Button>
+                </label>
+
+                {/* Optional AI photo path */}
+                {aiFeaturesEnabled && (
+                  <>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUploadWithAI}
+                      className="hidden"
+                      id="image-upload-ai"
+                      disabled={isUploadingPhoto || isDraftingWithAI}
+                    />
+                    <label htmlFor="image-upload-ai">
+                      <Button
+                        type="button"
+                        size="lg"
+                        variant="secondary"
+                        className="cursor-pointer"
+                        disabled={isUploadingPhoto || isDraftingWithAI}
+                        asChild
+                      >
+                        <span>
+                          {isDraftingWithAI ? (
+                            <>
+                              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                              Uploading & analyzing...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="mr-2 h-5 w-5" />
+                              Use AI to draft from photo
+                            </>
+                          )}
+                        </span>
+                      </Button>
+                    </label>
+                  </>
+                )}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={() => openManualForm()}
+                  disabled={isUploadingPhoto || isDraftingWithAI}
+                >
+                  Skip the photo — write it myself
+                </Button>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Photos are automatically compressed — any size works
+              </p>
+            </div>
+          </div>
+
+              <div>
+                <h2 className="text-2xl font-serif font-semibold text-deep-brown mb-2">
+                  Add an item
+                </h2>
+                <p className="text-muted-foreground">
                   Snap a photo and let AI draft the listing for you, or skip the photo and write a quick description yourself.
                 </p>
               </div>
