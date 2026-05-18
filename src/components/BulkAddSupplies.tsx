@@ -188,6 +188,57 @@ export function BulkAddSupplies() {
     }
   };
 
+  // Upload all selected photos without AI — creates blank editable drafts.
+  const uploadAllManual = async () => {
+    if (!user) {
+      toast.error("You must be logged in");
+      return;
+    }
+    setStep("processing");
+    setProgress(0);
+    const results: DraftItem[] = [];
+
+    for (let i = 0; i < images.length; i++) {
+      setProgressLabel(`Uploading photo ${i + 1} of ${images.length}...`);
+      setProgress((i / images.length) * 100);
+      const item = images[i];
+      const storagePath = `${user.id}/${crypto.randomUUID()}.jpg`;
+      try {
+        const { error: uploadError } = await supabase.storage
+          .from('supply-images')
+          .upload(storagePath, item.blob, { contentType: 'image/jpeg' });
+        if (uploadError) throw uploadError;
+        const publicUrl = supabase.storage.from('supply-images').getPublicUrl(storagePath).data.publicUrl;
+        results.push({
+          storagePath,
+          publicUrl,
+          previewUrl: item.previewUrl,
+          name: "",
+          description: "",
+          category: "",
+          condition: "good",
+        });
+      } catch (error: any) {
+        console.error(`Failed to upload image ${i + 1}:`, error);
+        results.push({
+          storagePath: '',
+          publicUrl: '',
+          previewUrl: item.previewUrl,
+          name: "",
+          description: "",
+          category: "",
+          condition: "good",
+          error: "Photo upload failed — please try again",
+        });
+      }
+    }
+
+    setProgress(100);
+    setDrafts(results);
+    setStep("review");
+    toast.success(`${results.length} photo${results.length !== 1 ? 's' : ''} uploaded. Add details for each below.`);
+  };
+
   const updateDraft = (index: number, field: keyof DraftItem, value: string) => {
     setDrafts(prev => prev.map((d, i) => i === index ? { ...d, [field]: value, error: undefined } : d));
   };
