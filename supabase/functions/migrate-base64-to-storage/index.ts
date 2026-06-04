@@ -69,22 +69,26 @@ serve(async (req) => {
     const sharedSecret = req.headers.get("x-migration-secret");
     const federationSecret = Deno.env.get("FEDERATION_SECRET");
     let authorized = false;
+    let authDebug = "";
 
     if (sharedSecret && federationSecret && sharedSecret === federationSecret) {
       authorized = true;
+      authDebug = "secret-match";
     } else {
+      authDebug = `secret-mismatch (recv_len=${sharedSecret?.length ?? 0}, env_len=${federationSecret?.length ?? 0})`;
       const authHeader = req.headers.get("Authorization");
       if (authHeader) {
         const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
         if (!authError && user) {
           const { data: isSteward } = await supabase.rpc("is_user_steward", { user_id: user.id });
-          if (isSteward) authorized = true;
+          if (isSteward) { authorized = true; authDebug = "steward-jwt"; }
+          else authDebug = "not-steward";
         }
       }
     }
 
     if (!authorized) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      return new Response(JSON.stringify({ error: "Unauthorized", authDebug }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
