@@ -85,7 +85,7 @@ serve(async (req) => {
 
     const { data: supplies, error } = await supabase
       .from('supplies')
-      .select('id, name, description, images, image_url')
+      .select('id, name, description, images, image_url, owner_id')
       .is('illustration_url', null);
 
     if (error) throw error;
