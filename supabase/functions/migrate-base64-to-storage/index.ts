@@ -63,22 +63,29 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Allow two auth modes:
+    //  (a) steward JWT — for invocation from the app UI
+    //  (b) shared FEDERATION_SECRET — for agent/CLI invocation during migration
+    const sharedSecret = req.headers.get("x-migration-secret");
+    const federationSecret = Deno.env.get("FEDERATION_SECRET");
+    let authorized = false;
+
+    if (sharedSecret && federationSecret && sharedSecret === federationSecret) {
+      authorized = true;
+    } else {
+      const authHeader = req.headers.get("Authorization");
+      if (authHeader) {
+        const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+        if (!authError && user) {
+          const { data: isSteward } = await supabase.rpc("is_user_steward", { user_id: user.id });
+          if (isSteward) authorized = true;
+        }
+      }
     }
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
+
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const { data: isSteward } = await supabase.rpc("is_user_steward", { user_id: user.id });
-    if (!isSteward) {
-      return new Response(JSON.stringify({ error: "Only stewards can run this migration" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
