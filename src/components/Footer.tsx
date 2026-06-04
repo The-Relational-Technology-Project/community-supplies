@@ -119,39 +119,48 @@ function PinnedCard({ site }: {site: SiblingSite;}) {
 
 }
 
+import { useCommunity } from "@/contexts/CommunityContext";
+
 export function Footer() {
+  const { communitySlug } = useCommunity();
+  const isSunset = communitySlug === "sunset-richmond";
+
   return (
     <footer>
-      {/* Bulletin board */}
-      <div
-        style={{
-          backgroundImage: `
-            radial-gradient(circle, hsl(28 30% 72%) 1px, transparent 1px),
-            radial-gradient(circle, hsl(28 35% 82%) 0.5px, transparent 0.5px)
-          `,
-          backgroundSize: "8px 8px, 12px 12px",
-          backgroundPosition: "0 0, 4px 4px"
-        }}
-        className="bg-sand py-12 md:py-16 px-6">
-        
-        <div className="container mx-auto">
-          <h2 className="text-center font-serif text-lg md:text-xl font-bold mb-8 md:mb-10 text-deep-brown">Neighborhood tools made by us, for us
+      {/* Outer Sunset sibling sites — only on the Sunset community */}
+      {isSunset && (
+        <div
+          style={{
+            backgroundImage: `
+              radial-gradient(circle, hsl(28 30% 72%) 1px, transparent 1px),
+              radial-gradient(circle, hsl(28 35% 82%) 0.5px, transparent 0.5px)
+            `,
+            backgroundSize: "8px 8px, 12px 12px",
+            backgroundPosition: "0 0, 4px 4px"
+          }}
+          className="bg-sand py-12 md:py-16 px-6">
 
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 max-w-4xl mx-auto">
-            {SIBLING_SITES.map((site) =>
-            <PinnedCard key={site.domain} site={site} />
-            )}
+          <div className="container mx-auto">
+            <h2 className="text-center font-serif text-lg md:text-xl font-bold mb-8 md:mb-10 text-deep-brown">Neighborhood tools made by us, for us
+
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 max-w-4xl mx-auto">
+              {SIBLING_SITES.map((site) =>
+              <PinnedCard key={site.domain} site={site} />
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Credits */}
       <div className="py-8 text-center bg-sand border-t border-border">
         <div className="container mx-auto px-6 space-y-1">
-          <p className="text-sm text-muted-foreground">
-            Built in the Outer Sunset by neighbors, for neighbors
-          </p>
+          {isSunset && (
+            <p className="text-sm text-muted-foreground">
+              Built in the Outer Sunset by neighbors, for neighbors
+            </p>
+          )}
           <p className="text-sm text-muted-foreground">
             <a
               href="https://studio.relationaltechproject.org"

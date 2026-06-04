@@ -253,17 +253,6 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
                 ))}
           </div>
 
-          {!user && illustrations.length > 0 && (
-            <div className="text-center mt-6 sm:mt-8">
-              <Button
-                variant="link"
-                onClick={handleJoinClick}
-                className="text-terracotta font-medium text-sm sm:text-base"
-              >
-                Join to browse all →
-              </Button>
-            </div>
-          )}
         </section>
       )}
 
