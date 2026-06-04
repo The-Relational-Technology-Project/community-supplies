@@ -585,43 +585,24 @@ export type Database = {
           lng: number
         }[]
       }
-      get_books_with_owners:
-        | {
-            Args: never
-            Returns: {
-              author: string
-              condition: string
-              created_at: string
-              genre: string
-              house_rules: string[]
-              id: string
-              lender_notes: string
-              lent_out: boolean
-              owner_email: string
-              owner_id: string
-              owner_name: string
-              title: string
-              updated_at: string
-            }[]
-          }
-        | {
-            Args: { p_community_id?: string }
-            Returns: {
-              author: string
-              condition: string
-              created_at: string
-              genre: string
-              house_rules: string[]
-              id: string
-              lender_notes: string
-              lent_out: boolean
-              owner_email: string
-              owner_id: string
-              owner_name: string
-              title: string
-              updated_at: string
-            }[]
-          }
+      get_books_with_owners: {
+        Args: { p_community_id?: string }
+        Returns: {
+          author: string
+          condition: string
+          created_at: string
+          genre: string
+          house_rules: string[]
+          id: string
+          lender_notes: string
+          lent_out: boolean
+          owner_email: string
+          owner_id: string
+          owner_name: string
+          title: string
+          updated_at: string
+        }[]
+      }
       get_community_public_stats: {
         Args: { p_slug: string }
         Returns: {
@@ -676,61 +657,33 @@ export type Database = {
           zip_code: string
         }[]
       }
-      get_supplies_with_owners:
-        | {
-            Args: never
-            Returns: {
-              category: string
-              condition: string
-              contact_email: string
-              created_at: string
-              cross_streets: string
-              date_available: string
-              description: string
-              house_rules: string[]
-              id: string
-              illustration_url: string
-              image_url: string
-              images: string[]
-              lender_notes: string
-              lent_out: boolean
-              location: string
-              name: string
-              neighborhood: string
-              owner_id: string
-              owner_name: string
-              owner_zip_code: string
-              party_types: string[]
-              updated_at: string
-            }[]
-          }
-        | {
-            Args: { p_community_id?: string }
-            Returns: {
-              category: string
-              condition: string
-              contact_email: string
-              created_at: string
-              cross_streets: string
-              date_available: string
-              description: string
-              house_rules: string[]
-              id: string
-              illustration_url: string
-              image_url: string
-              images: string[]
-              lender_notes: string
-              lent_out: boolean
-              location: string
-              name: string
-              neighborhood: string
-              owner_id: string
-              owner_name: string
-              owner_zip_code: string
-              party_types: string[]
-              updated_at: string
-            }[]
-          }
+      get_supplies_with_owners: {
+        Args: { p_community_id?: string }
+        Returns: {
+          category: string
+          condition: string
+          contact_email: string
+          created_at: string
+          cross_streets: string
+          date_available: string
+          description: string
+          house_rules: string[]
+          id: string
+          illustration_url: string
+          image_url: string
+          images: string[]
+          lender_notes: string
+          lent_out: boolean
+          location: string
+          name: string
+          neighborhood: string
+          owner_id: string
+          owner_name: string
+          owner_zip_code: string
+          party_types: string[]
+          updated_at: string
+        }[]
+      }
       get_supply_owner_info: {
         Args: { owner_id_param: string }
         Returns: {
