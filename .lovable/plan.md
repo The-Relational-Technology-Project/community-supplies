@@ -1,88 +1,80 @@
-## What I found
+# Fix current loading errors + remove confusing CTAs
 
-- Karen can add an item without a photo, so auth, membership, and the basic `supplies` insert path work.
-- Karen’s recent photo attempts did upload successfully to `supply-images` under her user folder. There are two compressed JPEG uploads around 223 KB.
-- No photo-backed supply record was created after those uploads.
-- That points to the remaining failure happening after photo upload, most likely when the current Add Item flow still invokes AI drafting and updates the form afterward on mobile Safari/WebKit.
-- Because iPhone browsers all use WebKit, DuckDuckGo and Safari failing the same way is consistent with the same client-side crash path.
+## What the error is
 
-## Product behavior to build
+The console still says CORS in one line, but the real failure is not CORS. Supabase database logs show:
 
-1. **Make photo upload independent from AI**
-   - On Add Item, provide separate choices:
-     - Add a photo and write it myself
-     - Use AI to draft from a photo, only when AI is enabled
-     - Add without a photo
-   - The “photo + write it myself” path will compress and upload the photo, open the form, and never call AI.
-   - This should be the safe path for Karen.
+```text
+canceling statement due to statement timeout
+sql_state_code: 57014
+```
 
-2. **Make AI optional when enabled**
-   - If a community has AI enabled, AI appears as a convenience option, not the default required path.
-   - Users can still bypass AI completely for both descriptions and illustrations.
-   - Any AI failure preserves the uploaded photo and keeps the manual form usable.
+That means the signed-in `get_supplies_with_owners` RPC is taking too long and Postgres cancels it. Supabase/Cloudflare then turns that into 500/520 responses, which the browser displays as CORS/failed resource errors.
 
-3. **Add community-level AI setting**
-   - Add a `communities.ai_features_enabled` field with default `true`.
-   - Existing communities will automatically remain AI enabled unless a steward turns it off.
-   - Steward-only RLS already allows stewards to update their own community, so this setting fits the existing access model.
+The anonymous test returned 200 because it returned no rows. The logged-in path is slower because it reaches the real community/member/supply rows.
 
-4. **Expose AI settings during onboarding**
-   - In the community creation flow, add a clear AI toggle with default on.
-   - When on: explain simply that AI can draft item descriptions from photos and generate catalog-style illustrations.
-   - When off: explain simply that members can still upload photos and write their own descriptions, and illustration generation will be hidden.
-   - Pass the selected setting into the `create-community` edge function so new communities are created with the steward’s choice.
+## Backend fix
 
-5. **Expose AI settings in the Steward Dashboard**
-   - Add an “AI Features” settings card in the steward dashboard.
-   - Stewards can turn AI on/off at any time.
-   - The card will clearly state what changes for members:
-     - AI on: optional photo-based draft descriptions and optional illustration tools are available.
-     - AI off: members add photos and descriptions manually; AI drafting and illustration buttons are hidden.
+Create a migration that:
 
-6. **Respect the setting everywhere AI appears**
-   - `AddSupply`: hide AI draft path when off; always support photo upload without AI.
-   - `BulkAddSupplies`: when off, turn selected photos into manual review drafts instead of analyzing them.
-   - `GenerateIllustrationButton`, item detail modal, My Supplies, and steward batch illustration tools: hide or disable illustration generation when AI is off.
-   - Community context will load the AI setting once so components can consistently use it.
+1. Adds/ensures indexes for the hot paths:
+   - `supplies(community_id, created_at desc)`
+   - `profiles(id, community_id)` or equivalent
+   - same pattern for `books(community_id, title)` if needed
 
-## Technical implementation
+2. Rewrites `public.get_supplies_with_owners(p_community_id uuid)` so the membership check runs once before the row query, not as a helper predicate inside the supply row scan.
 
-1. **Database migration**
-   - Add `ai_features_enabled boolean not null default true` to `public.communities`.
-   - No new table is needed.
-   - No role storage changes are needed.
+   Shape:
 
-2. **Community context**
-   - Extend `CommunityContext` to include `aiFeaturesEnabled`.
-   - Query `ai_features_enabled` when resolving communities.
-   - Default to `true` for safety/backward compatibility.
+   ```sql
+   if not exists (
+     select 1 from public.profiles
+     where id = auth.uid()
+       and community_id = p_community_id
+   ) then
+     return;
+   end if;
 
-3. **Add Item flow refactor**
-   - Split current `handleImageUpload` into:
-     - upload/compress photo helper
-     - manual-photo path
-     - optional AI-photo path
-   - After upload, use the Storage public URL for the preview instead of keeping a blob preview alive longer than needed.
-   - Revoke object URLs and release canvas memory promptly.
-   - Adjust copy so manual photo upload never mentions AI.
+   return query
+   select ...
+   from public.supplies s
+   left join public.profiles p on p.id = s.owner_id
+   where s.community_id = p_community_id
+   order by s.created_at desc;
+   ```
 
-4. **Bulk Add flow refactor**
-   - Add a manual review path that uploads each selected photo and creates editable blank drafts.
-   - Keep AI analysis as an optional button only when `aiFeaturesEnabled` is true.
+3. Apply the same safe pattern to `get_books_with_owners(p_community_id uuid)` so books do not inherit the same issue later.
 
-5. **Steward controls**
-   - Create a reusable `CommunityAiSettings` component.
-   - Use it in both steward dashboard variants so `/c/:slug?tab=steward` and `/c/:slug/steward` are covered.
+4. Keep the removed-vouching behavior: no `is_user_vouched()` and no `vouched_at` filtering.
 
-6. **Create Community edge function and form**
-   - Add `aiFeaturesEnabled` to the validated request body.
-   - Insert it into the new community row.
-   - Add the onboarding toggle UI to `StartCommunityForm` before account creation.
+5. Preserve multi-tenant isolation: the caller only receives rows for their own `community_id`.
 
-## Validation
+## Frontend cleanup
 
-- Confirm Karen’s safe path: add photo, skip AI, fill details, publish.
-- Confirm AI-on path still works but remains optional.
-- Confirm AI-off hides draft and illustration controls.
-- Confirm steward toggle updates only the current steward’s community.
-- Confirm existing communities default to AI enabled.
+1. In `src/components/LandingPage.tsx`, remove the logged-out CTA text:
+
+```text
+Join to browse all →
+```
+
+2. In `src/components/Footer.tsx`, show the Outer Sunset sibling-site bulletin board only for the Sunset community (`sunset-richmond`). Hide these from non-Sunset communities:
+   - `outersunset.us`
+   - `outersunset.place`
+   - `outersunset.today`
+   - `cozycorner.place`
+
+3. Also hide the line "Built in the Outer Sunset by neighbors, for neighbors" outside Sunset.
+
+4. Keep general footer links everywhere:
+   - Relational Tech Studio
+   - contact email
+   - Privacy & Terms
+
+## Verification
+
+After the migration:
+
+- Confirm recent logs no longer show `statement timeout` for `get_supplies_with_owners`.
+- Confirm the RPC returns 200 quickly for signed-in Sunset requests.
+- Confirm supplies render in the Sunset instance.
+- Confirm the confusing CTA and non-Sunset Outer Sunset footer links are gone.
