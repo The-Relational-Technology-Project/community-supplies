@@ -15,6 +15,27 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+async function uploadDataUrlToStorage(
+  supabase: ReturnType<typeof createClient>,
+  value: string,
+  ownerId: string,
+  supplyId: string,
+): Promise<string> {
+  if (!value || !value.startsWith('data:')) return value;
+  const m = value.match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) return value;
+  const contentType = m[1];
+  const bin = atob(m[2]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  let ext = contentType.split('/')[1]?.split('+')[0] || 'png';
+  if (ext === 'jpeg') ext = 'jpg';
+  const path = `${ownerId}/illustration/${supplyId}-${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from('supply-images').upload(path, bytes, { contentType, upsert: false });
+  if (error) throw new Error(`Storage upload failed: ${error.message}`);
+  return supabase.storage.from('supply-images').getPublicUrl(path).data.publicUrl;
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -64,7 +85,7 @@ serve(async (req) => {
 
     const { data: supplies, error } = await supabase
       .from('supplies')
-      .select('id, name, description, images, image_url')
+      .select('id, name, description, images, image_url, owner_id')
       .is('illustration_url', null);
 
     if (error) throw error;
@@ -128,9 +149,11 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
           continue;
         }
 
+        const storedUrl = await uploadDataUrlToStorage(supabase, generatedImage, supply.owner_id || user.id, supply.id);
+
         const { error: updateError } = await supabase
           .from('supplies')
-          .update({ illustration_url: generatedImage })
+          .update({ illustration_url: storedUrl })
           .eq('id', supply.id);
 
         if (updateError) {
