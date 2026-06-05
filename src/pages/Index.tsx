@@ -76,7 +76,7 @@ const Index = () => {
 
   // Wait for both auth bootstrap AND community resolution before rendering shell.
   // This prevents flashing the authenticated library before community context is settled.
-  const loading = !isReady || (!!user && communityLoading);
+  const loading = !isReady || (!!user && communityLoading) || (isSlugRoute && !!user && !membershipChecked);
 
   if (loading) {
     return (
@@ -91,6 +91,12 @@ const Index = () => {
 
   // If user is not authenticated, show the inspiring landing page
   if (!user) {
+    return <LandingPage onTabChange={setActiveTab} />;
+  }
+
+  // On /c/:slug, if logged-in user isn't a member of this community,
+  // show the public community landing with join CTA instead of the library shell.
+  if (isSlugRoute && !isMember) {
     return <LandingPage onTabChange={setActiveTab} />;
   }
 
