@@ -13,6 +13,7 @@ interface CommunityContextType {
   aiFeaturesEnabled: boolean;
   loading: boolean;
   notFound: boolean;
+  isSlugRoute: boolean;
 }
 
 const CommunityContext = createContext<CommunityContextType>({
@@ -22,6 +23,7 @@ const CommunityContext = createContext<CommunityContextType>({
   aiFeaturesEnabled: true,
   loading: false,
   notFound: false,
+  isSlugRoute: false,
 });
 
 export function useCommunity() {
