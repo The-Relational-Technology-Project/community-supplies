@@ -19,7 +19,10 @@ export function getOptimizedImageUrl(
   if (opts.width) params.set("width", String(opts.width));
   if (opts.height) params.set("height", String(opts.height));
   if (opts.quality) params.set("quality", String(opts.quality));
-  if (opts.resize) params.set("resize", opts.resize);
+  // Default to `contain` when no explicit resize/height is set — Supabase otherwise
+  // defaults to `cover`, which hard-crops portrait/landscape photos into the width box.
+  const resize = opts.resize ?? (opts.height ? undefined : "contain");
+  if (resize) params.set("resize", resize);
   const qs = params.toString();
   return qs ? `${transformed}?${qs}` : transformed;
 }
