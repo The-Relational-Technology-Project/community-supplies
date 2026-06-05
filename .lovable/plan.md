@@ -1,54 +1,46 @@
-# What I found on `/c/sisters`
 
-Two separate issues, both fixable:
+# Three fixes
 
-## 1. Photos don't show on cards — caused by our IO fix
-Yesterday's migration (`20260605003759_…`) had the `get_supplies_with_owners` RPC return `image_url = NULL` and `images = []` for every row, to keep the list query lightweight (154 rows in the DB still hold heavy base64 blobs). That worked, but it removed the photo from cards entirely. `SupplyCard` then falls back to the category icon (wrench, house, party popper, etc.) — which is exactly what your friend is seeing for everything past the first two items.
+## 1. Photos look "zoomed in" on cards
 
-Sisters' inventory is fine: every supply has a photo, and **all of them are normal storage URLs** (`https://…supabase.co/storage/…`), not base64. So we can safely send those URLs back in the list — just not the base64 leftovers from older communities.
+In `SupplyCard.tsx`, real photos render with `object-cover` inside the square tile. Combined with `getOptimizedImageUrl(photoUrl, { width: 400 })` (which preserves aspect ratio at the URL level), a tall or wide photo gets center-cropped hard — that's why the laminator, wagon, dolly, etc. show a tiny slice of the product. Illustrations already render with `object-contain` and look correct.
 
-## 2. AI illustrations look "cropped weird"
-`generate-illustration` calls Gemini (`google/gemini-2.5-flash-image`) with no size/aspect hint. Gemini returns whatever ratio it picks, and the card is a square — so a tall or wide illustration ends up letterboxed inside the white tile and the subject reads as small or off-center. There's also no fallback if the AI returns nothing usable.
+**Fix:** render `thumb_url` photos the same way as illustrations — `object-contain` on a white tile, with the name as a subtle backdrop while loading. This shows the whole product, matches the illustration treatment, and keeps the grid visually uniform.
 
-# The fix
+(No DB change. Just `SupplyCard.tsx`.)
 
-## A. Restore photo thumbnails on cards, without re-bloating the list
+## 2. AI illustration cropping is off (baby bouncer test)
 
-Update the RPC `get_supplies_with_owners` to return a small `thumb_url` that's safe by construction:
+The current `generate-illustration` tries OpenAI first (`openai/gpt-image-2`, square 1024) and falls back to Gemini on 4xx/5xx. Your baby bouncer ended up Gemini-shaped because OpenAI rejected or errored — and the Gemini call has **no size/aspect hint**, so Gemini returns whatever ratio it likes and the tall result looks cropped inside the square card.
 
-- For each row, return `image_url` only if it looks like an http(s) URL; otherwise NULL. Same rule for the first entry of `images[]`. Keep `image_url` and `images` themselves as NULL/empty in the list response — only the lightweight `thumb_url` ships.
-- This adds ~one short string per row (Sisters: every row gets one; older communities: many rows still get NULL until base64 migration completes). No re-introduction of base64 payloads. RPC return shape gains one column; everything else stays as today.
+**Fix the Gemini path** (so the fallback is safe even when OpenAI declines):
 
-Update `useSupplies` / `Supply` type / `SupplyCard`:
-- Map `thumb_url` into the `Supply` object.
-- In `SupplyCard`, render priority becomes: `illustration_url` → `thumb_url` (real photo, `object-cover` so it fills the tile) → "illustration in progress…" → category icon. The "in progress" state now correctly means *photo uploaded, AI working* instead of *photo silently hidden*.
+- Append explicit framing instructions to the prompt for the Gemini branch: "Output a **square 1:1 image** with the entire object fully visible, centered, with generous white margin on all sides. Do not crop any part of the object."
+- Keep OpenAI as the first attempt (it enforces 1024×1024 server-side, so it's still the safer default when it works).
+- Log which provider produced each result so we can see in function logs whether OpenAI or Gemini is being used in practice.
 
-Full-resolution photos in `ContactModal` continue to be fetched on-demand from the row itself (already wired in the previous turn) — modal behavior unchanged.
+No new model added; this is a prompt-level fix to the existing fallback.
 
-## B. Fix AI illustration cropping
+## 3. Generate illustrations for every Sisters item
 
-Switch `supabase/functions/generate-illustration/index.ts` to OpenAI's image model with an explicit square size, which guarantees consistent framing:
+Use the existing `BatchGenerateIllustrations` flow, but scope it to the current community instead of "all supplies missing an illustration site-wide" (today it scans across communities, which is also a small data-isolation smell). Steps:
 
-- Model: `openai/gpt-image-2`
-- Body: `{ model, prompt, size: "1024x1024", quality: "low", n: 1 }` (non-streaming — this is a backend job that uploads the final PNG to storage and returns).
-- Parse `data[0].b64_json`, upload to the `supply-images` bucket exactly as today.
-- Keep the existing prompt (minimal black-and-white line drawing, no text).
-- On a content-policy/4xx rejection from OpenAI, fall back once to Gemini (`google/gemini-2.5-flash-image`) using the messages+modalities shape — different policy, often accepts what OpenAI declines. If both fail, return a clear error so the steward sees what happened instead of a silent failure.
+- Add a `p_community_id` filter to the supplies fetch in `BatchGenerateIllustrations.tsx` (read it from `useCommunity()`).
+- Add the same filter in `batch-generate-illustrations/index.ts` — accept `communityId` in the body, verify the caller is a steward of *that* community, and `.eq('community_id', communityId)` on the query.
+- Switch the batch function's internal generation call to invoke `generate-illustration` (so we get the same OpenAI-first / fixed-Gemini-fallback behavior as fix #2), instead of duplicating a Gemini-only call inline. One source of truth for prompts and framing.
+- After Sisters' run finishes, the cards will fill in with square illustrations and the photo-cropping fix above stops being noticeable for them entirely.
 
-This change is internal to the edge function; no frontend or DB changes required for the cropping fix.
-
-## C. Tell the steward what happened
-
-Once deployed, your friend's existing photos will show on cards immediately (no re-upload needed), and any new "Generate illustration" runs will produce square, well-framed art.
+You (overall admin) can kick this off from the Sisters steward dashboard's "Batch Generate Illustrations" card. It processes ~1 item / 2s, so 10 items ≈ 20s, 50 items ≈ ~2 min.
 
 ## Technical details
 
-- **Migration**: `CREATE OR REPLACE FUNCTION public.get_supplies_with_owners(...)` — adds `thumb_url text` to the RETURNS TABLE; SELECT clause adds `CASE WHEN s.image_url LIKE 'http%' THEN s.image_url WHEN s.images IS NOT NULL AND array_length(s.images,1) > 0 AND s.images[1] LIKE 'http%' THEN s.images[1] ELSE NULL END AS thumb_url`. Keeps the NULL `image_url` / empty `images` columns as today.
-- **Types**: extend `Supply` with `thumb_url?: string | null`; map it in `fetchSupplies`.
-- **SupplyCard**: new render branch shows `<img src={getOptimizedImageUrl(supply.thumb_url, {...})} className="object-cover" />` when no illustration is present.
-- **Edge function**: replace the chat-completions Gemini call with `/v1/images/generations` for OpenAI; keep storage upload logic.
+- `src/components/SupplyCard.tsx`: photo branch becomes `<img className="w-full h-full object-contain p-3" />` (mirrors the illustration branch). Keep the name-text loading placeholder.
+- `supabase/functions/generate-illustration/index.ts`: extend `callGemini` to append the square-framing instructions to `prompt`; add `console.log('illustration provider:', 'openai' | 'gemini')` before returning.
+- `supabase/functions/batch-generate-illustrations/index.ts`: accept `{ communityId }`; validate steward via `has_role` for that community; query `.eq('community_id', communityId).is('illustration_url', null)`; for each row, `await supabase.functions.invoke('generate-illustration', { body: { supplyId, itemName, description, imageUrl } })` instead of calling the gateway directly.
+- `src/components/steward/BatchGenerateIllustrations.tsx`: pass `communityId` to the function; filter client-side fetch by `community_id` too (so the progress count matches what the server will process).
 
 ## Out of scope
 
-- Re-running the base64 → storage migration for the 154 older rows. Those rows simply won't get a `thumb_url` until they're migrated; the rest of the app behaves the same as today for them. Happy to tackle that next if you want.
-- Any community-membership / routing changes (already fixed in the previous turn).
+- Re-running base64→storage migration for old rows in other communities.
+- Changing the default model order (OpenAI-first stays).
+- Any further routing/membership changes.
