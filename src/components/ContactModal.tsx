@@ -25,6 +25,7 @@ export function ContactModal({ supply, isOpen, onClose }: ContactModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [fetchedImages, setFetchedImages] = useState<string[]>([]);
   const { toast } = useToast();
   const { communityId } = useCommunity();
 
@@ -35,6 +36,30 @@ export function ContactModal({ supply, isOpen, onClose }: ContactModalProps) {
     };
     getUserId();
   }, []);
+
+  // List query omits photo blobs to save IO; fetch them only when the modal opens.
+  useEffect(() => {
+    if (!isOpen || !supply?.id) {
+      setFetchedImages([]);
+      setSelectedImageIndex(0);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('supplies')
+        .select('image_url, images')
+        .eq('id', supply.id)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      const imgs = (data.images && data.images.length > 0)
+        ? data.images
+        : (data.image_url ? [data.image_url] : []);
+      setFetchedImages(imgs);
+      setSelectedImageIndex(0);
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, supply?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
