@@ -8,6 +8,10 @@ import { useAuth } from "@/hooks/useAuth";
 
 export const SUPPLIES_QUERY_KEY = ['supplies'] as const;
 
+interface UseSuppliesOptions {
+  enabled?: boolean;
+}
+
 export const fetchSupplies = async (communityId?: string): Promise<Supply[]> => {
   const { data: suppliesData, error } = await supabase
     .rpc('get_supplies_with_owners', communityId ? { p_community_id: communityId } : {});
@@ -41,15 +45,16 @@ export const fetchSupplies = async (communityId?: string): Promise<Supply[]> => 
   }));
 };
 
-export function useSupplies() {
+export function useSupplies(options: UseSuppliesOptions = {}) {
   const { toast } = useToast();
   const { communityId } = useCommunity();
   const { user, isReady } = useAuth();
+  const shouldLoad = options.enabled ?? true;
 
   const { data: supplies = [], isLoading: loading, error, refetch } = useQuery({
     queryKey: [...SUPPLIES_QUERY_KEY, communityId, user?.id],
     queryFn: () => fetchSupplies(communityId),
-    enabled: isReady && !!user && !!communityId,
+    enabled: shouldLoad && isReady && !!user && !!communityId,
     retry: 1,
   });
 

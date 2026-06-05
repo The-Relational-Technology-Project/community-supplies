@@ -23,7 +23,6 @@ interface BrowseSuppliesProps {
 }
 
 export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppliesProps) {
-  const { supplies, loading } = useSupplies();
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [conditionFilter, setConditionFilter] = useState("all");
   const [availabilityFilter, setAvailabilityFilter] = useState("all");
@@ -32,6 +31,8 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
   const [currentPage, setCurrentPage] = useState(1);
   const gridRef = useRef<HTMLDivElement>(null);
   const ITEMS_PER_PAGE = 25;
+  const isSpecialCategorySelected = isSpecialCategory(categoryFilter);
+  const { supplies, loading } = useSupplies({ enabled: !isSpecialCategorySelected });
 
   useEffect(() => {
     setSearchQuery(externalQuery);
@@ -41,9 +42,6 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
   useEffect(() => {
     setCurrentPage(1);
   }, [categoryFilter, conditionFilter, availabilityFilter, searchQuery]);
-
-  // Check if a special category (like books) is selected
-  const isSpecialCategorySelected = isSpecialCategory(categoryFilter);
 
   // Cross-community search hook is called below after filteredSupplies is computed
 
