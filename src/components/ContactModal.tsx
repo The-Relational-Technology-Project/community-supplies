@@ -154,7 +154,7 @@ export function ContactModal({ supply, isOpen, onClose }: ContactModalProps) {
   if (!supply) return null;
 
   const isOwner = currentUserId === supply.ownerId;
-  const images = supply.images || (supply.image ? [supply.image] : []);
+  const images = fetchedImages;
   const displayImage = images[selectedImageIndex] || null;
 
   const getConditionColor = (condition: string) => {
