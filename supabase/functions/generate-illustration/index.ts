@@ -123,6 +123,9 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
 
     // Helper: call Gemini via chat-completions image shape (fallback on OpenAI policy rejections).
     async function callGemini(): Promise<{ ok: true; dataUrl: string } | { ok: false; status: number; error: string }> {
+      const geminiPrompt = `${prompt}
+
+CRITICAL FRAMING: Output a square 1:1 aspect ratio image. The entire object must be fully visible and centered, with generous white margin/padding on all four sides. Do NOT crop, cut off, or zoom into any part of the object. The object should occupy roughly 70% of the frame, surrounded by white space.`;
       const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -131,7 +134,7 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
         },
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash-image',
-          messages: [{ role: 'user', content: prompt }],
+          messages: [{ role: 'user', content: geminiPrompt }],
           modalities: ['image', 'text'],
         }),
       });
@@ -144,6 +147,7 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
       if (!url) return { ok: false, status: 500, error: 'Gemini returned no image data' };
       return { ok: true, dataUrl: url };
     }
+
 
     // Try OpenAI first (square framing). Fall back to Gemini on 4xx (policy/moderation).
     let result = await callOpenAI();
