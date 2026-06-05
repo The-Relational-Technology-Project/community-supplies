@@ -15,27 +15,6 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-async function uploadDataUrlToStorage(
-  supabase: ReturnType<typeof createClient>,
-  value: string,
-  ownerId: string,
-  supplyId: string,
-): Promise<string> {
-  if (!value || !value.startsWith('data:')) return value;
-  const m = value.match(/^data:([^;]+);base64,(.+)$/);
-  if (!m) return value;
-  const contentType = m[1];
-  const bin = atob(m[2]);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  let ext = contentType.split('/')[1]?.split('+')[0] || 'png';
-  if (ext === 'jpeg') ext = 'jpg';
-  const path = `${ownerId}/illustration/${supplyId}-${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from('supply-images').upload(path, bytes, { contentType, upsert: false });
-  if (error) throw new Error(`Storage upload failed: ${error.message}`);
-  return supabase.storage.from('supply-images').getPublicUrl(path).data.publicUrl;
-}
-
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -44,17 +23,10 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
-
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify user authentication and steward status
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -65,7 +37,6 @@ serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token' }),
@@ -81,11 +52,21 @@ serve(async (req) => {
       );
     }
 
-    console.log('Batch illustration generation started by steward:', user.id);
+    const body = await req.json().catch(() => ({}));
+    const communityId: string | undefined = body?.communityId;
+    if (!communityId) {
+      return new Response(
+        JSON.stringify({ error: 'communityId is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Batch illustration generation started by steward:', user.id, 'community:', communityId);
 
     const { data: supplies, error } = await supabase
       .from('supplies')
       .select('id, name, description, images, image_url, owner_id')
+      .eq('community_id', communityId)
       .is('illustration_url', null);
 
     if (error) throw error;
@@ -97,68 +78,28 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Generating illustrations for ${supplies.length} items...`);
-    const results = [];
+    console.log(`Generating illustrations for ${supplies.length} items in community ${communityId}...`);
+    const results: Array<{ id: string; name: string; success: boolean; error?: string }> = [];
 
     for (const supply of supplies) {
       try {
-        const prompt = `Create a minimalist black and white line drawing illustration of: ${supply.name}. 
-        
-Style requirements:
-- Simple, clean line art similar to technical catalog illustrations
-- Black lines on white background
-- No shading, no gradients, no color
-- Clear, recognizable silhouette
-- Product-focused perspective
-- Technical drawing aesthetic like McMaster-Carr catalog
-- IMPORTANT: NO TEXT, NO LABELS, NO CAPTIONS within the image itself
-- Only draw the object, do not include any written words or descriptions in the image
-
-Item description: ${supply.description}
-
-Make it simple, iconic, and immediately recognizable. The drawing should contain ONLY the visual representation of the item, with absolutely no text or labels anywhere in the image.`;
-
-        console.log(`Generating illustration for: ${supply.name}`);
-
-        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
+        const imageUrl = supply.images?.[0] || supply.image_url || undefined;
+        const { data, error: invokeError } = await supabase.functions.invoke('generate-illustration', {
+          body: {
+            supplyId: supply.id,
+            itemName: supply.name,
+            description: supply.description ?? '',
+            imageUrl,
           },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash-image',
-            messages: [{ role: 'user', content: prompt }],
-            modalities: ['image', 'text']
-          }),
+          headers: { Authorization: authHeader },
         });
 
-        if (!aiResponse.ok) {
-          const errorText = await aiResponse.text();
-          console.error(`AI error for ${supply.name}:`, aiResponse.status, errorText);
-          results.push({ id: supply.id, name: supply.name, success: false, error: errorText });
-          continue;
-        }
-
-        const aiData = await aiResponse.json();
-        const generatedImage = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        
-        if (!generatedImage) {
-          console.error(`No image generated for ${supply.name}`);
-          results.push({ id: supply.id, name: supply.name, success: false, error: 'No image generated' });
-          continue;
-        }
-
-        const storedUrl = await uploadDataUrlToStorage(supabase, generatedImage, supply.owner_id || user.id, supply.id);
-
-        const { error: updateError } = await supabase
-          .from('supplies')
-          .update({ illustration_url: storedUrl })
-          .eq('id', supply.id);
-
-        if (updateError) {
-          console.error(`Error updating ${supply.name}:`, updateError);
-          results.push({ id: supply.id, name: supply.name, success: false, error: updateError.message });
+        if (invokeError) {
+          console.error(`Invoke error for ${supply.name}:`, invokeError);
+          results.push({ id: supply.id, name: supply.name, success: false, error: invokeError.message });
+        } else if (data?.error) {
+          console.error(`AI error for ${supply.name}:`, data.error);
+          results.push({ id: supply.id, name: supply.name, success: false, error: data.error });
         } else {
           console.log(`✓ Generated illustration for: ${supply.name}`);
           results.push({ id: supply.id, name: supply.name, success: true });
@@ -167,11 +108,11 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
         await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (itemError) {
         console.error(`Error processing ${supply.name}:`, itemError);
-        results.push({ 
-          id: supply.id, 
-          name: supply.name, 
-          success: false, 
-          error: itemError instanceof Error ? itemError.message : 'Unknown error' 
+        results.push({
+          id: supply.id,
+          name: supply.name,
+          success: false,
+          error: itemError instanceof Error ? itemError.message : 'Unknown error',
         });
       }
     }
@@ -180,12 +121,12 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
     console.log(`Batch generation complete: ${successCount}/${supplies.length} successful`);
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         message: 'Batch generation complete',
         total: supplies.length,
         successful: successCount,
         failed: supplies.length - successCount,
-        results
+        results,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -194,9 +135,7 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
     console.error('Batch generation error:', error);
     const corsHeaders = getCorsHeaders(req);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error occurred' 
-      }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error occurred' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
