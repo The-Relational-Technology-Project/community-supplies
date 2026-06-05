@@ -11,14 +11,11 @@ import { StewardOnboarding } from "@/components/community/StewardOnboarding";
 
 import { StewardDashboard } from "@/components/steward/StewardDashboard";
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import { useQueryClient } from "@tanstack/react-query";
-import { SUPPLIES_QUERY_KEY, fetchSupplies } from "@/hooks/useSupplies";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const queryClient = useQueryClient();
   const { communityId, communityName, communitySlug, loading: communityLoading, notFound } = useCommunity();
   const { user, isReady } = useAuth();
   const [activeTab, setActiveTab] = useState('browse');
@@ -43,16 +40,6 @@ const Index = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Prefetch supplies once user + community are ready
-  useEffect(() => {
-    if (isReady && user && communityId) {
-      queryClient.prefetchQuery({
-        queryKey: [...SUPPLIES_QUERY_KEY, communityId],
-        queryFn: () => fetchSupplies(communityId),
-      });
-    }
-  }, [isReady, user, communityId, queryClient]);
 
   // Wait for both auth bootstrap AND community resolution before rendering shell.
   // This prevents flashing the authenticated library before community context is settled.
