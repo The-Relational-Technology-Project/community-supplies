@@ -1,80 +1,30 @@
-# Fix current loading errors + remove confusing CTAs
+# Why you're seeing this
 
-## What the error is
+You are **not** secretly a member of Sisters. Two things are happening:
 
-The console still says CORS in one line, but the real failure is not CORS. Supabase database logs show:
+1. **Data is safe.** Row-Level Security on `supplies` (and `books`) correctly blocks cross-community reads. That's why the grid says "No supplies found matching your criteria" instead of leaking Sisters' inventory. I verified your profile's `community_id` still points to `sunset-richmond`, not Sisters.
+2. **The UI is wrong.** `src/pages/Index.tsx` only checks "is the user logged in?" — it never checks whether the logged-in user belongs to the community in the URL slug. So `/c/sisters` happily renders the Sisters library shell (header, category sidebar, Add Item, Bulk Add) to any authenticated user. The query returns nothing, so it looks empty.
 
-```text
-canceling statement due to statement timeout
-sql_state_code: 57014
-```
+Stewards and members do **not** have cross-community write access — RLS on `supplies`, `books`, `join_requests`, `user_roles`, etc. all scope by `community_id` / `user_id`. The bug is purely that the shell renders when it shouldn't.
 
-That means the signed-in `get_supplies_with_owners` RPC is taking too long and Postgres cancels it. Supabase/Cloudflare then turns that into 500/520 responses, which the browser displays as CORS/failed resource errors.
+# The fix
 
-The anonymous test returned 200 because it returned no rows. The logged-in path is slower because it reaches the real community/member/supply rows.
+Add a membership gate in `src/pages/Index.tsx` for the slug-driven route:
 
-## Backend fix
+- When `CommunityProvider` is slug-driven (i.e. URL is `/c/:slug`) and the resolved `communityId` does **not** match the logged-in user's `profile.community_id`, render the **public community landing** (the existing `LandingPage` with `CommunityHero` + join CTA) instead of the authenticated library shell.
+- When it does match (member), render the library as today.
+- Anonymous users continue to see `LandingPage` as today.
+- The default `/` route (no slug) is unchanged — the user's own community resolves from their profile.
 
-Create a migration that:
+Site admins / stewards of one community should also be treated as non-members of other communities for this UI gate; this is a member view, not an admin override. A future "super admin sees all communities" mode can be added separately if you want it.
 
-1. Adds/ensures indexes for the hot paths:
-   - `supplies(community_id, created_at desc)`
-   - `profiles(id, community_id)` or equivalent
-   - same pattern for `books(community_id, title)` if needed
+## Technical details
 
-2. Rewrites `public.get_supplies_with_owners(p_community_id uuid)` so the membership check runs once before the row query, not as a helper predicate inside the supply row scan.
+1. **`src/contexts/CommunityContext.tsx`** — expose whether the context was resolved from a URL slug (e.g. `isSlugRoute: boolean`) so `Index` can distinguish `/c/:slug` from `/`.
+2. **`src/pages/Index.tsx`** — after auth + community both resolve, if `isSlugRoute && user` then fetch the user's `profile.community_id` once and compare to context `communityId`. If mismatched, render `<LandingPage onTabChange={setActiveTab} />` (which already shows `CommunityHero` for that slug with the join button). If matched, render the library as today.
+3. No DB or RLS changes needed — RLS is already doing the right thing. This is purely a presentation fix so non-members see "Join this community" instead of an empty-looking library.
 
-   Shape:
+## Out of scope
 
-   ```sql
-   if not exists (
-     select 1 from public.profiles
-     where id = auth.uid()
-       and community_id = p_community_id
-   ) then
-     return;
-   end if;
-
-   return query
-   select ...
-   from public.supplies s
-   left join public.profiles p on p.id = s.owner_id
-   where s.community_id = p_community_id
-   order by s.created_at desc;
-   ```
-
-3. Apply the same safe pattern to `get_books_with_owners(p_community_id uuid)` so books do not inherit the same issue later.
-
-4. Keep the removed-vouching behavior: no `is_user_vouched()` and no `vouched_at` filtering.
-
-5. Preserve multi-tenant isolation: the caller only receives rows for their own `community_id`.
-
-## Frontend cleanup
-
-1. In `src/components/LandingPage.tsx`, remove the logged-out CTA text:
-
-```text
-Join to browse all →
-```
-
-2. In `src/components/Footer.tsx`, show the Outer Sunset sibling-site bulletin board only for the Sunset community (`sunset-richmond`). Hide these from non-Sunset communities:
-   - `outersunset.us`
-   - `outersunset.place`
-   - `outersunset.today`
-   - `cozycorner.place`
-
-3. Also hide the line "Built in the Outer Sunset by neighbors, for neighbors" outside Sunset.
-
-4. Keep general footer links everywhere:
-   - Relational Tech Studio
-   - contact email
-   - Privacy & Terms
-
-## Verification
-
-After the migration:
-
-- Confirm recent logs no longer show `statement timeout` for `get_supplies_with_owners`.
-- Confirm the RPC returns 200 quickly for signed-in Sunset requests.
-- Confirm supplies render in the Sunset instance.
-- Confirm the confusing CTA and non-Sunset Outer Sunset footer links are gone.
+- The empty library rendering for cross-community visits is a symptom, not a separate bug. No data migration needed.
+- Steward-level "view any community" admin mode (can be added later if you want it).

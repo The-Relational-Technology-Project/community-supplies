@@ -13,6 +13,7 @@ interface CommunityContextType {
   aiFeaturesEnabled: boolean;
   loading: boolean;
   notFound: boolean;
+  isSlugRoute: boolean;
 }
 
 const CommunityContext = createContext<CommunityContextType>({
@@ -22,6 +23,7 @@ const CommunityContext = createContext<CommunityContextType>({
   aiFeaturesEnabled: true,
   loading: false,
   notFound: false,
+  isSlugRoute: false,
 });
 
 export function useCommunity() {
@@ -42,6 +44,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
     aiFeaturesEnabled: true,
     loading: true,
     notFound: false,
+    isSlugRoute: !!slug,
   });
 
   // Slug-driven resolution: independent of auth.
@@ -65,6 +68,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           aiFeaturesEnabled: true,
           loading: false,
           notFound: slug !== DEFAULT_COMMUNITY_SLUG,
+          isSlugRoute: true,
         });
       } else {
         setCommunity({
@@ -74,6 +78,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           aiFeaturesEnabled: (data as any).ai_features_enabled ?? true,
           loading: false,
           notFound: false,
+          isSlugRoute: true,
         });
       }
     })();
@@ -96,6 +101,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
         aiFeaturesEnabled: true,
         loading: false,
         notFound: false,
+        isSlugRoute: false,
       });
       return;
     }
@@ -121,6 +127,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           aiFeaturesEnabled: comm.ai_features_enabled ?? true,
           loading: false,
           notFound: false,
+          isSlugRoute: false,
         });
       } else {
         setCommunity({
@@ -130,6 +137,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           aiFeaturesEnabled: true,
           loading: false,
           notFound: false,
+          isSlugRoute: false,
         });
       }
     })();

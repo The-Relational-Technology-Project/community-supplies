@@ -13,14 +13,47 @@ import { StewardDashboard } from "@/components/steward/StewardDashboard";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { communityId, communityName, communitySlug, loading: communityLoading, notFound } = useCommunity();
+  const { communityId, communityName, communitySlug, loading: communityLoading, notFound, isSlugRoute } = useCommunity();
   const { user, isReady } = useAuth();
   const [activeTab, setActiveTab] = useState('browse');
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [membershipChecked, setMembershipChecked] = useState(false);
+  const [isMember, setIsMember] = useState(false);
+
+  // Membership gate: on /c/:slug, verify logged-in user actually belongs to this community.
+  useEffect(() => {
+    if (!isSlugRoute) {
+      setMembershipChecked(true);
+      setIsMember(true);
+      return;
+    }
+    if (!isReady) return;
+    if (!user) {
+      setMembershipChecked(true);
+      setIsMember(false);
+      return;
+    }
+    if (communityLoading) return;
+
+    let cancelled = false;
+    setMembershipChecked(false);
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("community_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      setIsMember((data as any)?.community_id === communityId);
+      setMembershipChecked(true);
+    })();
+    return () => { cancelled = true; };
+  }, [isSlugRoute, isReady, user?.id, communityId, communityLoading]);
 
   // Read URL params once on mount
   useEffect(() => {
@@ -43,7 +76,7 @@ const Index = () => {
 
   // Wait for both auth bootstrap AND community resolution before rendering shell.
   // This prevents flashing the authenticated library before community context is settled.
-  const loading = !isReady || (!!user && communityLoading);
+  const loading = !isReady || (!!user && communityLoading) || (isSlugRoute && !!user && !membershipChecked);
 
   if (loading) {
     return (
@@ -58,6 +91,12 @@ const Index = () => {
 
   // If user is not authenticated, show the inspiring landing page
   if (!user) {
+    return <LandingPage onTabChange={setActiveTab} />;
+  }
+
+  // On /c/:slug, if logged-in user isn't a member of this community,
+  // show the public community landing with join CTA instead of the library shell.
+  if (isSlugRoute && !isMember) {
     return <LandingPage onTabChange={setActiveTab} />;
   }
 
