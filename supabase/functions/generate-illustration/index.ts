@@ -150,6 +150,7 @@ CRITICAL FRAMING: Output a square 1:1 aspect ratio image. The entire object must
 
 
     // Try OpenAI first (square framing). Fall back to Gemini on 4xx (policy/moderation).
+    let provider: 'openai' | 'gemini' = 'openai';
     let result = await callOpenAI();
     if (!result.ok) {
       console.error('OpenAI image gen failed:', result.status, result.error);
@@ -173,9 +174,12 @@ CRITICAL FRAMING: Output a square 1:1 aspect ratio image. The entire object must
         throw new Error(`Image generation failed (OpenAI: ${result.status}; Gemini: ${fallback.status})`);
       }
       result = fallback;
+      provider = 'gemini';
     }
+    console.log('illustration provider:', provider, 'for supply:', supplyId);
 
     const generatedImage = result.dataUrl;
+
 
     // Upload the base64 image to Storage so we never bloat the supplies table.
     const storedUrl = await uploadDataUrlToStorage(supabase, generatedImage, user.id, supplyId);
