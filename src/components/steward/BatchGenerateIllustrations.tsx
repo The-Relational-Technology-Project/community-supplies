@@ -5,12 +5,15 @@ import { Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
+import { useCommunity } from "@/contexts/CommunityContext";
+
 
 export const BatchGenerateIllustrations = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [total, setTotal] = useState(0);
   const [current, setCurrent] = useState(0);
+  const { communityId } = useCommunity();
 
   const generateIllustrationsForAllItems = async () => {
     setIsGenerating(true);
@@ -18,10 +21,11 @@ export const BatchGenerateIllustrations = () => {
     setCurrent(0);
 
     try {
-      // Fetch all supplies without illustrations
+      // Fetch supplies in THIS community without illustrations (for progress UI)
       const { data: supplies, error } = await supabase
         .from('supplies')
         .select('id, name, description, images, image_url')
+        .eq('community_id', communityId)
         .is('illustration_url', null);
 
       if (error) throw error;
@@ -31,6 +35,8 @@ export const BatchGenerateIllustrations = () => {
         setIsGenerating(false);
         return;
       }
+
+
 
       setTotal(supplies.length);
       toast.info(`Starting illustration generation for ${supplies.length} items...`);

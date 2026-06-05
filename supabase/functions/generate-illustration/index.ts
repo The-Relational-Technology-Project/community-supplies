@@ -123,6 +123,9 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
 
     // Helper: call Gemini via chat-completions image shape (fallback on OpenAI policy rejections).
     async function callGemini(): Promise<{ ok: true; dataUrl: string } | { ok: false; status: number; error: string }> {
+      const geminiPrompt = `${prompt}
+
+CRITICAL FRAMING: Output a square 1:1 aspect ratio image. The entire object must be fully visible and centered, with generous white margin/padding on all four sides. Do NOT crop, cut off, or zoom into any part of the object. The object should occupy roughly 70% of the frame, surrounded by white space.`;
       const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -131,7 +134,7 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
         },
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash-image',
-          messages: [{ role: 'user', content: prompt }],
+          messages: [{ role: 'user', content: geminiPrompt }],
           modalities: ['image', 'text'],
         }),
       });
@@ -145,7 +148,9 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
       return { ok: true, dataUrl: url };
     }
 
+
     // Try OpenAI first (square framing). Fall back to Gemini on 4xx (policy/moderation).
+    let provider: 'openai' | 'gemini' = 'openai';
     let result = await callOpenAI();
     if (!result.ok) {
       console.error('OpenAI image gen failed:', result.status, result.error);
@@ -169,9 +174,12 @@ Make it simple, iconic, and immediately recognizable. The drawing should contain
         throw new Error(`Image generation failed (OpenAI: ${result.status}; Gemini: ${fallback.status})`);
       }
       result = fallback;
+      provider = 'gemini';
     }
+    console.log('illustration provider:', provider, 'for supply:', supplyId);
 
     const generatedImage = result.dataUrl;
+
 
     // Upload the base64 image to Storage so we never bloat the supplies table.
     const storedUrl = await uploadDataUrlToStorage(supabase, generatedImage, user.id, supplyId);
