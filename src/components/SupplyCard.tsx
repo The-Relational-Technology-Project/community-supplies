@@ -50,16 +50,27 @@ export function SupplyCard({ supply, onViewContact }: SupplyCardProps) {
               />
             </>
           ) : photoUrl ? (
-            <img
-              src={getOptimizedImageUrl(photoUrl, { width: 400, quality: 70 })}
-              alt={supply.name}
-              loading="lazy"
-              onLoad={() => setImageLoaded(true)}
-              className={cn(
-                "w-full h-full object-cover transition-opacity duration-300",
-                imageLoaded ? "opacity-100" : "opacity-60"
-              )}
-            />
+            <>
+              <div className={cn(
+                "absolute inset-0 flex items-center justify-center p-4 transition-opacity duration-300",
+                imageLoaded ? "opacity-0" : "opacity-100"
+              )}>
+                <p className="font-serif text-sm text-muted-foreground text-center line-clamp-3">
+                  {supply.name}
+                </p>
+              </div>
+              <img
+                src={getOptimizedImageUrl(photoUrl, { width: 400, quality: 70 })}
+                alt={supply.name}
+                loading="lazy"
+                onLoad={() => setImageLoaded(true)}
+                className={cn(
+                  "w-full h-full object-contain p-3 transition-opacity duration-300",
+                  imageLoaded ? "opacity-100" : "opacity-0"
+                )}
+              />
+            </>
+
           ) : isGeneratingIllustration ? (
             <div className="text-center px-4">
               <p className="font-serif text-sm text-muted-foreground italic">
