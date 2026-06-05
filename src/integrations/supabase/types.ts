@@ -681,6 +681,7 @@ export type Database = {
           owner_name: string
           owner_zip_code: string
           party_types: string[]
+          thumb_url: string
           updated_at: string
         }[]
       }
