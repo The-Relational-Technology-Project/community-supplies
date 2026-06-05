@@ -17,11 +17,43 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { communityId, communityName, communitySlug, loading: communityLoading, notFound } = useCommunity();
+  const { communityId, communityName, communitySlug, loading: communityLoading, notFound, isSlugRoute } = useCommunity();
   const { user, isReady } = useAuth();
   const [activeTab, setActiveTab] = useState('browse');
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [membershipChecked, setMembershipChecked] = useState(false);
+  const [isMember, setIsMember] = useState(false);
+
+  // Membership gate: on /c/:slug, verify logged-in user actually belongs to this community.
+  useEffect(() => {
+    if (!isSlugRoute) {
+      setMembershipChecked(true);
+      setIsMember(true);
+      return;
+    }
+    if (!isReady) return;
+    if (!user) {
+      setMembershipChecked(true);
+      setIsMember(false);
+      return;
+    }
+    if (communityLoading) return;
+
+    let cancelled = false;
+    setMembershipChecked(false);
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("community_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      setIsMember((data as any)?.community_id === communityId);
+      setMembershipChecked(true);
+    })();
+    return () => { cancelled = true; };
+  }, [isSlugRoute, isReady, user?.id, communityId, communityLoading]);
 
   // Read URL params once on mount
   useEffect(() => {
