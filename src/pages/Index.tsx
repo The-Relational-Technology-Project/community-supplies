@@ -13,6 +13,7 @@ import { StewardDashboard } from "@/components/steward/StewardDashboard";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
