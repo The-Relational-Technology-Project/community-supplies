@@ -33,6 +33,7 @@ export const fetchSupplies = async (communityId?: string): Promise<Supply[]> => 
     image: item.image_url,
     images: item.images || (item.image_url ? [item.image_url] : []),
     illustration_url: item.illustration_url,
+    thumb_url: item.thumb_url ?? null,
     houseRules: item.house_rules || [],
     ownerId: item.owner_id,
     lentOut: item.lent_out || false,

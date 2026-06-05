@@ -15,10 +15,11 @@ export function SupplyCard({ supply, onViewContact }: SupplyCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const categoryData = categories.find(c => c.id === supply.category);
   const CategoryIcon = categoryData?.icon;
-  
-  const hasPhotos = supply.images?.length || supply.image;
-  const isGeneratingIllustration = hasPhotos && !supply.illustration_url;
-  
+
+  const photoUrl = supply.thumb_url || null;
+  const hasPhotos = !!photoUrl || supply.images?.length || supply.image;
+  const isGeneratingIllustration = hasPhotos && !supply.illustration_url && !photoUrl;
+
   return (
     <Card 
       className="h-full hover:shadow-sm transition-shadow border-border cursor-pointer"
@@ -48,6 +49,17 @@ export function SupplyCard({ supply, onViewContact }: SupplyCardProps) {
                 )}
               />
             </>
+          ) : photoUrl ? (
+            <img
+              src={getOptimizedImageUrl(photoUrl, { width: 400, quality: 70 })}
+              alt={supply.name}
+              loading="lazy"
+              onLoad={() => setImageLoaded(true)}
+              className={cn(
+                "w-full h-full object-cover transition-opacity duration-300",
+                imageLoaded ? "opacity-100" : "opacity-60"
+              )}
+            />
           ) : isGeneratingIllustration ? (
             <div className="text-center px-4">
               <p className="font-serif text-sm text-muted-foreground italic">
