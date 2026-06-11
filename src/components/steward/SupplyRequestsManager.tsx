@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCommunity } from "@/contexts/CommunityContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -21,16 +22,20 @@ export function SupplyRequestsManager() {
   const [requests, setRequests] = useState<SupplyRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { communityId } = useCommunity();
 
   useEffect(() => {
     fetchRequests();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communityId]);
 
   const fetchRequests = async () => {
+    if (!communityId) return;
     try {
       const { data, error } = await supabase
         .from('supply_requests')
         .select('*')
+        .eq('community_id', communityId)
         .order('created_at', { ascending: false })
         .limit(50);
 

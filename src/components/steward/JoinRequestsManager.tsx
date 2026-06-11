@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCommunity } from "@/contexts/CommunityContext";
 import { CheckCircle, XCircle, Clock } from "lucide-react";
 
 interface JoinRequest {
@@ -23,12 +24,15 @@ export function JoinRequestsManager() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { communityId } = useCommunity();
 
   const fetchRequests = async () => {
+    if (!communityId) return;
     try {
       const { data, error } = await supabase
         .from('join_requests')
         .select('id, name, email, intro, connection_context, community_id, status, requested_at, user_id')
+        .eq('community_id', communityId)
         .order('requested_at', { ascending: false });
 
       if (error) throw error;
@@ -150,7 +154,8 @@ export function JoinRequestsManager() {
 
   useEffect(() => {
     fetchRequests();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communityId]);
 
   if (loading) {
     return <div className="text-center py-4">Loading join requests...</div>;

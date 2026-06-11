@@ -333,7 +333,7 @@ export type Database = {
           zip_code: string | null
         }
         Insert: {
-          community_id?: string
+          community_id: string
           created_at?: string
           email: string
           id: string
@@ -699,6 +699,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_steward_of: {
+        Args: { _community_id: string; _user_id: string }
         Returns: boolean
       }
       is_user_steward: { Args: { user_id: string }; Returns: boolean }

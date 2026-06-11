@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCommunity } from "@/contexts/CommunityContext";
 import { Users, Shield, UserPlus, Copy, Check, UserX, UserCheck } from "lucide-react";
 
 interface CommunityStats {
@@ -35,6 +36,7 @@ export function CommunityOverview() {
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { communityId } = useCommunity();
 
   const copyEmail = async (email: string) => {
     await navigator.clipboard.writeText(email);
@@ -43,10 +45,12 @@ export function CommunityOverview() {
   };
 
   const fetchCommunityData = async () => {
+    if (!communityId) return;
     try {
       const { data: members, error } = await supabase
         .from('profiles')
         .select('id, name, email, role, created_at, intro_text, zip_code, vouched_at')
+        .eq('community_id', communityId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -108,7 +112,8 @@ export function CommunityOverview() {
 
   useEffect(() => {
     fetchCommunityData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communityId]);
 
   if (loading) {
     return <div className="text-center py-4">Loading community overview...</div>;
