@@ -148,6 +148,30 @@ Deno.serve(async (req) => {
         role: "steward",
       }, { onConflict: "id" });
 
+    // Belt-and-suspenders: force community_id to the new community even if a
+    // trigger/default produced a different one earlier in the transaction.
+    const { error: forceCommErr } = await supabaseAdmin
+      .from("profiles")
+      .update({ community_id: communityId, vouched_at: new Date().toISOString() })
+      .eq("id", userId);
+    if (forceCommErr) {
+      console.error("Failed to force steward profile community_id:", forceCommErr);
+    }
+
+    // Sanity check
+    const { data: profileCheck } = await supabaseAdmin
+      .from("profiles")
+      .select("community_id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileCheck && profileCheck.community_id !== communityId) {
+      console.error("Steward profile community_id mismatch", {
+        userId,
+        expected: communityId,
+        got: profileCheck.community_id,
+      });
+    }
+
     // 6. Insert steward role
     await supabaseAdmin
       .from("user_roles")
