@@ -67,11 +67,25 @@ export function JoinRequestForm() {
       });
 
       if (authError) {
-        toast({ 
-          title: "Signup failed", 
-          description: authError.message, 
-          variant: "destructive" 
-        });
+        const msg = (authError.message || "").toLowerCase();
+        const alreadyRegistered =
+          msg.includes("already registered") ||
+          msg.includes("user already") ||
+          msg.includes("already exists");
+        if (alreadyRegistered) {
+          toast({
+            title: "You already have an account",
+            description:
+              "Please sign in with your existing account, then click Join from the community page to send your request.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Signup failed",
+            description: authError.message,
+            variant: "destructive",
+          });
+        }
         setLoading(false);
         return;
       }
