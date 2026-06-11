@@ -187,10 +187,25 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
     });
     
     if (error) {
-      toast({ title: "Signup failed", description: error.message, variant: "destructive" });
+      const msg = (error.message || "").toLowerCase();
+      const alreadyRegistered =
+        msg.includes("already registered") ||
+        msg.includes("user already") ||
+        msg.includes("already exists");
+      if (alreadyRegistered) {
+        toast({
+          title: "You already have an account",
+          description: `Sign in to join ${effectiveCommunityName ?? "this community"}.`,
+        });
+        setPassword("");
+        setMode("login");
+      } else {
+        toast({ title: "Signup failed", description: error.message, variant: "destructive" });
+      }
       setLoading(false);
       return;
     }
+
     
     toast({ 
       title: "Account created!", 
