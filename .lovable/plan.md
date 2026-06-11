@@ -1,99 +1,83 @@
+## Diagnosis
 
-## Problem
+Ellen (`sharing@uplandsclaremont.com`) created community **Uplands Claremont Area Neighbors** (`ed4143cd…`, `approval_required`) this morning. She is correctly in `user_roles` as `steward` of Uplands. **But her `profiles.community_id` is Sunset (`a0a0a0a0…`), not Uplands.**
 
-When a user with an existing account visits another community's page (`/c/<slug>`) and clicks "Join", `supabase.auth.signUp` fails with "user already registered". The `handle_new_user` trigger never runs, so their `profiles.community_id` is never updated. After signing in:
+The steward dashboard scopes everything through `get_user_community_id(auth.uid())`, which reads from `profiles.community_id`. So every steward query — `JoinRequestsManager`, member list, supply requests — ran against **Sunset & Richmond** (the flagship). That's why she sees 182 "approved members" and a join‑request list full of Sunset neighbors: she's looking at Sunset's data through her steward UI.
 
-- On `/c/<other-community>`, the membership gate in `src/pages/Index.tsx` sees `profile.community_id !== communityId` and shows the public landing page (looks like "you aren't signed in").
-- On `/`, `CommunityProvider` resolves their *old* community from their profile, so magic-link / home routing sends them to the wrong place.
+Why her profile points at Sunset:
 
-Ryan Levin is the live example: profile is on `sunset-richmond`, he wants `old-east-durham` (auto-join), no `join_request` exists. This pattern will hit any cross-community joiner and anyone whose first signup happened on the root site (which defaults to Sunset & Richmond).
+- `public.profiles.community_id` has DB DEFAULT `'a0a0a0a0…sunset…'::uuid`. Any insert that omits `community_id` silently routes the profile to Sunset.
+- `create-community` does upsert the profile with the right `community_id`, but auth user metadata + the DEFAULT have already produced a Sunset-scoped row in some race / earlier-deploy path. Same shape of bug we just fixed for Ryan.
+
+This will hit **every** new steward whose profile is created without an explicit `community_id`, and every cross-community joiner (Ryan's exact bug). The RLS predicates `is_user_steward(uid) AND community_id = get_user_community_id(uid)` mean **any steward whose profile drifts to the wrong community sees and can mutate that other community's data**. That's the system-wide issue worth fixing now.
 
 ## Fixes
 
-### 1. Data fix for Ryan
-Update his profile: set `community_id` to Old East Durham. He already has `vouched_at` set, and OED is `auto`-join, so no approval needed. One-row migration.
+### 1. Data repair for Ellen
+- Move `sharing@uplandsclaremont.com` profile to Uplands (`ed4143cd-d1bd-428f-a839-00a107e8bef4`), set `vouched_at = now()` if null.
+- No join_requests exist for Uplands, no cleanup needed there.
+- Confirm `user_roles` already has her as steward of Uplands (it does).
 
-### 2. "Switch / join this community" flow on `/c/:slug` for signed-in non-members
-In `src/pages/Index.tsx`, when `isSlugRoute && user && !isMember`, instead of rendering `<LandingPage>`, render a new `JoinThisCommunity` card that:
+### 2. Remove the Sunset default on `profiles.community_id`
+- Migration: `ALTER TABLE public.profiles ALTER COLUMN community_id DROP DEFAULT;`
+- Keep the column NOT NULL.
+- Audit every code path that inserts a profile to confirm it sets `community_id` explicitly: `create-community` ✅, `bulk-create-users` (verify), and the `handle_new_user` function (used if/when an auth-user trigger is wired). After the default is dropped, any missing path will fail loudly instead of silently corrupting routing.
 
-- Shows "You're signed in as <email>. You're currently a member of <currentCommunityName>. Want to join <thisCommunityName>?"
-- If target community `join_mode === 'auto'`: a single button "Join <community>" that calls a new RPC `switch_user_community(p_community_id)` (security definer; sets `profiles.community_id = p_community_id`, leaves `vouched_at` alone if already set, otherwise sets it to `now()`). On success, invalidate state and re-render the library.
-- If target community `join_mode === 'approval_required'`: a "Request to join" button that inserts a `join_requests` row linked to the existing `user_id` (and clears any old pending request from the same user/community). Approval flow in `JoinRequestsManager` already sets `vouched_at`; extend it to also set `profiles.community_id = request.community_id` on approve so the approval actually moves the user.
-
-### 3. Fix the existing-email path in signup
-In `src/components/auth/AuthModal.tsx` `handleSignup`, detect Supabase's "User already registered" error (and equivalent) and, instead of just toasting "Signup failed":
-
-- Toast "You already have an account — sign in to join <community>."
-- Switch the modal to `login` mode, prefilled email.
-- After successful login, if a `communityId` prop is present and differs from the user's `profiles.community_id`, run the same auto-join or request-to-join path as fix #2 (extract into a small `joinCommunity(communityId, joinMode)` helper).
-
-In `src/components/community/JoinRequestForm.tsx`, mirror the same behavior: if signUp returns "User already registered", look up the existing user via a sign-in step (or skip auth entirely and just insert a `join_requests` row keyed by email; `JoinRequestsManager` approval can match by email when `user_id` is null). Simplest: catch the error, ask them to sign in, then resubmit the request.
-
-### 4. Steward approval should move the profile
-In `src/components/steward/JoinRequestsManager.tsx` `handleApprove`, after setting `vouched_at`, also `update profiles set community_id = request.community_id where id = request.user_id`. Today it only sets `vouched_at`, which is why an approval for a cross-community request wouldn't actually move the user even if a request existed.
-
-### 5. Don't silently default root signups to Sunset
-Lower-priority but related: `handle_new_user` falls back to the Sunset community when no `community_id` metadata is passed. This is what caused Ryan's profile to live on Sunset in the first place. Options (pick one in build):
-
-- Keep the fallback but make the root `/` signup CTA explicit ("Join Sunset & Richmond Community" already does this — fine).
-- OR allow `profiles.community_id` to be null and gate the library UI on it, prompting community selection on first login. (Bigger change — flag for follow-up, not part of this fix.)
-
-We'll implement the lighter version: leave the trigger as-is and rely on fixes #2/#3/#4 to let users correct course.
-
-## Technical details
-
-### Migration (data + RPC)
+### 3. Scope steward RLS by `user_roles`, not by profile
+Replace the steward predicate so the steward's authoritative community is the one in `user_roles.role='steward'`, not `profiles.community_id`.
 
 ```sql
--- Move Ryan to Old East Durham
-update public.profiles
-   set community_id = '32ced731-eb7a-41f3-be63-be68db74b255'
- where email = 'ryan.c.levin@gmail.com';
-
--- RPC used by the "Join this community" button
-create or replace function public.switch_user_community(p_community_id uuid)
-returns void
-language plpgsql
-security definer
-set search_path = public
+create or replace function public.is_steward_of(_user_id uuid, _community_id uuid)
+returns boolean
+language sql stable security definer set search_path = public
 as $$
-declare
-  v_uid uuid := auth.uid();
-  v_join_mode text;
-begin
-  if v_uid is null then
-    raise exception 'not authenticated';
-  end if;
-
-  select join_mode into v_join_mode from public.communities where id = p_community_id;
-  if v_join_mode is null then
-    raise exception 'community not found';
-  end if;
-  if v_join_mode <> 'auto' then
-    raise exception 'community requires approval';
-  end if;
-
-  update public.profiles
-     set community_id = p_community_id,
-         vouched_at = coalesce(vouched_at, now())
-   where id = v_uid;
-end;
+  select exists (
+    select 1 from public.user_roles
+    where user_id = _user_id
+      and role = 'steward'
+      and community_id = _community_id
+  )
 $$;
-
-grant execute on function public.switch_user_community(uuid) to authenticated;
+grant execute on function public.is_steward_of(uuid, uuid) to authenticated;
 ```
 
-### Files touched
+Update steward-scoped policies to use `public.is_steward_of(auth.uid(), <table>.community_id)`:
 
-- `supabase/migrations/<new>.sql` — data fix + `switch_user_community` RPC.
-- `src/pages/Index.tsx` — replace the `isSlugRoute && !isMember` branch with the new `JoinThisCommunity` card (new small component under `src/components/community/`).
-- `src/components/community/JoinThisCommunity.tsx` (new) — handles both auto and approval modes; on success re-runs the membership check.
-- `src/components/auth/AuthModal.tsx` — detect "user already registered" on signup, fall through to login + post-login `joinCommunity`.
-- `src/components/community/JoinRequestForm.tsx` — same error handling; allow request submission for existing accounts.
-- `src/components/steward/JoinRequestsManager.tsx` — on approve, also set `profiles.community_id = request.community_id`.
+- `join_requests` — "Stewards can view community join requests" (SELECT) and "Stewards can vouch community join requests" (UPDATE).
+- `profiles` — "Stewards can view community profiles" (SELECT) and "Stewards can update community member vouching" (UPDATE).
+- Repeat the same swap on `supplies`, `supply_requests`, `community_steward_requests`, `community_neighbors`, `books` for any steward-scoped policy currently keyed off `get_user_community_id`.
 
-### Verification
+Effect: even if a steward's `profiles.community_id` is wrong, RLS no longer hands them another community's data.
 
-1. Reload Ryan's account → `/c/old-east-durham` shows the OED library; `/` resolves to OED. (Data migration alone fixes him.)
-2. As a second test user, sign up on `/` (lands in Sunset), then visit `/c/old-east-durham` and click "Join" → the new card appears; clicking "Join Old East Durham" moves the profile and shows the library.
-3. As a test user, on `/c/<approval-required-community>`, click "Join" → request is created against the existing account; steward approval flips both `vouched_at` and `community_id`.
+### 4. Explicit `community_id` filter in steward UI
+Defense in depth, and fixes any current cross-community leak immediately rather than waiting for the schema change to propagate:
+
+- `src/components/steward/JoinRequestsManager.tsx`: take `communityId` from context (`useCommunity()`), pass `.eq('community_id', communityId)` on the select. Same on Approve/Reject lookups.
+- `src/components/steward/CommunityOverview.tsx`, `SupplyRequestsManager.tsx`, `AllSuppliesManager.tsx`, `JoinModeToggle.tsx`, etc.: confirm they all read `communityId` from `useCommunity()` (route-derived) and not from the user's profile. Fix any that don't.
+- The dashboard mounted under `/c/:slug/steward` must use the slug's community as the source of truth.
+
+### 5. Harden `create-community`
+- After the `auth.admin.createUser` call, run an explicit `UPDATE profiles SET community_id = :communityId WHERE id = :userId` (not just upsert) so we never depend on the column default or trigger ordering.
+- Log a server-side warning if the post-update read shows `community_id !== :communityId`.
+
+## Verification
+
+1. **Ellen lands correctly.** After data fix, `sharing@uplandsclaremont.com` on `/c/uplands-claremont-area-neighbors/steward` sees an empty join request list, 1 member (herself), and her own community settings — not Sunset's.
+2. **No cross-community leak.** Sign in as a steward of community A, hit `/c/<community-B>/steward` directly — RLS returns nothing for B.
+3. **New community signup.** Create a brand new community via the public form; verify the new steward's `profiles.community_id` matches the new community and the dashboard shows only their own data.
+4. **Cross-community join (Ryan path).** Existing user joins a second community via "Join this community" — profile flips, steward of the new community sees only their join requests / members.
+
+## Files / migrations touched
+
+- `supabase/migrations/<new>.sql`
+  - Data fix for Ellen's profile.
+  - `ALTER TABLE profiles ALTER COLUMN community_id DROP DEFAULT`.
+  - New `is_steward_of(uuid, uuid)` function + grant.
+  - Drop & recreate steward policies on `join_requests`, `profiles`, `supplies`, `supply_requests`, `community_steward_requests`, `community_neighbors`, `books` to use `is_steward_of`.
+- `supabase/functions/create-community/index.ts` — explicit post-create profile UPDATE + sanity log.
+- `src/components/steward/JoinRequestsManager.tsx` — add `communityId` filter from `useCommunity()`.
+- `src/components/steward/CommunityOverview.tsx`, `SupplyRequestsManager.tsx`, `AllSuppliesManager.tsx`, `JoinModeToggle.tsx`, `StewardDashboard.tsx` — audit and lock to route-derived `communityId`.
+
+## What I won't touch unless you say so
+
+- Bulk member-deactivation tooling. Ellen asked if she has to "deactivate each one" — the fix above makes those 182 members vanish from her view because they were never hers. No mass-delete needed. If you want a steward-side "deactivate member" action regardless, that's a separate small feature.
