@@ -8,6 +8,7 @@ import { BrowseSupplies } from "@/components/BrowseSupplies";
 import { AddSupply } from "@/components/AddSupply";
 import { BulkAddSupplies } from "@/components/BulkAddSupplies";
 import { StewardOnboarding } from "@/components/community/StewardOnboarding";
+import { JoinThisCommunity } from "@/components/community/JoinThisCommunity";
 
 import { StewardDashboard } from "@/components/steward/StewardDashboard";
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -95,9 +96,18 @@ const Index = () => {
   }
 
   // On /c/:slug, if logged-in user isn't a member of this community,
-  // show the public community landing with join CTA instead of the library shell.
+  // offer to switch/join instead of dumping them on the public landing.
   if (isSlugRoute && !isMember) {
-    return <LandingPage onTabChange={setActiveTab} />;
+    return (
+      <JoinThisCommunity
+        targetCommunityId={communityId}
+        targetCommunityName={communityName}
+        onJoined={() => {
+          setIsMember(true);
+          setActiveTab("browse");
+        }}
+      />
+    );
   }
 
   // Show onboarding for new stewards

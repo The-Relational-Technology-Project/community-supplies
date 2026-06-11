@@ -709,6 +709,10 @@ export type Database = {
             Args: { p_community_id?: string; search_query: string }
             Returns: number
           }
+      switch_user_community: {
+        Args: { p_community_id: string }
+        Returns: undefined
+      }
       user_in_community: {
         Args: { p_community_id: string; p_user_id: string }
         Returns: boolean

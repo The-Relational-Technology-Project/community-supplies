@@ -62,11 +62,14 @@ export function JoinRequestsManager() {
 
       if (updateError) throw updateError;
 
-      // If there's a linked user, activate them by setting vouched_at
+      // If there's a linked user, activate them by setting vouched_at and
+      // ensure their profile belongs to this community (covers cross-community requests).
       if (request.user_id) {
+        const update: Record<string, any> = { vouched_at: new Date().toISOString() };
+        if (request.community_id) update.community_id = request.community_id;
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ vouched_at: new Date().toISOString() })
+          .update(update)
           .eq('id', request.user_id);
 
         if (profileError) throw profileError;

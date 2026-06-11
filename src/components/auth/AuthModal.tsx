@@ -18,7 +18,8 @@ interface AuthModalProps {
   communityName?: string;
 }
 
-export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, communityName }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, communityId, communityName }: AuthModalProps) {
+  const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -31,6 +32,11 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, commu
   const [useMagicLink, setUseMagicLink] = useState(false);
   const { toast } = useToast();
   const { communityId: contextCommunityId, communitySlug, communityName: contextCommunityName } = useCommunity();
+
+  // Keep internal mode in sync if the parent reopens the modal in a different mode
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode, isOpen]);
 
   // Generate math captcha when component mounts or mode changes to signup
   useEffect(() => {
@@ -45,6 +51,54 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, commu
     }
   }, [mode]);
 
+
+  const effectiveCommunityId = communityId || contextCommunityId;
+  const effectiveCommunityName = communityName || contextCommunityName;
+
+  // After a successful login, if a community context is set and the user is not
+  // already a member of it, try to join it (auto-join) or send a join request.
+  const joinTargetCommunityIfNeeded = async () => {
+    if (!effectiveCommunityId) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("community_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if ((profile as any)?.community_id === effectiveCommunityId) return;
+
+    const { data: community } = await supabase
+      .from("communities")
+      .select("join_mode")
+      .eq("id", effectiveCommunityId)
+      .maybeSingle();
+
+    if ((community as any)?.join_mode === "auto") {
+      const { error: rpcError } = await supabase.rpc("switch_user_community", {
+        p_community_id: effectiveCommunityId,
+      });
+      if (!rpcError) {
+        toast({
+          title: `Welcome to ${effectiveCommunityName ?? "the community"}!`,
+          description: "You're in.",
+        });
+      }
+    } else {
+      // approval_required — create a pending join request linked to existing user
+      await supabase.from("join_requests").insert({
+        user_id: user.id,
+        name: user.user_metadata?.name ?? user.email ?? "",
+        email: user.email ?? "",
+        community_id: effectiveCommunityId,
+      });
+      toast({
+        title: "Request sent",
+        description: `A ${effectiveCommunityName ?? "community"} steward will review your request.`,
+      });
+    }
+  };
+
   const handleLogin = async () => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -52,6 +106,7 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, commu
       toast({ title: "Login failed", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Welcome back!", description: "You've successfully logged in." });
+      await joinTargetCommunityIfNeeded();
       onClose();
     }
     setLoading(false);
@@ -132,10 +187,25 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, commu
     });
     
     if (error) {
-      toast({ title: "Signup failed", description: error.message, variant: "destructive" });
+      const msg = (error.message || "").toLowerCase();
+      const alreadyRegistered =
+        msg.includes("already registered") ||
+        msg.includes("user already") ||
+        msg.includes("already exists");
+      if (alreadyRegistered) {
+        toast({
+          title: "You already have an account",
+          description: `Sign in to join ${effectiveCommunityName ?? "this community"}.`,
+        });
+        setPassword("");
+        setMode("login");
+      } else {
+        toast({ title: "Signup failed", description: error.message, variant: "destructive" });
+      }
       setLoading(false);
       return;
     }
+
     
     toast({ 
       title: "Account created!", 
