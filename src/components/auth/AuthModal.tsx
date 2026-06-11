@@ -18,7 +18,8 @@ interface AuthModalProps {
   communityName?: string;
 }
 
-export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, communityName }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, communityId, communityName }: AuthModalProps) {
+  const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -32,6 +33,11 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, commu
   const { toast } = useToast();
   const { communityId: contextCommunityId, communitySlug, communityName: contextCommunityName } = useCommunity();
 
+  // Keep internal mode in sync if the parent reopens the modal in a different mode
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode, isOpen]);
+
   // Generate math captcha when component mounts or mode changes to signup
   useEffect(() => {
     if (mode === 'signup') {
@@ -44,6 +50,7 @@ export function AuthModal({ isOpen, onClose, mode, onSuccess, communityId, commu
       setCaptchaAnswer("");
     }
   }, [mode]);
+
 
   const effectiveCommunityId = communityId || contextCommunityId;
   const effectiveCommunityName = communityName || contextCommunityName;
