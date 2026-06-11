@@ -154,7 +154,8 @@ export function JoinRequestsManager() {
 
   useEffect(() => {
     fetchRequests();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communityId]);
 
   if (loading) {
     return <div className="text-center py-4">Loading join requests...</div>;
