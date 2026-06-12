@@ -91,6 +91,9 @@ export function JoinModeToggle() {
             disabled={saving}
           />
         </div>
+        <p className="text-xs text-muted-foreground mt-3">
+          Changes save automatically — there's no separate Save button.
+        </p>
       </CardContent>
     </Card>
   );

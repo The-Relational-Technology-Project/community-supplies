@@ -100,7 +100,16 @@ Deno.serve(async (req) => {
     // 3. Create community
     const { data: community, error: communityError } = await supabaseAdmin
       .from("communities")
-      .insert({ name: communityName, slug: communitySlug, description: location, ai_features_enabled: aiFeaturesEnabled ?? true })
+      .insert({
+        name: communityName,
+        slug: communitySlug,
+        description: location,
+        ai_features_enabled: aiFeaturesEnabled ?? true,
+        // New communities start in approval-required mode so the steward
+        // reviews every join request from day one. They can switch to open
+        // join from the dashboard at any time.
+        join_mode: "approval_required",
+      })
       .select("id")
       .single();
 

@@ -206,35 +206,82 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       return;
     }
 
-    
-    toast({ 
-      title: "Account created!", 
-      description: "You can now sign in with your email and password." 
-    });
 
-    // Send welcome email for auto-join communities
+    // Determine the target community's join mode so we can either auto-join
+    // or file a pending join_request (mirroring JoinRequestForm).
+    const targetCommunityId = effectiveCommunityIdForSignup;
+    let isApprovalRequired = false;
+    let targetCommunity: { name: string; slug: string } | null = null;
     try {
-      const effectiveCommunityId = communityId || contextCommunityId;
-      const { data: community } = await supabase
-        .from('communities')
-        .select('join_mode, name, slug')
-        .eq('id', effectiveCommunityId)
-        .single();
-
-      if (community && community.join_mode === 'auto') {
-        await supabase.functions.invoke('send-welcome-email', {
-          body: {
-            memberName: name,
-            memberEmail: email,
-            communityName: community.name,
-            communitySlug: community.slug,
-          },
-        });
+      if (targetCommunityId) {
+        const { data: community } = await supabase
+          .from('communities')
+          .select('join_mode, name, slug')
+          .eq('id', targetCommunityId)
+          .single();
+        if (community) {
+          isApprovalRequired = community.join_mode === 'approval_required';
+          targetCommunity = { name: community.name, slug: community.slug };
+        }
       }
-    } catch (welcomeError) {
-      console.error("Failed to send welcome email:", welcomeError);
+    } catch (lookupErr) {
+      console.error('Failed to look up community join_mode:', lookupErr);
     }
-    
+
+    if (isApprovalRequired && data?.user && targetCommunityId) {
+      // File a join request so the steward can review this signup.
+      const { error: jrError } = await supabase.from('join_requests').insert({
+        user_id: data.user.id,
+        name,
+        email,
+        community_id: targetCommunityId,
+        intro: connectionContext || null,
+      });
+      if (jrError) {
+        console.error('Failed to create join request:', jrError);
+      }
+
+      // Notify stewards.
+      supabase.functions.invoke('send-join-notification', {
+        body: {
+          communityId: targetCommunityId,
+          name,
+          email,
+          referralSource: 'signup_form',
+          crossStreets: null,
+          phoneNumber: null,
+        },
+      }).then(({ error: emailError }) => {
+        if (emailError) console.error('Failed to send join notification:', emailError);
+      });
+
+      toast({
+        title: "Request sent!",
+        description: `A ${targetCommunity?.name ?? 'community'} steward will review your request shortly.`,
+      });
+    } else {
+      toast({
+        title: "Account created!",
+        description: "You can now sign in with your email and password.",
+      });
+
+      // Send welcome email for auto-join communities
+      if (targetCommunity) {
+        try {
+          await supabase.functions.invoke('send-welcome-email', {
+            body: {
+              memberName: name,
+              memberEmail: email,
+              communityName: targetCommunity.name,
+              communitySlug: targetCommunity.slug,
+            },
+          });
+        } catch (welcomeError) {
+          console.error("Failed to send welcome email:", welcomeError);
+        }
+      }
+    }
+
     onClose();
     setLoading(false);
   };
