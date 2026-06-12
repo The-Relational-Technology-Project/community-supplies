@@ -31,7 +31,7 @@ export type Database = {
         }
         Insert: {
           author?: string | null
-          community_id?: string
+          community_id: string
           condition?: string
           created_at?: string
           genre?: string | null
@@ -261,7 +261,7 @@ export type Database = {
           voucher_id: string | null
         }
         Insert: {
-          community_id?: string
+          community_id: string
           connection_context?: string | null
           cross_streets?: string | null
           email: string
@@ -423,7 +423,7 @@ export type Database = {
         }
         Insert: {
           category: string
-          community_id?: string
+          community_id: string
           condition: string
           contact_email?: string | null
           created_at?: string
@@ -501,7 +501,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          community_id?: string
+          community_id: string
           created_at?: string
           id?: string
           message: string
@@ -545,7 +545,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          community_id?: string
+          community_id: string
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
