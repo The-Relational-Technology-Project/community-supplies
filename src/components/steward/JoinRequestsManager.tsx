@@ -66,10 +66,11 @@ export function JoinRequestsManager() {
 
       if (updateError) throw updateError;
 
-      // If there's a linked user, activate them by setting vouched_at and
-      // ensure their profile belongs to this community (covers cross-community requests).
+      // If there's a linked user, activate them and ensure their profile
+      // belongs to this community (covers cross-community requests). vouched_at
+      // is derived from membership_status by a DB trigger.
       if (request.user_id) {
-        const update: Record<string, any> = { vouched_at: new Date().toISOString() };
+        const update: Record<string, any> = { membership_status: 'active' };
         if (request.community_id) update.community_id = request.community_id;
         const { error: profileError } = await supabase
           .from('profiles')
@@ -134,6 +135,16 @@ export function JoinRequestsManager() {
         .eq('id', request.id);
 
       if (error) throw error;
+
+      // Reflect the rejection on the linked profile so the Members tab shows
+      // "Rejected" rather than "Deactivated". Best-effort; don't block on it.
+      if (request.user_id) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ membership_status: 'rejected' })
+          .eq('id', request.user_id);
+        if (profileError) console.error('Failed to mark profile rejected:', profileError);
+      }
 
       toast({
         title: "Application rejected",

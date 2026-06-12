@@ -46,11 +46,15 @@ const Index = () => {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("community_id")
+        .select("community_id, vouched_at")
         .eq("id", user.id)
         .maybeSingle();
       if (cancelled) return;
-      setIsMember((data as any)?.community_id === communityId);
+      // Member of this community AND approved/active (vouched_at set). A pending
+      // or deactivated user falls through to JoinThisCommunity rather than the
+      // catalog, so "approval required" actually gates access.
+      const profile = data as any;
+      setIsMember(profile?.community_id === communityId && !!profile?.vouched_at);
       setMembershipChecked(true);
     })();
     return () => { cancelled = true; };

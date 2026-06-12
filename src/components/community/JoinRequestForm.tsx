@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { fileJoinRequest } from "@/lib/joinCommunity";
 import { CheckCircle2, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -100,42 +101,24 @@ export function JoinRequestForm() {
         return;
       }
 
-      // Create join request linked to the user
-      const { error: requestError } = await supabase
-        .from('join_requests')
-        .insert({
-          user_id: authData.user.id,
-          name,
-          email,
-          cross_streets: crossStreets,
-          referral_source: referralSource,
-          phone_number: referralSource === 'other' ? phoneNumber : null,
-          community_id: communityId,
-        });
+      // File the join request + notify stewards via the shared helper.
+      const { error: requestError } = await fileJoinRequest({
+        communityId,
+        userId: authData.user.id,
+        name,
+        email,
+        crossStreets,
+        referralSource,
+        phoneNumber: referralSource === 'other' ? phoneNumber : null,
+      });
 
       if (requestError) {
-        toast({ 
-          title: "Error", 
-          description: requestError.message, 
-          variant: "destructive" 
+        toast({
+          title: "Error",
+          description: requestError.message,
+          variant: "destructive"
         });
       } else {
-        // Notify the community's stewards
-        supabase.functions.invoke('send-join-notification', {
-          body: {
-            communityId,
-            name,
-            email,
-            referralSource,
-            crossStreets,
-            phoneNumber: referralSource === 'other' ? phoneNumber : null
-          }
-        }).then(({ error: emailError }) => {
-          if (emailError) {
-            console.error('Failed to send notification email:', emailError);
-          }
-        });
-
         toast({
           title: "Request submitted!",
           description: "A community steward will review your application."

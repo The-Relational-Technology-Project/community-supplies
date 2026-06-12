@@ -148,7 +148,8 @@ serve(async (req) => {
           .maybeSingle();
 
         if (!profile) {
-          // Create profile manually if trigger didn't work, scoped to community
+          // Create profile manually if trigger didn't work, scoped to community.
+          // These come from APPROVED join requests, so they are active members.
           await supabaseAdmin
             .from('profiles')
             .insert({
@@ -156,7 +157,15 @@ serve(async (req) => {
               name: request.name,
               email: request.email,
               community_id: communityId,
+              membership_status: 'active',
             });
+        } else {
+          // Trigger created the profile (pending for approval-required
+          // communities). These are approved members, so activate them.
+          await supabaseAdmin
+            .from('profiles')
+            .update({ membership_status: 'active' })
+            .eq('id', authUser.user.id);
         }
 
         results.push({

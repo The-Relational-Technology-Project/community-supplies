@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Book } from "@/types/book";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCommunity } from "@/contexts/CommunityContext";
 import { Send, Loader2 } from "lucide-react";
 
 interface BookContactModalProps {
@@ -22,6 +23,7 @@ export function BookContactModal({ isOpen, book, onClose }: BookContactModalProp
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const { toast } = useToast();
+  const { communityId } = useCommunity();
 
   if (!book) return null;
 
@@ -32,15 +34,6 @@ export function BookContactModal({ isOpen, book, onClose }: BookContactModalProp
       toast({
         title: "Missing information",
         description: "Please fill in your name and contact details",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!book.ownerEmail) {
-      toast({
-        title: "Cannot send request",
-        description: "The book owner's contact information is not available.",
         variant: "destructive",
       });
       return;
@@ -57,7 +50,8 @@ export function BookContactModal({ isOpen, book, onClose }: BookContactModalProp
           supplyOwnerId: book.ownerId,
           senderName: name.trim(),
           senderContact: contact.trim(),
-          message: message.trim() || `I'd like to borrow "${book.title}".`
+          message: message.trim() || `I'd like to borrow "${book.title}".`,
+          communityId,
         }
       });
 

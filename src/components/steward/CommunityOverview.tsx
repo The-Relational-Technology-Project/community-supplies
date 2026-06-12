@@ -32,8 +32,7 @@ interface Member {
   created_at: string;
   intro_text: string | null;
   zip_code: string | null;
-  vouched_at: string | null;
-  hasPendingRequest: boolean;
+  membership_status: 'pending' | 'active' | 'deactivated' | 'rejected';
 }
 
 export function CommunityOverview() {
@@ -59,30 +58,15 @@ export function CommunityOverview() {
   const fetchCommunityData = async () => {
     if (!communityId) return;
     try {
-      const [{ data: members, error }, { data: pendingReqs, error: jrErr }] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('id, name, email, role, created_at, intro_text, zip_code, vouched_at')
-          .eq('community_id', communityId)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('join_requests')
-          .select('user_id')
-          .eq('community_id', communityId)
-          .eq('status', 'pending'),
-      ]);
+      const { data: members, error } = await supabase
+        .from('profiles')
+        .select('id, name, email, role, created_at, intro_text, zip_code, membership_status')
+        .eq('community_id', communityId)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      if (jrErr) throw jrErr;
 
-      const pendingUserIds = new Set(
-        (pendingReqs || []).map((r: any) => r.user_id).filter(Boolean)
-      );
-
-      const memberList: Member[] = (members || []).map((m: any) => ({
-        ...m,
-        hasPendingRequest: pendingUserIds.has(m.id),
-      }));
+      const memberList: Member[] = (members || []) as Member[];
 
       const stewardCount = memberList.filter(m => m.role === 'steward').length;
       const recentCount = memberList.filter(m => {
@@ -115,7 +99,7 @@ export function CommunityOverview() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ vouched_at: activate ? new Date().toISOString() : null })
+        .update({ membership_status: activate ? 'active' : 'deactivated' })
         .eq('id', member.id);
 
       if (error) throw error;
@@ -147,12 +131,10 @@ export function CommunityOverview() {
     return <div className="text-center py-4">Loading community overview...</div>;
   }
 
-  type MemberStatus = 'steward' | 'active' | 'pending' | 'deactivated';
+  type MemberStatus = 'steward' | 'active' | 'pending' | 'deactivated' | 'rejected';
   const statusFor = (m: Member): MemberStatus => {
     if (m.role === 'steward') return 'steward';
-    if (m.vouched_at) return 'active';
-    if (m.hasPendingRequest) return 'pending';
-    return 'deactivated';
+    return m.membership_status;
   };
 
   return (
@@ -255,6 +237,9 @@ export function CommunityOverview() {
                   {status === 'deactivated' && (
                     <Badge variant="destructive">Deactivated</Badge>
                   )}
+                  {status === 'rejected' && (
+                    <Badge variant="destructive">Rejected</Badge>
+                  )}
                 </TableCell>
                 <TableCell className="text-sm">
                   {new Date(member.created_at).toLocaleDateString()}
@@ -271,7 +256,7 @@ export function CommunityOverview() {
                       Deactivate
                     </Button>
                   )}
-                  {status === 'deactivated' && (
+                  {(status === 'deactivated' || status === 'rejected') && (
                     <Button
                       size="sm"
                       variant="default"
@@ -279,7 +264,7 @@ export function CommunityOverview() {
                       onClick={() => setMemberActive(member, true)}
                     >
                       <UserCheck className="h-4 w-4 mr-1" />
-                      Reactivate
+                      {status === 'rejected' ? 'Approve' : 'Reactivate'}
                     </Button>
                   )}
                   {status === 'pending' && (

@@ -7,7 +7,6 @@ export interface Book {
   houseRules: string[];
   ownerId: string;
   ownerName: string;
-  ownerEmail: string | null;
   lentOut: boolean;
   lenderNotes: string | null;
   createdAt: string;

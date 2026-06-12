@@ -155,13 +155,16 @@ Deno.serve(async (req) => {
         email: stewardEmail,
         community_id: communityId,
         role: "steward",
+        membership_status: "active",
       }, { onConflict: "id" });
 
     // Belt-and-suspenders: force community_id to the new community even if a
     // trigger/default produced a different one earlier in the transaction.
+    // membership_status 'active' is what activates them; vouched_at is derived
+    // from it by a DB trigger.
     const { error: forceCommErr } = await supabaseAdmin
       .from("profiles")
-      .update({ community_id: communityId, vouched_at: new Date().toISOString() })
+      .update({ community_id: communityId, membership_status: "active" })
       .eq("id", userId);
     if (forceCommErr) {
       console.error("Failed to force steward profile community_id:", forceCommErr);

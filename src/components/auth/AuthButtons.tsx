@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { AuthModal } from "./AuthModal";
 
 export function AuthButtons({ onSuccess }: { onSuccess?: () => void }) {
-  const [modalMode, setModalMode] = useState<'login' | 'signup' | 'join-request' | null>(null);
+  const [modalMode, setModalMode] = useState<'login' | 'signup' | null>(null);
 
   return (
     <>

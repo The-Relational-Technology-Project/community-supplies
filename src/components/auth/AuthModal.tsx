@@ -8,11 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { fileJoinRequest, autoJoinCommunity } from "@/lib/joinCommunity";
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  mode: 'login' | 'signup' | 'join-request';
+  mode: 'login' | 'signup';
   onSuccess?: () => void;
   communityId?: string;
   communityName?: string;
@@ -23,7 +24,6 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [intro, setIntro] = useState("");
   const [connectionContext, setConnectionContext] = useState("");
   const [honeypot, setHoneypot] = useState(""); // Bot detection
   const [captchaAnswer, setCaptchaAnswer] = useState("");
@@ -75,9 +75,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       .maybeSingle();
 
     if ((community as any)?.join_mode === "auto") {
-      const { error: rpcError } = await supabase.rpc("switch_user_community", {
-        p_community_id: effectiveCommunityId,
-      });
+      const { error: rpcError } = await autoJoinCommunity(effectiveCommunityId);
       if (!rpcError) {
         toast({
           title: `Welcome to ${effectiveCommunityName ?? "the community"}!`,
@@ -85,12 +83,12 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
         });
       }
     } else {
-      // approval_required — create a pending join request linked to existing user
-      await supabase.from("join_requests").insert({
-        user_id: user.id,
+      // approval_required — file a pending join request and notify stewards.
+      await fileJoinRequest({
+        communityId: effectiveCommunityId,
+        userId: user.id,
         name: user.user_metadata?.name ?? user.email ?? "",
         email: user.email ?? "",
-        community_id: effectiveCommunityId,
       });
       toast({
         title: "Request sent",
@@ -229,31 +227,18 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
     }
 
     if (isApprovalRequired && data?.user && targetCommunityId) {
-      // File a join request so the steward can review this signup.
-      const { error: jrError } = await supabase.from('join_requests').insert({
-        user_id: data.user.id,
+      // File a join request (and notify stewards) so the steward can review.
+      const { error: jrError } = await fileJoinRequest({
+        communityId: targetCommunityId,
+        userId: data.user.id,
         name,
         email,
-        community_id: targetCommunityId,
         intro: connectionContext || null,
+        referralSource: 'signup_form',
       });
       if (jrError) {
         console.error('Failed to create join request:', jrError);
       }
-
-      // Notify stewards.
-      supabase.functions.invoke('send-join-notification', {
-        body: {
-          communityId: targetCommunityId,
-          name,
-          email,
-          referralSource: 'signup_form',
-          crossStreets: null,
-          phoneNumber: null,
-        },
-      }).then(({ error: emailError }) => {
-        if (emailError) console.error('Failed to send join notification:', emailError);
-      });
 
       toast({
         title: "Request sent!",
@@ -286,36 +271,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
     setLoading(false);
   };
 
-  const handleJoinRequest = async () => {
-    setLoading(true);
-    const { error } = await supabase
-      .from('join_requests')
-      .insert({
-        name,
-        email,
-        intro,
-        connection_context: connectionContext
-      });
-    
-    if (error) {
-      toast({ title: "Request failed", description: error.message, variant: "destructive" });
-    } else {
-      toast({ 
-        title: "Request submitted!", 
-        description: "A community steward will review your application." 
-      });
-      onClose();
-    }
-    setLoading(false);
-  };
-
-  const getTitle = () => {
-    switch (mode) {
-      case 'login': return 'Welcome Back';
-      case 'signup': return 'Join the Party';
-      case 'join-request': return 'Request to Join';
-    }
-  };
+  const getTitle = () => (mode === 'login' ? 'Welcome Back' : 'Join the Party');
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -325,58 +281,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
         </DialogHeader>
         
         <div className="space-y-4 overflow-y-auto flex-1 px-1">
-          {mode === 'join-request' ? (
-            <>
-              <div>
-                <Label htmlFor="name" className="text-sm">Full Name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your full name"
-                  className="h-11 text-base"
-                  autoComplete="name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="email" className="text-sm">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="h-11 text-base"
-                  autoComplete="email"
-                />
-              </div>
-              <div>
-                <Label htmlFor="intro" className="text-sm">Introduction</Label>
-                <Textarea
-                  id="intro"
-                  value={intro}
-                  onChange={(e) => setIntro(e.target.value)}
-                  placeholder="Tell us about yourself and why you'd like to join..."
-                  rows={3}
-                  className="text-base resize-none"
-                />
-              </div>
-              <div>
-                <Label htmlFor="connection" className="text-sm">Connection to Community</Label>
-                <Textarea
-                  id="connection"
-                  value={connectionContext}
-                  onChange={(e) => setConnectionContext(e.target.value)}
-                  placeholder="How did you hear about us? Do you know any current members?"
-                  rows={2}
-                  className="text-base resize-none"
-                />
-              </div>
-              <Button onClick={handleJoinRequest} disabled={loading} className="w-full h-11">
-                {loading ? "Submitting..." : "Submit Request"}
-              </Button>
-            </>
-          ) : (
+          {(
             <>
               {mode === 'signup' && (
                 <>

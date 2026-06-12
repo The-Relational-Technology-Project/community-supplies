@@ -76,6 +76,30 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // --- Auth: only an authenticated, active member of the target community
+    // can trigger a notification to that community's stewards. This endpoint
+    // used to be unauthenticated, making it an open relay for steward emails.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     const rawBody = await req.json();
     const validationResult = SupplyNotificationSchema.safeParse(rawBody);
 
@@ -93,6 +117,20 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const { communityId, itemName, category, ownerName, ownerEmail, description, neighborhood } = validationResult.data;
+
+    // Caller must be an active member of the community they're notifying.
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("community_id, vouched_at")
+      .eq("id", user.id)
+      .single();
+
+    if (!callerProfile?.vouched_at || callerProfile.community_id !== communityId) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
     const { emails: stewardEmails, communityName } = await getStewardEmailsAndCommunityName(communityId);
 

@@ -22,7 +22,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-supply-notification]
-verify_jwt = false
+verify_jwt = true
 
 [functions.scan-bookshelf]
 verify_jwt = true

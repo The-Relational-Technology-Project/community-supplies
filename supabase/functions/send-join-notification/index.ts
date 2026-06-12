@@ -94,6 +94,30 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { communityId, name, email, referralSource, crossStreets, phoneNumber } = validationResult.data;
 
+    // This endpoint is callable without a user session (it fires during signup,
+    // before email confirmation), so it cannot require a JWT. Instead, only send
+    // if a real PENDING join_request already exists for this email + community.
+    // That binds the notification to genuine queue state and stops the endpoint
+    // from being an open relay for steward emails. Pending requests are themselves
+    // rate-limited by RLS (check_join_request_rate_limit: 3/email/hour).
+    const { data: matchingRequest } = await supabaseAdmin
+      .from("join_requests")
+      .select("id, name")
+      .eq("community_id", communityId)
+      .eq("email", email)
+      .eq("status", "pending")
+      .order("requested_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!matchingRequest) {
+      console.warn(`No pending join_request for ${email} in ${communityId}; skipping notification.`);
+      return new Response(JSON.stringify({ skipped: true, reason: "no_matching_request" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     const { emails: stewardEmails, communityName, communitySlug } = await getStewardEmailsAndCommunity(communityId);
 
     if (stewardEmails.length === 0) {
@@ -104,7 +128,8 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const safeName = escapeHtml(name);
+    // Prefer the name on the stored request over the (client-supplied) body name.
+    const safeName = escapeHtml(matchingRequest.name || name);
     const safeEmail = escapeHtml(email);
     const safeReferralSource = referralSource ? escapeHtml(referralSource) : null;
     const safeCrossStreets = crossStreets ? escapeHtml(crossStreets) : null;

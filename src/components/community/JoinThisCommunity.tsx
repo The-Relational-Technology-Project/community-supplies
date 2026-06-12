@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { fileJoinRequest, autoJoinCommunity } from "@/lib/joinCommunity";
 import { Users } from "lucide-react";
 
 interface JoinThisCommunityProps {
@@ -66,9 +67,7 @@ export function JoinThisCommunity({
 
   const handleAutoJoin = async () => {
     setSubmitting(true);
-    const { error } = await supabase.rpc("switch_user_community", {
-      p_community_id: targetCommunityId,
-    });
+    const { error } = await autoJoinCommunity(targetCommunityId);
     setSubmitting(false);
     if (error) {
       toast({
@@ -88,11 +87,11 @@ export function JoinThisCommunity({
   const handleRequestToJoin = async () => {
     if (!user) return;
     setSubmitting(true);
-    const { error } = await supabase.from("join_requests").insert({
-      user_id: user.id,
+    const { error } = await fileJoinRequest({
+      communityId: targetCommunityId,
+      userId: user.id,
       name: user.user_metadata?.name ?? user.email ?? "",
       email: user.email ?? "",
-      community_id: targetCommunityId,
     });
     setSubmitting(false);
     if (error) {
@@ -108,16 +107,6 @@ export function JoinThisCommunity({
       title: "Request sent",
       description: `A ${targetCommunityName} steward will review your request.`,
     });
-    // Best-effort notify stewards
-    supabase.functions
-      .invoke("send-join-notification", {
-        body: {
-          communityId: targetCommunityId,
-          name: user.user_metadata?.name ?? user.email,
-          email: user.email,
-        },
-      })
-      .catch(() => {});
   };
 
   return (
