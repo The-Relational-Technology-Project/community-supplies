@@ -325,7 +325,6 @@ export type Database = {
           email: string
           id: string
           intro_text: string | null
-          membership_status: Database["public"]["Enums"]["membership_status"]
           name: string
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
@@ -339,7 +338,6 @@ export type Database = {
           email: string
           id: string
           intro_text?: string | null
-          membership_status?: Database["public"]["Enums"]["membership_status"]
           name: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
@@ -353,7 +351,6 @@ export type Database = {
           email?: string
           id?: string
           intro_text?: string | null
-          membership_status?: Database["public"]["Enums"]["membership_status"]
           name?: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
@@ -599,6 +596,7 @@ export type Database = {
           id: string
           lender_notes: string
           lent_out: boolean
+          owner_email: string
           owner_id: string
           owner_name: string
           title: string
@@ -727,7 +725,6 @@ export type Database = {
     Enums: {
       app_role: "member" | "steward"
       join_request_status: "pending" | "vouched" | "rejected" | "approved"
-      membership_status: "pending" | "active" | "deactivated" | "rejected"
       user_role: "member" | "steward"
     }
     CompositeTypes: {
