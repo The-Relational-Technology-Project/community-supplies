@@ -3,10 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCommunity } from "@/contexts/CommunityContext";
-import { Users, Shield, UserPlus, Copy, Check, UserX, UserCheck } from "lucide-react";
+import { Users, Shield, UserPlus, Copy, Check, UserX, UserCheck, Clock } from "lucide-react";
 
 interface CommunityStats {
   totalMembers: number;
@@ -23,6 +33,7 @@ interface Member {
   intro_text: string | null;
   zip_code: string | null;
   vouched_at: string | null;
+  hasPendingRequest: boolean;
 }
 
 export function CommunityOverview() {
@@ -35,6 +46,7 @@ export function CommunityOverview() {
   const [loading, setLoading] = useState(true);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [pendingDeactivate, setPendingDeactivate] = useState<Member | null>(null);
   const { toast } = useToast();
   const { communityId } = useCommunity();
 
@@ -47,15 +59,31 @@ export function CommunityOverview() {
   const fetchCommunityData = async () => {
     if (!communityId) return;
     try {
-      const { data: members, error } = await supabase
-        .from('profiles')
-        .select('id, name, email, role, created_at, intro_text, zip_code, vouched_at')
-        .eq('community_id', communityId)
-        .order('created_at', { ascending: false });
+      const [{ data: members, error }, { data: pendingReqs, error: jrErr }] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, name, email, role, created_at, intro_text, zip_code, vouched_at')
+          .eq('community_id', communityId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('join_requests')
+          .select('user_id')
+          .eq('community_id', communityId)
+          .eq('status', 'pending'),
+      ]);
 
       if (error) throw error;
+      if (jrErr) throw jrErr;
 
-      const memberList = members || [];
+      const pendingUserIds = new Set(
+        (pendingReqs || []).map((r: any) => r.user_id).filter(Boolean)
+      );
+
+      const memberList: Member[] = (members || []).map((m: any) => ({
+        ...m,
+        hasPendingRequest: pendingUserIds.has(m.id),
+      }));
+
       const stewardCount = memberList.filter(m => m.role === 'steward').length;
       const recentCount = memberList.filter(m => {
         const joinDate = new Date(m.created_at);
@@ -82,20 +110,19 @@ export function CommunityOverview() {
     }
   };
 
-  const toggleMemberAccess = async (member: Member) => {
+  const setMemberActive = async (member: Member, activate: boolean) => {
     setTogglingId(member.id);
     try {
-      const isActive = member.vouched_at !== null;
       const { error } = await supabase
         .from('profiles')
-        .update({ vouched_at: isActive ? null : new Date().toISOString() })
+        .update({ vouched_at: activate ? new Date().toISOString() : null })
         .eq('id', member.id);
 
       if (error) throw error;
 
       toast({
-        title: isActive ? "Member deactivated" : "Member reactivated",
-        description: `${member.name} has been ${isActive ? 'deactivated' : 'reactivated'}.`
+        title: activate ? "Member reactivated" : "Member deactivated",
+        description: `${member.name} has been ${activate ? 'reactivated' : 'deactivated'}.`
       });
 
       fetchCommunityData();
@@ -107,6 +134,7 @@ export function CommunityOverview() {
       });
     } finally {
       setTogglingId(null);
+      setPendingDeactivate(null);
     }
   };
 
@@ -118,6 +146,14 @@ export function CommunityOverview() {
   if (loading) {
     return <div className="text-center py-4">Loading community overview...</div>;
   }
+
+  type MemberStatus = 'steward' | 'active' | 'pending' | 'deactivated';
+  const statusFor = (m: Member): MemberStatus => {
+    if (m.role === 'steward') return 'steward';
+    if (m.vouched_at) return 'active';
+    if (m.hasPendingRequest) return 'pending';
+    return 'deactivated';
+  };
 
   return (
     <div className="space-y-6">
@@ -155,6 +191,11 @@ export function CommunityOverview() {
         </Card>
       </div>
 
+      <p className="text-xs text-muted-foreground">
+        <strong>Pending approval</strong> = waiting for you to approve in the Join Requests tab.
+        <strong className="ml-2">Deactivated</strong> = you previously turned off their access.
+      </p>
+
       {/* All Members Table */}
       <Table>
         <TableHeader>
@@ -170,8 +211,7 @@ export function CommunityOverview() {
         </TableHeader>
         <TableBody>
           {allMembers.map((member) => {
-            const isActive = member.vouched_at !== null;
-            const isSteward = member.role === 'steward';
+            const status = statusFor(member);
             return (
               <TableRow key={member.id}>
                 <TableCell className="font-medium">{member.name}</TableCell>
@@ -197,40 +237,55 @@ export function CommunityOverview() {
                 </TableCell>
                 <TableCell className="text-sm">{member.zip_code || '—'}</TableCell>
                 <TableCell>
-                  {isSteward ? (
+                  {status === 'steward' && (
                     <Badge variant="default">
                       <Shield className="h-3 w-3 mr-1" />
                       Steward
                     </Badge>
-                  ) : (
-                    <Badge variant={isActive ? 'secondary' : 'destructive'}>
-                      {isActive ? 'Active' : 'Inactive'}
+                  )}
+                  {status === 'active' && (
+                    <Badge variant="secondary">Active</Badge>
+                  )}
+                  {status === 'pending' && (
+                    <Badge variant="outline">
+                      <Clock className="h-3 w-3 mr-1" />
+                      Pending approval
                     </Badge>
+                  )}
+                  {status === 'deactivated' && (
+                    <Badge variant="destructive">Deactivated</Badge>
                   )}
                 </TableCell>
                 <TableCell className="text-sm">
                   {new Date(member.created_at).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  {!isSteward && (
+                  {status === 'active' && (
                     <Button
                       size="sm"
-                      variant={isActive ? "outline" : "default"}
+                      variant="outline"
                       disabled={togglingId === member.id}
-                      onClick={() => toggleMemberAccess(member)}
+                      onClick={() => setPendingDeactivate(member)}
                     >
-                      {isActive ? (
-                        <>
-                          <UserX className="h-4 w-4 mr-1" />
-                          Deactivate
-                        </>
-                      ) : (
-                        <>
-                          <UserCheck className="h-4 w-4 mr-1" />
-                          Reactivate
-                        </>
-                      )}
+                      <UserX className="h-4 w-4 mr-1" />
+                      Deactivate
                     </Button>
+                  )}
+                  {status === 'deactivated' && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      disabled={togglingId === member.id}
+                      onClick={() => setMemberActive(member, true)}
+                    >
+                      <UserCheck className="h-4 w-4 mr-1" />
+                      Reactivate
+                    </Button>
+                  )}
+                  {status === 'pending' && (
+                    <span className="text-xs text-muted-foreground">
+                      Review in Join Requests tab
+                    </span>
                   )}
                 </TableCell>
               </TableRow>
@@ -238,6 +293,28 @@ export function CommunityOverview() {
           })}
         </TableBody>
       </Table>
+
+      <AlertDialog
+        open={pendingDeactivate !== null}
+        onOpenChange={(open) => { if (!open) setPendingDeactivate(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate {pendingDeactivate?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They'll lose access to the community immediately. You can reactivate them at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => pendingDeactivate && setMemberActive(pendingDeactivate, false)}
+            >
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
