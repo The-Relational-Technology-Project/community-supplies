@@ -177,6 +177,15 @@ export function StartCommunityForm() {
                   : "With AI off, members add photos and write descriptions themselves. The AI draft option and catalog illustration tools will be hidden across your site."}
               </p>
             </div>
+
+            <div className="rounded-md border border-border p-4 bg-muted/30">
+              <div className="font-medium text-deep-brown">Membership: approval required</div>
+              <p className="text-sm text-muted-foreground leading-relaxed mt-1">
+                New communities start in <strong>approval required</strong> mode — neighbors who sign up
+                land in a Join Requests queue for you to review. You can switch to open join
+                anytime from your steward dashboard.
+              </p>
+            </div>
             <div className="flex gap-3">
               <Button type="button" variant="outline" onClick={() => setStep("details")} className="gap-2">
                 <ArrowLeft className="h-4 w-4" /> Back
