@@ -66,7 +66,7 @@ export function CommunityOverview() {
 
       if (error) throw error;
 
-      const memberList: Member[] = (members || []) as Member[];
+      const memberList: Member[] = (members || []) as unknown as Member[];
 
       const stewardCount = memberList.filter(m => m.role === 'steward').length;
       const recentCount = memberList.filter(m => {
@@ -99,7 +99,7 @@ export function CommunityOverview() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ membership_status: activate ? 'active' : 'deactivated' })
+        .update({ membership_status: activate ? 'active' : 'deactivated' } as any)
         .eq('id', member.id);
 
       if (error) throw error;
