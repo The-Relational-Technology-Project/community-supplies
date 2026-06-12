@@ -141,7 +141,7 @@ export function JoinRequestsManager() {
       if (request.user_id) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ membership_status: 'rejected' })
+          .update({ membership_status: 'rejected' } as any)
           .eq('id', request.user_id);
         if (profileError) console.error('Failed to mark profile rejected:', profileError);
       }
