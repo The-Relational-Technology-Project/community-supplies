@@ -1,83 +1,75 @@
-## Diagnosis
+## Diagnosis of Ellen's issues
 
-Ellen (`sharing@uplandsclaremont.com`) created community **Uplands Claremont Area Neighbors** (`ed4143cd…`, `approval_required`) this morning. She is correctly in `user_roles` as `steward` of Uplands. **But her `profiles.community_id` is Sunset (`a0a0a0a0…`), not Uplands.**
+Ellen's community `Uplands Claremont Area Neighbors` was created at 16:19 UTC. Paul, Joe, and Ellen herself all signed up between 17:01 and 22:38 — and were each auto-vouched within seconds. JWTEST (22:44) is the only one correctly held as inactive/pending.
 
-The steward dashboard scopes everything through `get_user_community_id(auth.uid())`, which reads from `profiles.community_id`. So every steward query — `JoinRequestsManager`, member list, supply requests — ran against **Sunset & Richmond** (the flagship). That's why she sees 182 "approved members" and a join‑request list full of Sunset neighbors: she's looking at Sunset's data through her steward UI.
+Root cause: **new communities default to `join_mode = 'auto'`** (both the DB column default and `create-community` edge function omit it). The "approval required" toggle in the dashboard does nothing for anyone who signs up during the window before the steward flips it. Ellen toggled approval on sometime between 22:38 (Joe) and 22:44 (JWTEST), which is exactly where the data flips from vouched → null.
 
-Why her profile points at Sunset:
-
-- `public.profiles.community_id` has DB DEFAULT `'a0a0a0a0…sunset…'::uuid`. Any insert that omits `community_id` silently routes the profile to Sunset.
-- `create-community` does upsert the profile with the right `community_id`, but auth user metadata + the DEFAULT have already produced a Sunset-scoped row in some race / earlier-deploy path. Same shape of bug we just fixed for Ryan.
-
-This will hit **every** new steward whose profile is created without an explicit `community_id`, and every cross-community joiner (Ryan's exact bug). The RLS predicates `is_user_steward(uid) AND community_id = get_user_community_id(uid)` mean **any steward whose profile drifts to the wrong community sees and can mutate that other community's data**. That's the system-wide issue worth fixing now.
+Secondary issues confirmed:
+- **Paul has no `join_requests` row at all.** He signed up via the header "Sign Up" (AuthModal), which never inserts into `join_requests`. So even with approval mode on, AuthModal silently creates accounts that bypass the review queue. JoinRequestForm is the only path that creates a request row.
+- **Members tab conflates "pending approval" and "deactivated"** — both show as "Inactive" with a single "Reactivate" button. JWTEST shows Inactive because his `vouched_at` is null (correct — he is pending), but the UI offers no context and no link to his join request.
+- **The JoinModeToggle has no Save button** because it autosaves on toggle; that wasn't obvious to Ellen ("I didn't see a save button").
+- Notification frequency: no digest option exists today.
+- Designating another steward: no UI exists — currently a manual SQL/admin task.
 
 ## Fixes
 
-### 1. Data repair for Ellen
-- Move `sharing@uplandsclaremont.com` profile to Uplands (`ed4143cd-d1bd-428f-a839-00a107e8bef4`), set `vouched_at = now()` if null.
-- No join_requests exist for Uplands, no cleanup needed there.
-- Confirm `user_roles` already has her as steward of Uplands (it does).
+### 1. Default new communities to approval-required
+- Migration: `ALTER TABLE public.communities ALTER COLUMN join_mode SET DEFAULT 'approval_required';`
+- `supabase/functions/create-community/index.ts`: explicitly insert `join_mode: 'approval_required'` so the default applies even if a future migration moves it.
+- `StartCommunityForm` (community creation UI): add a short note that new communities start in approval-required mode and the steward can switch to open-join later in the dashboard.
 
-### 2. Remove the Sunset default on `profiles.community_id`
-- Migration: `ALTER TABLE public.profiles ALTER COLUMN community_id DROP DEFAULT;`
-- Keep the column NOT NULL.
-- Audit every code path that inserts a profile to confirm it sets `community_id` explicitly: `create-community` ✅, `bulk-create-users` (verify), and the `handle_new_user` function (used if/when an auth-user trigger is wired). After the default is dropped, any missing path will fail loudly instead of silently corrupting routing.
+### 2. Close the AuthModal bypass
+When a user signs up via AuthModal for a community whose `join_mode = 'approval_required'`:
+- Insert a row into `join_requests` (mirroring `JoinRequestForm`) so the request appears in the steward's queue.
+- Show the "You're on the list — a steward will review" confirmation instead of the generic "Account created" toast.
 
-### 3. Scope steward RLS by `user_roles`, not by profile
-Replace the steward predicate so the steward's authoritative community is the one in `user_roles.role='steward'`, not `profiles.community_id`.
+Leave the auto-join path unchanged for `join_mode = 'auto'` communities.
 
-```sql
-create or replace function public.is_steward_of(_user_id uuid, _community_id uuid)
-returns boolean
-language sql stable security definer set search_path = public
-as $$
-  select exists (
-    select 1 from public.user_roles
-    where user_id = _user_id
-      and role = 'steward'
-      and community_id = _community_id
-  )
-$$;
-grant execute on function public.is_steward_of(uuid, uuid) to authenticated;
-```
+### 3. Clarify member statuses in the dashboard
+Update `CommunityOverview` so each member row shows one of three states:
+- **Active** (vouched_at set) — action: Deactivate (with confirm dialog).
+- **Pending approval** (vouched_at null AND a pending `join_requests` row exists) — action: a link/button that jumps to the Join Requests tab; no Reactivate button.
+- **Deactivated** (vouched_at null AND no pending request) — action: Reactivate.
 
-Update steward-scoped policies to use `public.is_steward_of(auth.uid(), <table>.community_id)`:
+Also add a confirm dialog to Deactivate to prevent accidental clicks during screen-share (this is what Ellen suspected may have happened).
 
-- `join_requests` — "Stewards can view community join requests" (SELECT) and "Stewards can vouch community join requests" (UPDATE).
-- `profiles` — "Stewards can view community profiles" (SELECT) and "Stewards can update community member vouching" (UPDATE).
-- Repeat the same swap on `supplies`, `supply_requests`, `community_steward_requests`, `community_neighbors`, `books` for any steward-scoped policy currently keyed off `get_user_community_id`.
+### 4. Make the join-mode toggle obviously saved
+`JoinModeToggle`: add a small "Saved" indicator (or success toast) on change and a one-line helper underneath: "Changes apply immediately — no save needed."
 
-Effect: even if a steward's `profiles.community_id` is wrong, RLS no longer hands them another community's data.
+### 5. Data cleanup for Uplands Claremont
+Run a one-off SQL fix:
+- For the three Uplands members who slipped through (`paul@valenstein.org`, `ej1842@gmail.com`, `joe@wadcan.com`): keep Ellen vouched (she is the de-facto steward there via approval flow we did earlier — actually her account is `sharing@uplandsclaremont.com`, not `ej1842`). So: set Paul, Joe, and the `ej1842` profile back to `vouched_at = NULL`.
+- Create `join_requests` rows for Paul (so he shows up in the queue alongside Joe and Ellen-personal). Joe and Ellen-personal already have pending rows.
+- Leave UCAN (`sharing@uplandsclaremont.com`) vouched — that's Ellen's steward login.
 
-### 4. Explicit `community_id` filter in steward UI
-Defense in depth, and fixes any current cross-community leak immediately rather than waiting for the schema change to propagate:
+### 6. Out of scope for this round (mention in reply)
+- **Notification digest** (daily/weekly batch): worth doing but a separate feature. Acknowledge and add to backlog.
+- **Designating co-stewards**: needs a dedicated UI (invite-as-steward + role grant in `user_roles` scoped to the community). I'll do this manually for Paul + Joe now if you want, and we can build the self-serve UI next.
 
-- `src/components/steward/JoinRequestsManager.tsx`: take `communityId` from context (`useCommunity()`), pass `.eq('community_id', communityId)` on the select. Same on Approve/Reject lookups.
-- `src/components/steward/CommunityOverview.tsx`, `SupplyRequestsManager.tsx`, `AllSuppliesManager.tsx`, `JoinModeToggle.tsx`, etc.: confirm they all read `communityId` from `useCommunity()` (route-derived) and not from the user's profile. Fix any that don't.
-- The dashboard mounted under `/c/:slug/steward` must use the slug's community as the source of truth.
+## Draft reply to Ellen (for your review)
 
-### 5. Harden `create-community`
-- After the `auth.admin.createUser` call, run an explicit `UPDATE profiles SET community_id = :communityId WHERE id = :userId` (not just upsert) so we never depend on the column default or trigger ordering.
-- Log a server-side warning if the post-update read shows `community_id !== :communityId`.
+> Hi Ellen — thanks for the careful notes, these were really useful.
+>
+> Most of what you saw traces back to one bug: new communities were being created in "open join" mode by default, not "approval required." So in the window between when your site was set up this morning and when you flipped the approval toggle later in the day, anyone who signed up was auto-approved. That's why Paul, Joe, and your personal Gmail account all got in without you approving them, and why Paul doesn't appear in the Join Requests list (his account never created a request — it went straight through). JWTEST is the one account that came in after you flipped the toggle, which is why he correctly shows as pending.
+>
+> What I'm fixing:
+> 1. New communities will default to "approval required" going forward.
+> 2. The "Sign Up" button (separate from the join form) was also skipping the approval queue — fixing that so every signup for an approval-required community creates a request you can review.
+> 3. The Members tab will distinguish "Pending approval" from "Deactivated" so it's clear which is which. Right now both look like "Inactive," which is confusing — and that's also what JWTEST's row was showing you. I don't think you accidentally deactivated him; he was just never approved yet.
+> 4. Adding a confirmation step on Deactivate so a stray click during a screen-share can't silently flip someone off.
+> 5. Making it clearer that the approval toggle saves automatically — there's no Save button because the change applies the moment you flip it.
+>
+> For your community specifically, I'll reset Paul, Joe, and your Gmail account back to pending and create the missing request rows so they appear in your Join Requests tab for you to approve properly.
+>
+> On your other questions:
+> - **Daily digest of notifications**: not built yet, but a good idea — I'll add it to the list. For now a Gmail filter is the best workaround.
+> - **Designating another steward**: no self-serve UI for that yet. If you want Paul or Joe set up as co-stewards, send me their preferred emails and I'll do it from my end while we build the UI.
+>
+> Sorry for the rough first day — appreciate you stress-testing it.
+>
+> — Josh
 
-## Verification
-
-1. **Ellen lands correctly.** After data fix, `sharing@uplandsclaremont.com` on `/c/uplands-claremont-area-neighbors/steward` sees an empty join request list, 1 member (herself), and her own community settings — not Sunset's.
-2. **No cross-community leak.** Sign in as a steward of community A, hit `/c/<community-B>/steward` directly — RLS returns nothing for B.
-3. **New community signup.** Create a brand new community via the public form; verify the new steward's `profiles.community_id` matches the new community and the dashboard shows only their own data.
-4. **Cross-community join (Ryan path).** Existing user joins a second community via "Join this community" — profile flips, steward of the new community sees only their join requests / members.
-
-## Files / migrations touched
-
-- `supabase/migrations/<new>.sql`
-  - Data fix for Ellen's profile.
-  - `ALTER TABLE profiles ALTER COLUMN community_id DROP DEFAULT`.
-  - New `is_steward_of(uuid, uuid)` function + grant.
-  - Drop & recreate steward policies on `join_requests`, `profiles`, `supplies`, `supply_requests`, `community_steward_requests`, `community_neighbors`, `books` to use `is_steward_of`.
-- `supabase/functions/create-community/index.ts` — explicit post-create profile UPDATE + sanity log.
-- `src/components/steward/JoinRequestsManager.tsx` — add `communityId` filter from `useCommunity()`.
-- `src/components/steward/CommunityOverview.tsx`, `SupplyRequestsManager.tsx`, `AllSuppliesManager.tsx`, `JoinModeToggle.tsx`, `StewardDashboard.tsx` — audit and lock to route-derived `communityId`.
-
-## What I won't touch unless you say so
-
-- Bulk member-deactivation tooling. Ellen asked if she has to "deactivate each one" — the fix above makes those 182 members vanish from her view because they were never hers. No mass-delete needed. If you want a steward-side "deactivate member" action regardless, that's a separate small feature.
+## Technical summary
+- 1 migration (column default).
+- 1 data migration (Ellen's community cleanup + Paul join_request insert).
+- Edits to: `create-community/index.ts`, `AuthModal.tsx`, `CommunityOverview.tsx`, `JoinModeToggle.tsx`, `StartCommunityForm.tsx`.
