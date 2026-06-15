@@ -103,7 +103,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
 
   const handleTabChange = (tab: string) => {
     if (tab === 'steward') {
-      navigate('/steward');
+      navigate(`/c/${communitySlug}/steward`);
       setIsMobileMenuOpen(false);
       return;
     }

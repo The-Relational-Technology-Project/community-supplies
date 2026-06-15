@@ -6,6 +6,9 @@ import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
 import Index from "./pages/Index";
 import { CommunityProvider } from "./contexts/CommunityContext";
 import { AuthGuard } from "./components/auth/AuthGuard";
+import { RedirectToCommunity } from "./components/auth/RedirectToCommunity";
+
+
 
 const MySupplies = lazy(() => import("./pages/MySupplies"));
 const MyBooks = lazy(() => import("./pages/MyBooks"));
@@ -47,6 +50,11 @@ function CommunityStewardRoute() {
   );
 }
 
+function CommunityScopedPage({ children }: { children: React.ReactNode }) {
+  const { communitySlug } = useParams();
+  return <CommunityProvider slug={communitySlug}>{children}</CommunityProvider>;
+}
+
 const App = () => (
   <TooltipProvider>
     <Toaster />
@@ -55,14 +63,18 @@ const App = () => (
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<CommunityProvider><Index /></CommunityProvider>} />
-          <Route path="/my-supplies" element={<CommunityProvider><MySupplies /></CommunityProvider>} />
-          <Route path="/my-books" element={<CommunityProvider><MyBooks /></CommunityProvider>} />
-          <Route path="/profile" element={<CommunityProvider><Profile /></CommunityProvider>} />
-          <Route path="/steward" element={<CommunityProvider><Steward /></CommunityProvider>} />
+          {/* Legacy bare paths — redirect to slug-scoped equivalents */}
+          <Route path="/my-supplies" element={<RedirectToCommunity suffix="/my-supplies" />} />
+          <Route path="/my-books" element={<RedirectToCommunity suffix="/my-books" />} />
+          <Route path="/profile" element={<RedirectToCommunity suffix="/profile" />} />
+          <Route path="/steward" element={<RedirectToCommunity suffix="/steward" />} />
           <Route path="/start-community" element={<StartCommunity />} />
           <Route path="/privacy" element={<PrivacyTerms />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/c/:communitySlug" element={<CommunitySlugRoute />} />
+          <Route path="/c/:communitySlug/my-supplies" element={<CommunityScopedPage><MySupplies /></CommunityScopedPage>} />
+          <Route path="/c/:communitySlug/my-books" element={<CommunityScopedPage><MyBooks /></CommunityScopedPage>} />
+          <Route path="/c/:communitySlug/profile" element={<CommunityScopedPage><Profile /></CommunityScopedPage>} />
           <Route path="/c/:communitySlug/steward" element={<CommunityStewardRoute />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
