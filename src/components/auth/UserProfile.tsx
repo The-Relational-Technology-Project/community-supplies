@@ -92,11 +92,11 @@ export function UserProfile() {
             )}
           </div>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate('/profile')}>
+          <DropdownMenuItem onClick={() => navigate(`/c/${communitySlug}/profile`)}>
             <Settings className="mr-2 h-4 w-4" />
             Profile Settings
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate('/my-supplies')}>
+          <DropdownMenuItem onClick={() => navigate(`/c/${communitySlug}/my-supplies`)}>
             <Package className="mr-2 h-4 w-4" />
             My Supplies
           </DropdownMenuItem>
