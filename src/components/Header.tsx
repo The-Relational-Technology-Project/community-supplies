@@ -15,7 +15,7 @@ interface HeaderProps {
 
 export function Header({ activeTab, onTabChange }: HeaderProps) {
   const navigate = useNavigate();
-  const { communityName } = useCommunity();
+  const { communityName, communitySlug } = useCommunity();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
