@@ -14,6 +14,9 @@ interface CommunityContextType {
   loading: boolean;
   notFound: boolean;
   isSlugRoute: boolean;
+  /** True only when the resolved community came from the logged-in user's profile
+   *  (not the Sunset fallback used for anonymous / no-profile cases). */
+  hasProfileCommunity: boolean;
 }
 
 const CommunityContext = createContext<CommunityContextType>({
@@ -24,7 +27,9 @@ const CommunityContext = createContext<CommunityContextType>({
   loading: false,
   notFound: false,
   isSlugRoute: false,
+  hasProfileCommunity: false,
 });
+
 
 export function useCommunity() {
   return useContext(CommunityContext);
