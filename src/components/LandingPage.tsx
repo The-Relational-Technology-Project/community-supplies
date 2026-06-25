@@ -26,8 +26,10 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
   const [loadingIllustrations, setLoadingIllustrations] = useState(true);
   const [joinMode, setJoinMode] = useState<string>('auto');
   const [showJoinForm, setShowJoinForm] = useState(false);
-  const { communityId, communityName, communitySlug } = useCommunity();
-  const isCommunitySpecific = communitySlug !== 'sunset-richmond';
+  const { communityId, communityName, communitySlug, isSlugRoute } = useCommunity();
+  // Only treat as a community-specific landing when actually on a /c/:slug route.
+  const isCommunitySpecific = isSlugRoute;
+
 
   // Fetch join_mode for community-specific landing pages
   useEffect(() => {
