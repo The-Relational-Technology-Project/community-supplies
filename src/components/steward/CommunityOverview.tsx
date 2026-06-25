@@ -153,6 +153,37 @@ export function CommunityOverview() {
     }
   };
 
+  const promoteToSteward = async (member: Member) => {
+    setTogglingId(member.id);
+    try {
+      const { error } = await supabase.rpc('promote_member_to_steward', { p_target_user_id: member.id });
+      if (error) throw error;
+      toast({ title: "Promoted to steward", description: `${member.name} is now a co-steward.` });
+      fetchCommunityData();
+    } catch (error: any) {
+      toast({ title: "Couldn't promote", description: error.message, variant: "destructive" });
+    } finally {
+      setTogglingId(null);
+      setPendingPromote(null);
+    }
+  };
+
+  const demoteSteward = async (member: Member) => {
+    setTogglingId(member.id);
+    try {
+      const { error } = await supabase.rpc('demote_steward_to_member', { p_target_user_id: member.id });
+      if (error) throw error;
+      toast({ title: "Removed steward role", description: `${member.name} is back to member.` });
+      fetchCommunityData();
+    } catch (error: any) {
+      toast({ title: "Couldn't demote", description: error.message, variant: "destructive" });
+    } finally {
+      setTogglingId(null);
+      setPendingDemote(null);
+    }
+  };
+
+
   useEffect(() => {
     fetchCommunityData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
