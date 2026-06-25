@@ -19,13 +19,26 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { communityId, communityName, communitySlug, loading: communityLoading, notFound, isSlugRoute } = useCommunity();
+  const navigate = useNavigate();
+  const { communityId, communityName, communitySlug, loading: communityLoading, notFound, isSlugRoute, hasProfileCommunity } = useCommunity();
   const { user, isReady } = useAuth();
   const [activeTab, setActiveTab] = useState('browse');
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [membershipChecked, setMembershipChecked] = useState(false);
   const [isMember, setIsMember] = useState(false);
+
+  // On root `/`: if the logged-in user has a real profile community, send them to /c/<slug>.
+  // Skips the Sunset fallback (hasProfileCommunity is false in that case).
+  useEffect(() => {
+    if (isSlugRoute) return;
+    if (!isReady || communityLoading) return;
+    if (user && hasProfileCommunity && communitySlug) {
+      navigate(`/c/${communitySlug}`, { replace: true });
+    }
+  }, [isSlugRoute, isReady, communityLoading, user?.id, hasProfileCommunity, communitySlug, navigate]);
+
+
 
   // Membership gate: on /c/:slug, verify logged-in user actually belongs to this community.
   useEffect(() => {
