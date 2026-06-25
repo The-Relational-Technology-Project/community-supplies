@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
+
 import { CatalogHeader } from "@/components/CatalogHeader";
 import { Footer } from "@/components/Footer";
 import { LandingPage } from "@/components/LandingPage";
