@@ -76,6 +76,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           loading: false,
           notFound: slug !== DEFAULT_COMMUNITY_SLUG,
           isSlugRoute: true,
+          hasProfileCommunity: false,
         });
       } else {
         setCommunity({
@@ -86,8 +87,10 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           loading: false,
           notFound: false,
           isSlugRoute: true,
+          hasProfileCommunity: false,
         });
       }
+
     })();
 
     return () => { cancelled = true; };
