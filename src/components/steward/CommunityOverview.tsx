@@ -48,8 +48,12 @@ export function CommunityOverview() {
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [pendingDeactivate, setPendingDeactivate] = useState<Member | null>(null);
+  const [pendingPromote, setPendingPromote] = useState<Member | null>(null);
+  const [pendingDemote, setPendingDemote] = useState<Member | null>(null);
+  const [isFoundingSteward, setIsFoundingSteward] = useState(false);
   const { toast } = useToast();
   const { communityId } = useCommunity();
+
 
   const copyEmail = async (email: string) => {
     await navigator.clipboard.writeText(email);
