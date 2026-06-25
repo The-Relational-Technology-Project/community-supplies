@@ -117,23 +117,13 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
                 </>
               ) : (
                 <>
-                  {user ? (
-                    <Button
-                      size="lg"
-                      onClick={() => onTabChange('browse')}
-                      className="text-base px-8"
-                    >
-                      Join Sunset & Richmond Community
-                    </Button>
-                  ) : (
-                    <Button
-                      size="lg"
-                      onClick={() => setModalMode('login')}
-                      className="text-base px-8"
-                    >
-                      Join Sunset & Richmond Community
-                    </Button>
-                  )}
+                  <Button
+                    size="lg"
+                    asChild
+                    className="text-base px-8"
+                  >
+                    <a href="#find-community">Find Your Community</a>
+                  </Button>
                   <Button
                     size="lg"
                     variant="outline"
@@ -144,6 +134,7 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
                   </Button>
                 </>
               )}
+
             </div>
 
             {/* "Already a member?" link for root landing */}
