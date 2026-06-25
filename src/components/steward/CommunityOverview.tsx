@@ -307,33 +307,59 @@ export function CommunityOverview() {
                   {new Date(member.created_at).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  {status === 'active' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={togglingId === member.id}
-                      onClick={() => setPendingDeactivate(member)}
-                    >
-                      <UserX className="h-4 w-4 mr-1" />
-                      Deactivate
-                    </Button>
-                  )}
-                  {(status === 'deactivated' || status === 'rejected') && (
-                    <Button
-                      size="sm"
-                      variant="default"
-                      disabled={togglingId === member.id}
-                      onClick={() => setMemberActive(member, true)}
-                    >
-                      <UserCheck className="h-4 w-4 mr-1" />
-                      {status === 'rejected' ? 'Approve' : 'Reactivate'}
-                    </Button>
-                  )}
-                  {status === 'pending' && (
-                    <span className="text-xs text-muted-foreground">
-                      Review in Join Requests tab
-                    </span>
-                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {status === 'active' && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={togglingId === member.id}
+                          onClick={() => setPendingDeactivate(member)}
+                        >
+                          <UserX className="h-4 w-4 mr-1" />
+                          Deactivate
+                        </Button>
+                        {isFoundingSteward && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={togglingId === member.id}
+                            onClick={() => setPendingPromote(member)}
+                          >
+                            <ShieldPlus className="h-4 w-4 mr-1" />
+                            Make steward
+                          </Button>
+                        )}
+                      </>
+                    )}
+                    {status === 'steward' && isFoundingSteward && member.promoted_by !== null && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={togglingId === member.id}
+                        onClick={() => setPendingDemote(member)}
+                      >
+                        <ShieldMinus className="h-4 w-4 mr-1" />
+                        Remove steward
+                      </Button>
+                    )}
+                    {(status === 'deactivated' || status === 'rejected') && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={togglingId === member.id}
+                        onClick={() => setMemberActive(member, true)}
+                      >
+                        <UserCheck className="h-4 w-4 mr-1" />
+                        {status === 'rejected' ? 'Approve' : 'Reactivate'}
+                      </Button>
+                    )}
+                    {status === 'pending' && (
+                      <span className="text-xs text-muted-foreground">
+                        Review in Join Requests tab
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             );
@@ -362,6 +388,51 @@ export function CommunityOverview() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog
+        open={pendingPromote !== null}
+        onOpenChange={(open) => { if (!open) setPendingPromote(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Make {pendingPromote?.name} a steward?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They'll get full steward access to manage members, join requests, and supply requests. You can remove this at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => pendingPromote && promoteToSteward(pendingPromote)}
+            >
+              Make steward
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingDemote !== null}
+        onOpenChange={(open) => { if (!open) setPendingDemote(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove steward role from {pendingDemote?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They'll go back to being a regular member and lose access to the steward dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => pendingDemote && demoteSteward(pendingDemote)}
+            >
+              Remove steward
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
