@@ -112,6 +112,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
         loading: false,
         notFound: false,
         isSlugRoute: false,
+        hasProfileCommunity: false,
       });
       return;
     }
@@ -138,6 +139,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           loading: false,
           notFound: false,
           isSlugRoute: false,
+          hasProfileCommunity: true,
         });
       } else {
         setCommunity({
@@ -148,9 +150,11 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           loading: false,
           notFound: false,
           isSlugRoute: false,
+          hasProfileCommunity: false,
         });
       }
     })();
+
 
     return () => { cancelled = true; };
   }, [slug, isReady, user?.id]);
