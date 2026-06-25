@@ -1,38 +1,48 @@
-## Goal
-Let founding stewards promote active members to co-stewards and demote them back. Works for existing communities AND every new community created going forward.
+## 1. Move Sajni to Columbia City Neighbors Club
 
-## Who is a "founding steward"?
-Anyone with a `user_roles` steward row where a new `promoted_by` column is `NULL`. Co-stewards have `promoted_by = <the founder who promoted them>`.
+Confirmed: profile `Sajni` / `sajniofficial@gmail.com` is on `sunset-richmond`, target is `columbia-city-neighbors-club` (auto-join). One-off UPDATE setting her `profiles.community_id` and `membership_status = 'active'`.
 
-- **Existing stewards**: the migration adds `promoted_by` as nullable with no backfill, so every current steward row stays `NULL` → all current stewards become founders. No behavior change for them.
-- **New communities**: the `create-community` edge function inserts the initial steward row without setting `promoted_by`, so it defaults to `NULL` → that steward is automatically a founder. No code change needed in the edge function beyond what already exists.
-- **Co-stewards added via the new UI**: the promote RPC sets `promoted_by = auth.uid()`, marking them as non-founders.
+## 2. Stop defaulting communitysupplies.org to Sunset & Richmond
 
-## Database migration
-1. `ALTER TABLE public.user_roles ADD COLUMN promoted_by uuid REFERENCES auth.users(id);` (nullable; existing rows stay NULL = founders)
-2. `is_founding_steward(_user_id, _community_id)` helper — true when a steward row exists for that user/community with `promoted_by IS NULL`.
-3. SECURITY DEFINER RPCs:
-   - `promote_member_to_steward(p_target_user_id uuid)` — verifies caller is a founding steward of their current community, target is an active member of the same community; inserts `user_roles` steward row with `promoted_by = auth.uid()` and updates `profiles.role` to `'steward'`.
-   - `demote_steward_to_member(p_target_user_id uuid)` — verifies caller is founding steward; target must have `promoted_by IS NOT NULL` (founders can't be demoted via UI); deletes the steward `user_roles` row and sets `profiles.role` back to `'member'`.
-4. Tighten the existing `"Stewards can manage community roles"` policy so only founding stewards can directly mutate steward rows (defense in depth; UI uses the RPCs).
+Today the root path silently treats Sunset as the default for everyone: anonymous visitors see the Sunset-branded hero/join CTA, and `CommunityContext` falls back to Sunset's UUID/slug whenever no profile community is found. That's what tripped up Sajni.
 
-## UI changes
-File: `src/components/steward/CommunityOverview.tsx`
-- Query whether the current user is a founding steward of the current community (one `user_roles` lookup).
-- Fetch each steward's `promoted_by` alongside the member list so we can distinguish founders from co-stewards.
-- In the members table, when the viewer is a founding steward:
-  - **Active member row** → add a "Make steward" button next to Deactivate.
-  - **Co-steward row** (`promoted_by IS NOT NULL`) → show a "Remove steward" button.
-  - **Founding steward row** → Steward badge only, no action.
-- Confirmation dialogs + toast + refetch on both actions.
+### 2a. Generic landing for anonymous visitors at `/`
 
-## Edge function check
-`supabase/functions/create-community/index.ts` already inserts the steward role without specifying `promoted_by`, so new community founders are automatically marked as founders by the default `NULL`. No change required there.
+In `src/components/LandingPage.tsx`, the community-specific view is gated by `communitySlug !== 'sunset-richmond'`, so root visitors get the Sunset hero. Change root to a generic discovery view:
+- Keep the project pitch, `SpreadMap`, and `DiscoverableCommunitiesList` so visitors can find a community near them.
+- Replace the Sunset "Join" CTA with "Find your community" (discovery list) + "Start a new community" (`/start-community`).
+- Sign-in / sign-up modals stop implying Sunset.
 
-## Out of scope
-- Transferring sole ownership / removing a founder.
-- Email notification to the promoted user.
-- Stewardship across multiple communities (the existing unique constraint on `(user_id, role)` still applies).
+The Sunset-specific landing (hero, member count, join form) stays reachable at `/c/sunset-richmond`, identical to every other community.
 
-## Risk
-Low. Additive column + two RPCs + one UI section. Behavior for current stewards and the create-community flow is unchanged.
+### 2b. Sign-in / magic link from `/` lands you in your own community
+
+In `src/pages/Index.tsx`, once a logged-in user is resolved on `/` (no slug), `navigate('/c/<their-community-slug>', { replace: true })` using their profile community. To avoid bouncing users into Sunset by accident, add a `hasProfileCommunity` flag to `CommunityContext` set only when the profile lookup returned a real `communities` row (not the Sunset fallback). Only redirect when that flag is true.
+
+Magic-link / password flows already return to `/`; the redirect carries them onward — no auth-flow changes.
+
+### 2c. Users with no community on `/`
+
+A logged-in user without a profile community (mid-onboarding edge case) stays on `/` and sees the generic discovery + "Start a community" CTAs instead of being silently dropped into Sunset.
+
+## 3. Safety for existing Sunset members and Sunset's neighbors
+
+**Existing Sunset members revisiting communitysupplies.org:** safe. Their `profiles.community_id` points to Sunset, so step 2b auto-redirects them to `/c/sunset-richmond` — same library, same experience. The only visible change is the URL.
+
+**Sunset's neighbors finding it from the root:** Sunset is currently `discoverable=false` with no `latitude`, `longitude`, or `public_location_label`, so it would NOT appear on the `SpreadMap` or `DiscoverableCommunitiesList`. To keep Sunset findable from the new generic landing:
+- Update the `sunset-richmond` row: `discoverable = true`, `public_location_label = 'Sunset & Richmond, San Francisco, CA'`, set `latitude`/`longitude` to a Sunset-area centroid (≈ 37.7599, -122.4836). Done as a one-off UPDATE alongside Sajni's fix.
+- Sunset will then show up on the map and in the discoverable list just like every other community.
+
+## 4. Out of scope
+
+- No change to `/c/sunset-richmond` itself.
+- No change to `DEFAULT_COMMUNITY_ID` used as the RPC fallback — only user-facing routing changes.
+- No change to other communities' landing pages.
+
+## Technical notes
+
+Files touched:
+- `src/contexts/CommunityContext.tsx` — add `hasProfileCommunity` flag.
+- `src/pages/Index.tsx` — redirect logged-in users on `/` to `/c/<their-slug>` when `hasProfileCommunity`.
+- `src/components/LandingPage.tsx` — render generic discovery view on `/`; community-specific view continues to render on `/c/:slug`.
+- One-off SQL: update Sajni's profile + flip Sunset to discoverable with lat/lng/label.

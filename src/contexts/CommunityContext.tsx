@@ -14,6 +14,9 @@ interface CommunityContextType {
   loading: boolean;
   notFound: boolean;
   isSlugRoute: boolean;
+  /** True only when the resolved community came from the logged-in user's profile
+   *  (not the Sunset fallback used for anonymous / no-profile cases). */
+  hasProfileCommunity: boolean;
 }
 
 const CommunityContext = createContext<CommunityContextType>({
@@ -24,7 +27,9 @@ const CommunityContext = createContext<CommunityContextType>({
   loading: false,
   notFound: false,
   isSlugRoute: false,
+  hasProfileCommunity: false,
 });
+
 
 export function useCommunity() {
   return useContext(CommunityContext);
@@ -45,7 +50,9 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
     loading: true,
     notFound: false,
     isSlugRoute: !!slug,
+    hasProfileCommunity: false,
   });
+
 
   // Slug-driven resolution: independent of auth.
   useEffect(() => {
@@ -69,6 +76,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           loading: false,
           notFound: slug !== DEFAULT_COMMUNITY_SLUG,
           isSlugRoute: true,
+          hasProfileCommunity: false,
         });
       } else {
         setCommunity({
@@ -79,8 +87,10 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           loading: false,
           notFound: false,
           isSlugRoute: true,
+          hasProfileCommunity: false,
         });
       }
+
     })();
 
     return () => { cancelled = true; };
@@ -102,6 +112,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
         loading: false,
         notFound: false,
         isSlugRoute: false,
+        hasProfileCommunity: false,
       });
       return;
     }
@@ -128,6 +139,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           loading: false,
           notFound: false,
           isSlugRoute: false,
+          hasProfileCommunity: true,
         });
       } else {
         setCommunity({
@@ -138,9 +150,11 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           loading: false,
           notFound: false,
           isSlugRoute: false,
+          hasProfileCommunity: false,
         });
       }
     })();
+
 
     return () => { cancelled = true; };
   }, [slug, isReady, user?.id]);

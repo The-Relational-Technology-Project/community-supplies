@@ -26,8 +26,10 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
   const [loadingIllustrations, setLoadingIllustrations] = useState(true);
   const [joinMode, setJoinMode] = useState<string>('auto');
   const [showJoinForm, setShowJoinForm] = useState(false);
-  const { communityId, communityName, communitySlug } = useCommunity();
-  const isCommunitySpecific = communitySlug !== 'sunset-richmond';
+  const { communityId, communityName, communitySlug, isSlugRoute } = useCommunity();
+  // Only treat as a community-specific landing when actually on a /c/:slug route.
+  const isCommunitySpecific = isSlugRoute;
+
 
   // Fetch join_mode for community-specific landing pages
   useEffect(() => {
@@ -115,23 +117,13 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
                 </>
               ) : (
                 <>
-                  {user ? (
-                    <Button
-                      size="lg"
-                      onClick={() => onTabChange('browse')}
-                      className="text-base px-8"
-                    >
-                      Join Sunset & Richmond Community
-                    </Button>
-                  ) : (
-                    <Button
-                      size="lg"
-                      onClick={() => setModalMode('login')}
-                      className="text-base px-8"
-                    >
-                      Join Sunset & Richmond Community
-                    </Button>
-                  )}
+                  <Button
+                    size="lg"
+                    asChild
+                    className="text-base px-8"
+                  >
+                    <a href="#find-community">Find Your Community</a>
+                  </Button>
                   <Button
                     size="lg"
                     variant="outline"
@@ -142,6 +134,7 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
                   </Button>
                 </>
               )}
+
             </div>
 
             {/* "Already a member?" link for root landing */}
