@@ -11,7 +11,7 @@ export function DiscoverableCommunitiesList() {
   const sorted = [...communities].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <section className="container mx-auto px-4 pb-12 sm:pb-16">
+    <section id="find-community" className="container mx-auto px-4 pb-12 sm:pb-16 scroll-mt-16">
       <div className="text-center mb-6">
         <h2 className="text-xl sm:text-2xl font-serif font-semibold text-deep-brown">
           Communities open to new neighbors
