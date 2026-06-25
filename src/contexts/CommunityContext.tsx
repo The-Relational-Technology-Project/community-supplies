@@ -50,7 +50,9 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
     loading: true,
     notFound: false,
     isSlugRoute: !!slug,
+    hasProfileCommunity: false,
   });
+
 
   // Slug-driven resolution: independent of auth.
   useEffect(() => {
