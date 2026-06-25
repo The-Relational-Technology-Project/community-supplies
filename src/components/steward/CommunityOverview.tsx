@@ -64,15 +64,31 @@ export function CommunityOverview() {
   const fetchCommunityData = async () => {
     if (!communityId) return;
     try {
-      const { data: members, error } = await supabase
-        .from('profiles')
-        .select('id, name, email, role, created_at, intro_text, zip_code, membership_status')
-        .eq('community_id', communityId)
-        .order('created_at', { ascending: false });
+      const [{ data: members, error }, { data: stewardRows, error: rolesErr }, { data: { user } }] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, name, email, role, created_at, intro_text, zip_code, membership_status')
+          .eq('community_id', communityId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('user_roles')
+          .select('user_id, promoted_by')
+          .eq('community_id', communityId)
+          .eq('role', 'steward'),
+        supabase.auth.getUser(),
+      ]);
 
       if (error) throw error;
+      if (rolesErr) throw rolesErr;
 
-      const memberList: Member[] = (members || []) as unknown as Member[];
+      const promotedByMap = new Map<string, string | null>(
+        (stewardRows || []).map((r: any) => [r.user_id, r.promoted_by ?? null])
+      );
+
+      const memberList: Member[] = ((members || []) as any[]).map((m) => ({
+        ...m,
+        promoted_by: promotedByMap.has(m.id) ? promotedByMap.get(m.id) ?? null : null,
+      })) as Member[];
 
       const stewardCount = memberList.filter(m => m.role === 'steward').length;
       const recentCount = memberList.filter(m => {
@@ -89,6 +105,14 @@ export function CommunityOverview() {
       });
 
       setAllMembers(memberList);
+
+      // Viewer is a founding steward if their own steward row has promoted_by = null
+      if (user) {
+        const myRow = (stewardRows || []).find((r: any) => r.user_id === user.id);
+        setIsFoundingSteward(!!myRow && myRow.promoted_by === null);
+      } else {
+        setIsFoundingSteward(false);
+      }
     } catch (error: any) {
       toast({
         title: "Error loading community data",
@@ -98,6 +122,7 @@ export function CommunityOverview() {
     } finally {
       setLoading(false);
     }
+
   };
 
   const setMemberActive = async (member: Member, activate: boolean) => {
