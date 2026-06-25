@@ -541,6 +541,7 @@ export type Database = {
           community_id: string
           created_at: string
           id: string
+          promoted_by: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
@@ -548,6 +549,7 @@ export type Database = {
           community_id: string
           created_at?: string
           id?: string
+          promoted_by?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
@@ -555,6 +557,7 @@ export type Database = {
           community_id?: string
           created_at?: string
           id?: string
+          promoted_by?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
@@ -580,6 +583,10 @@ export type Database = {
       check_steward_request_rate_limit: {
         Args: { request_email: string }
         Returns: boolean
+      }
+      demote_steward_to_member: {
+        Args: { p_target_user_id: string }
+        Returns: undefined
       }
       get_anonymous_pins: {
         Args: never
@@ -703,12 +710,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_founding_steward: {
+        Args: { _community_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_steward_of: {
         Args: { _community_id: string; _user_id: string }
         Returns: boolean
       }
       is_user_steward: { Args: { user_id: string }; Returns: boolean }
       is_user_vouched: { Args: { user_id: string }; Returns: boolean }
+      promote_member_to_steward: {
+        Args: { p_target_user_id: string }
+        Returns: undefined
+      }
       search_supplies_public:
         | { Args: { search_query: string }; Returns: number }
         | {

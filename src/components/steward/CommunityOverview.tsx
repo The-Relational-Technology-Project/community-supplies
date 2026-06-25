@@ -16,7 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCommunity } from "@/contexts/CommunityContext";
-import { Users, Shield, UserPlus, Copy, Check, UserX, UserCheck, Clock } from "lucide-react";
+import { Users, Shield, UserPlus, Copy, Check, UserX, UserCheck, Clock, ShieldPlus, ShieldMinus } from "lucide-react";
 
 interface CommunityStats {
   totalMembers: number;
@@ -33,7 +33,9 @@ interface Member {
   intro_text: string | null;
   zip_code: string | null;
   membership_status: 'pending' | 'active' | 'deactivated' | 'rejected';
+  promoted_by: string | null; // null = founding steward (only meaningful when role='steward')
 }
+
 
 export function CommunityOverview() {
   const [stats, setStats] = useState<CommunityStats>({
