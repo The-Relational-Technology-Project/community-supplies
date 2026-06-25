@@ -16,7 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCommunity } from "@/contexts/CommunityContext";
-import { Users, Shield, UserPlus, Copy, Check, UserX, UserCheck, Clock } from "lucide-react";
+import { Users, Shield, UserPlus, Copy, Check, UserX, UserCheck, Clock, ShieldPlus, ShieldMinus } from "lucide-react";
 
 interface CommunityStats {
   totalMembers: number;
@@ -33,7 +33,9 @@ interface Member {
   intro_text: string | null;
   zip_code: string | null;
   membership_status: 'pending' | 'active' | 'deactivated' | 'rejected';
+  promoted_by: string | null; // null = founding steward (only meaningful when role='steward')
 }
+
 
 export function CommunityOverview() {
   const [stats, setStats] = useState<CommunityStats>({
@@ -46,8 +48,12 @@ export function CommunityOverview() {
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [pendingDeactivate, setPendingDeactivate] = useState<Member | null>(null);
+  const [pendingPromote, setPendingPromote] = useState<Member | null>(null);
+  const [pendingDemote, setPendingDemote] = useState<Member | null>(null);
+  const [isFoundingSteward, setIsFoundingSteward] = useState(false);
   const { toast } = useToast();
   const { communityId } = useCommunity();
+
 
   const copyEmail = async (email: string) => {
     await navigator.clipboard.writeText(email);
@@ -58,15 +64,31 @@ export function CommunityOverview() {
   const fetchCommunityData = async () => {
     if (!communityId) return;
     try {
-      const { data: members, error } = await supabase
-        .from('profiles')
-        .select('id, name, email, role, created_at, intro_text, zip_code, membership_status')
-        .eq('community_id', communityId)
-        .order('created_at', { ascending: false });
+      const [{ data: members, error }, { data: stewardRows, error: rolesErr }, { data: { user } }] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, name, email, role, created_at, intro_text, zip_code, membership_status')
+          .eq('community_id', communityId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('user_roles')
+          .select('user_id, promoted_by')
+          .eq('community_id', communityId)
+          .eq('role', 'steward'),
+        supabase.auth.getUser(),
+      ]);
 
       if (error) throw error;
+      if (rolesErr) throw rolesErr;
 
-      const memberList: Member[] = (members || []) as unknown as Member[];
+      const promotedByMap = new Map<string, string | null>(
+        (stewardRows || []).map((r: any) => [r.user_id, r.promoted_by ?? null])
+      );
+
+      const memberList: Member[] = ((members || []) as any[]).map((m) => ({
+        ...m,
+        promoted_by: promotedByMap.has(m.id) ? promotedByMap.get(m.id) ?? null : null,
+      })) as Member[];
 
       const stewardCount = memberList.filter(m => m.role === 'steward').length;
       const recentCount = memberList.filter(m => {
@@ -83,6 +105,14 @@ export function CommunityOverview() {
       });
 
       setAllMembers(memberList);
+
+      // Viewer is a founding steward if their own steward row has promoted_by = null
+      if (user) {
+        const myRow = (stewardRows || []).find((r: any) => r.user_id === user.id);
+        setIsFoundingSteward(!!myRow && myRow.promoted_by === null);
+      } else {
+        setIsFoundingSteward(false);
+      }
     } catch (error: any) {
       toast({
         title: "Error loading community data",
@@ -92,6 +122,7 @@ export function CommunityOverview() {
     } finally {
       setLoading(false);
     }
+
   };
 
   const setMemberActive = async (member: Member, activate: boolean) => {
@@ -121,6 +152,37 @@ export function CommunityOverview() {
       setPendingDeactivate(null);
     }
   };
+
+  const promoteToSteward = async (member: Member) => {
+    setTogglingId(member.id);
+    try {
+      const { error } = await supabase.rpc('promote_member_to_steward', { p_target_user_id: member.id });
+      if (error) throw error;
+      toast({ title: "Promoted to steward", description: `${member.name} is now a co-steward.` });
+      fetchCommunityData();
+    } catch (error: any) {
+      toast({ title: "Couldn't promote", description: error.message, variant: "destructive" });
+    } finally {
+      setTogglingId(null);
+      setPendingPromote(null);
+    }
+  };
+
+  const demoteSteward = async (member: Member) => {
+    setTogglingId(member.id);
+    try {
+      const { error } = await supabase.rpc('demote_steward_to_member', { p_target_user_id: member.id });
+      if (error) throw error;
+      toast({ title: "Removed steward role", description: `${member.name} is back to member.` });
+      fetchCommunityData();
+    } catch (error: any) {
+      toast({ title: "Couldn't demote", description: error.message, variant: "destructive" });
+    } finally {
+      setTogglingId(null);
+      setPendingDemote(null);
+    }
+  };
+
 
   useEffect(() => {
     fetchCommunityData();
@@ -245,33 +307,59 @@ export function CommunityOverview() {
                   {new Date(member.created_at).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  {status === 'active' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={togglingId === member.id}
-                      onClick={() => setPendingDeactivate(member)}
-                    >
-                      <UserX className="h-4 w-4 mr-1" />
-                      Deactivate
-                    </Button>
-                  )}
-                  {(status === 'deactivated' || status === 'rejected') && (
-                    <Button
-                      size="sm"
-                      variant="default"
-                      disabled={togglingId === member.id}
-                      onClick={() => setMemberActive(member, true)}
-                    >
-                      <UserCheck className="h-4 w-4 mr-1" />
-                      {status === 'rejected' ? 'Approve' : 'Reactivate'}
-                    </Button>
-                  )}
-                  {status === 'pending' && (
-                    <span className="text-xs text-muted-foreground">
-                      Review in Join Requests tab
-                    </span>
-                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {status === 'active' && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={togglingId === member.id}
+                          onClick={() => setPendingDeactivate(member)}
+                        >
+                          <UserX className="h-4 w-4 mr-1" />
+                          Deactivate
+                        </Button>
+                        {isFoundingSteward && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={togglingId === member.id}
+                            onClick={() => setPendingPromote(member)}
+                          >
+                            <ShieldPlus className="h-4 w-4 mr-1" />
+                            Make steward
+                          </Button>
+                        )}
+                      </>
+                    )}
+                    {status === 'steward' && isFoundingSteward && member.promoted_by !== null && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={togglingId === member.id}
+                        onClick={() => setPendingDemote(member)}
+                      >
+                        <ShieldMinus className="h-4 w-4 mr-1" />
+                        Remove steward
+                      </Button>
+                    )}
+                    {(status === 'deactivated' || status === 'rejected') && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={togglingId === member.id}
+                        onClick={() => setMemberActive(member, true)}
+                      >
+                        <UserCheck className="h-4 w-4 mr-1" />
+                        {status === 'rejected' ? 'Approve' : 'Reactivate'}
+                      </Button>
+                    )}
+                    {status === 'pending' && (
+                      <span className="text-xs text-muted-foreground">
+                        Review in Join Requests tab
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             );
@@ -300,6 +388,51 @@ export function CommunityOverview() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog
+        open={pendingPromote !== null}
+        onOpenChange={(open) => { if (!open) setPendingPromote(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Make {pendingPromote?.name} a steward?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They'll get full steward access to manage members, join requests, and supply requests. You can remove this at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => pendingPromote && promoteToSteward(pendingPromote)}
+            >
+              Make steward
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingDemote !== null}
+        onOpenChange={(open) => { if (!open) setPendingDemote(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove steward role from {pendingDemote?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They'll go back to being a regular member and lose access to the steward dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => pendingDemote && demoteSteward(pendingDemote)}
+            >
+              Remove steward
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
