@@ -576,6 +576,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_join_request: {
+        Args: { p_request_id: string }
+        Returns: {
+          community_name: string
+          community_slug: string
+          member_email: string
+          member_name: string
+        }[]
+      }
       check_join_request_rate_limit: {
         Args: { request_email: string }
         Returns: boolean
@@ -722,6 +731,10 @@ export type Database = {
       is_user_vouched: { Args: { user_id: string }; Returns: boolean }
       promote_member_to_steward: {
         Args: { p_target_user_id: string }
+        Returns: undefined
+      }
+      reject_join_request: {
+        Args: { p_request_id: string }
         Returns: undefined
       }
       search_supplies_public:
