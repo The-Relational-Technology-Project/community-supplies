@@ -101,29 +101,10 @@ export function JoinRequestsManager() {
   const handleReject = async (request: JoinRequest) => {
     setProcessingId(request.id);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { error } = await supabase
-        .from('join_requests')
-        .update({
-          status: 'rejected',
-          reviewed_by: user.id,
-          reviewed_at: new Date().toISOString()
-        })
-        .eq('id', request.id);
-
+      const { error } = await supabase.rpc('reject_join_request' as any, {
+        p_request_id: request.id,
+      });
       if (error) throw error;
-
-      // Reflect the rejection on the linked profile so the Members tab shows
-      // "Rejected" rather than "Deactivated". Best-effort; don't block on it.
-      if (request.user_id) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ membership_status: 'rejected' } as any)
-          .eq('id', request.user_id);
-        if (profileError) console.error('Failed to mark profile rejected:', profileError);
-      }
 
       toast({
         title: "Application rejected",
