@@ -74,6 +74,40 @@ serve(async (req) => {
     const { supplyId, itemName, description, imageUrl } = await req.json();
     console.log('Generating illustration for:', itemName, 'by user:', user.id);
 
+    // Ownership/authorization check: only the supply owner or a steward of the
+    // supply's community may (re)generate its illustration.
+    if (!supplyId || typeof supplyId !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'supplyId is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { data: supplyRow, error: supplyErr } = await supabase
+      .from('supplies')
+      .select('owner_id, community_id')
+      .eq('id', supplyId)
+      .single();
+    if (supplyErr || !supplyRow) {
+      return new Response(
+        JSON.stringify({ error: 'Supply not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    let authorized = supplyRow.owner_id === user.id;
+    if (!authorized) {
+      const { data: isSteward } = await supabase.rpc('is_steward_of', {
+        _user_id: user.id,
+        _community_id: supplyRow.community_id,
+      });
+      authorized = !!isSteward;
+    }
+    if (!authorized) {
+      return new Response(
+        JSON.stringify({ error: 'Not authorized to modify this supply' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');

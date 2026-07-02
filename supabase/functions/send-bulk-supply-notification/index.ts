@@ -77,6 +77,22 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const { data: authData, error: authErr } = await supabaseAdmin.auth.getUser(token);
+    if (authErr || !authData?.user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const rawBody = await req.json();
     const parsed = BulkNotificationSchema.safeParse(rawBody);
 
@@ -88,6 +104,20 @@ serve(async (req) => {
     }
 
     const { communityId, items, ownerName, ownerEmail, neighborhood } = parsed.data;
+
+    // Verify caller is a vouched member of the target community.
+    const { data: callerProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('community_id, vouched_at')
+      .eq('id', authData.user.id)
+      .single();
+    if (!callerProfile || callerProfile.community_id !== communityId || !callerProfile.vouched_at) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: not a member of this community' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
 
