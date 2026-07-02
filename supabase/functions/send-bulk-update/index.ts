@@ -61,17 +61,9 @@ serve(async (req) => {
       );
     }
 
-    const { data: isSteward } = await supabase.rpc('is_user_steward', { user_id: user.id });
-    if (!isSteward) {
-      return new Response(
-        JSON.stringify({ error: 'Only stewards can send bulk emails' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const rawBody = await req.json();
     const validationResult = SendBulkUpdateSchema.safeParse(rawBody);
-    
+
     if (!validationResult.success) {
       return new Response(
         JSON.stringify({ error: 'Validation failed', details: validationResult.error.errors }),
@@ -80,6 +72,19 @@ serve(async (req) => {
     }
 
     const { subject, excludeEmails, dryRun, communityId } = validationResult.data;
+
+    // Verify caller is a steward OF THIS specific community (not just any community).
+    const { data: isStewardOf } = await supabase.rpc('is_steward_of', {
+      _user_id: user.id,
+      _community_id: communityId,
+    });
+    if (!isStewardOf) {
+      return new Response(
+        JSON.stringify({ error: 'Only stewards of this community can send bulk emails' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
 
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
