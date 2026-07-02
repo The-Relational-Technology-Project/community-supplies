@@ -51,50 +51,29 @@ export function JoinRequestsManager() {
   const handleApprove = async (request: JoinRequest) => {
     setProcessingId(request.id);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      // Single RPC: verifies caller is a steward of the target community,
+      // marks the request approved, and moves the applicant's profile into
+      // this community as active — even if they were previously pinned to
+      // another community (which the old client-side UPDATE couldn't do
+      // because RLS on profiles evaluates against the row's current
+      // community_id).
+      const { data, error } = await supabase.rpc('approve_join_request' as any, {
+        p_request_id: request.id,
+      });
+      if (error) throw error;
 
-      // Update join request status to approved
-      const { error: updateError } = await supabase
-        .from('join_requests')
-        .update({
-          status: 'approved' as any,
-          reviewed_by: user.id,
-          reviewed_at: new Date().toISOString()
-        })
-        .eq('id', request.id);
+      const row = Array.isArray(data) ? data[0] : data;
+      const communityName = row?.community_name as string | undefined;
+      const communitySlug = row?.community_slug as string | undefined;
 
-      if (updateError) throw updateError;
-
-      // If there's a linked user, activate them and ensure their profile
-      // belongs to this community (covers cross-community requests). vouched_at
-      // is derived from membership_status by a DB trigger.
-      if (request.user_id) {
-        const update: Record<string, any> = { membership_status: 'active' };
-        if (request.community_id) update.community_id = request.community_id;
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update(update)
-          .eq('id', request.user_id);
-
-        if (profileError) throw profileError;
-      }
-
-      // Send welcome email to the approved member
       try {
-        const { data: community } = await supabase
-          .from('communities')
-          .select('name, slug')
-          .eq('id', request.community_id || '')
-          .single();
-
-        if (community) {
+        if (communityName && communitySlug) {
           await supabase.functions.invoke('send-welcome-email', {
             body: {
               memberName: request.name,
               memberEmail: request.email,
-              communityName: community.name,
-              communitySlug: community.slug,
+              communityName,
+              communitySlug,
             },
           });
         }
