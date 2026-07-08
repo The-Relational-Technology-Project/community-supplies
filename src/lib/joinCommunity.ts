@@ -14,6 +14,7 @@ export interface FileJoinRequestParams {
   crossStreets?: string | null;
   referralSource?: string | null;
   phoneNumber?: string | null;
+  customAnswer?: string | null;
 }
 
 /**
@@ -36,9 +37,23 @@ export async function fileJoinRequest(
     cross_streets: params.crossStreets ?? null,
     referral_source: params.referralSource ?? null,
     phone_number: params.phoneNumber ?? null,
-  });
+    custom_answer: params.customAnswer ?? null,
+  } as any);
 
-  if (error) return { error: error as unknown as Error };
+  if (error) {
+    // Partial unique index on (email, community_id) WHERE status='pending'
+    // → friendlier message when a pending request already exists.
+    const code = (error as any).code;
+    const msg = (error.message || "").toLowerCase();
+    if (code === "23505" || msg.includes("uniq_join_requests_pending")) {
+      return {
+        error: new Error(
+          "You already have a pending request for this community — a steward will review it soon."
+        ),
+      };
+    }
+    return { error: error as unknown as Error };
+  }
 
   // Best-effort steward notification — never block the join on email delivery.
   try {
@@ -50,6 +65,7 @@ export async function fileJoinRequest(
         referralSource: params.referralSource ?? undefined,
         crossStreets: params.crossStreets ?? undefined,
         phoneNumber: params.phoneNumber ?? null,
+        customAnswer: params.customAnswer ?? null,
       },
     });
   } catch (e) {
@@ -58,6 +74,7 @@ export async function fileJoinRequest(
 
   return { error: null };
 }
+
 
 /**
  * Auto-join an open ("auto" join_mode) community. Moves the caller's profile

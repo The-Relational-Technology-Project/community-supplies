@@ -108,6 +108,7 @@ export type Database = {
           coarse_longitude: number | null
           country_code: string | null
           created_at: string
+          custom_join_question: string | null
           description: string | null
           discoverable: boolean
           id: string
@@ -127,6 +128,7 @@ export type Database = {
           coarse_longitude?: number | null
           country_code?: string | null
           created_at?: string
+          custom_join_question?: string | null
           description?: string | null
           discoverable?: boolean
           id?: string
@@ -146,6 +148,7 @@ export type Database = {
           coarse_longitude?: number | null
           country_code?: string | null
           created_at?: string
+          custom_join_question?: string | null
           description?: string | null
           discoverable?: boolean
           id?: string
@@ -247,6 +250,7 @@ export type Database = {
           community_id: string
           connection_context: string | null
           cross_streets: string | null
+          custom_answer: string | null
           email: string
           id: string
           intro: string | null
@@ -264,6 +268,7 @@ export type Database = {
           community_id: string
           connection_context?: string | null
           cross_streets?: string | null
+          custom_answer?: string | null
           email: string
           id?: string
           intro?: string | null
@@ -281,6 +286,7 @@ export type Database = {
           community_id?: string
           connection_context?: string | null
           cross_streets?: string | null
+          custom_answer?: string | null
           email?: string
           id?: string
           intro?: string | null
@@ -595,6 +601,10 @@ export type Database = {
       }
       demote_steward_to_member: {
         Args: { p_target_user_id: string }
+        Returns: undefined
+      }
+      dismiss_join_request: {
+        Args: { p_request_id: string }
         Returns: undefined
       }
       get_anonymous_pins: {

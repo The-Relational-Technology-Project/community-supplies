@@ -1,6 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Package, MessageSquare, Globe, Link } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Shield, Users, Package, MessageSquare, Globe, Link as LinkIcon, ArrowLeft, User } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useCommunity } from "@/contexts/CommunityContext";
 import { CommunityOverview } from "./CommunityOverview";
 import { SupplyRequestsManager } from "./SupplyRequestsManager";
 import { AllSuppliesManager } from "./AllSuppliesManager";
@@ -13,10 +16,27 @@ import { RenameCommunity } from "./RenameCommunity";
 import { StewardWelcomeBatch } from "./StewardWelcomeBatch";
 import { InviteNeighborsButton } from "./InviteNeighborsButton";
 import { CommunityAiSettings } from "./CommunityAiSettings";
+import { CustomJoinQuestion } from "./CustomJoinQuestion";
 
 export function StewardDashboard() {
+  const { communitySlug } = useCommunity();
+  const communityHome = communitySlug ? `/c/${communitySlug}` : "/";
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild variant="ghost" size="sm">
+          <Link to={communityHome} className="flex items-center gap-1">
+            <ArrowLeft className="h-4 w-4" />
+            Back to community
+          </Link>
+        </Button>
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/profile" className="flex items-center gap-1">
+            <User className="h-4 w-4" />
+            Your profile
+          </Link>
+        </Button>
+      </div>
       <div className="flex items-center gap-2">
         <Shield className="h-8 w-8 text-primary" />
         <div>
@@ -33,6 +53,8 @@ export function StewardDashboard() {
 
       <JoinModeToggle />
 
+      <CustomJoinQuestion />
+
       <DiscoverabilityToggle />
 
       <CommunityAiSettings />
@@ -40,6 +62,7 @@ export function StewardDashboard() {
       <StewardWelcomeBatch />
 
       <Tabs defaultValue="members" className="space-y-4">
+
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="members" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
