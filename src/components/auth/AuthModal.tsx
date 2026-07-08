@@ -186,7 +186,6 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       return;
     }
     
-    // Simplified signup without emailRedirectTo to avoid hanging
     // Always tag the new user with the community they're signing up from.
     // Fall back to the URL-derived community context so callers that don't
     // pass an explicit communityId prop (e.g. the header "Sign Up" button)
@@ -199,11 +198,16 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
     if (effectiveCommunityIdForSignup) {
       metadata.community_id = effectiveCommunityIdForSignup;
     }
+    // Land the confirmed user on THEIR community, not the project Site URL.
+    const emailRedirectTo = communitySlug
+      ? `${window.location.origin}/c/${communitySlug}`
+      : `${window.location.origin}/`;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: metadata }
+      options: { data: metadata, emailRedirectTo }
     });
+
     
     if (error) {
       const msg = (error.message || "").toLowerCase();
@@ -256,7 +260,9 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
         email,
         intro: connectionContext || null,
         referralSource: 'signup_form',
+        customAnswer: customQuestion ? customAnswer : null,
       });
+
       if (jrError) {
         console.error('Failed to create join request:', jrError);
       }
