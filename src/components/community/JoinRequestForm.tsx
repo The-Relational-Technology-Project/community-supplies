@@ -130,7 +130,9 @@ export function JoinRequestForm() {
         crossStreets,
         referralSource,
         phoneNumber: referralSource === 'other' ? phoneNumber : null,
+        customAnswer: customQuestion ? customAnswer : null,
       });
+
 
       if (requestError) {
         toast({
