@@ -21,11 +21,13 @@ export function JoinRequestForm() {
   const [crossStreets, setCrossStreets] = useState("");
   const [referralSource, setReferralSource] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [customAnswer, setCustomAnswer] = useState("");
+  const [customQuestion, setCustomQuestion] = useState<string | null>(null);
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [captchaQuestion, setCaptchaQuestion] = useState({ question: "", answer: 0 });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { communityId, communityName } = useCommunity();
+  const { communityId, communitySlug, communityName } = useCommunity();
 
   // Generate math captcha when component mounts
   useEffect(() => {
@@ -36,6 +38,20 @@ export function JoinRequestForm() {
       answer: num1 + num2
     });
   }, []);
+
+  // Load this community's optional custom join question.
+  useEffect(() => {
+    if (!communityId) return;
+    (async () => {
+      const { data } = await supabase
+        .from("communities")
+        .select("custom_join_question")
+        .eq("id", communityId)
+        .maybeSingle();
+      setCustomQuestion((data as any)?.custom_join_question ?? null);
+    })();
+  }, [communityId]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,8 +69,11 @@ export function JoinRequestForm() {
     setLoading(true);
 
     try {
-      // Create auth user with password
-      const redirectUrl = `${window.location.origin}/`;
+      // Land the user on THIS community's page after confirming, not the
+      // project-wide Site URL (which would send them to the Sunset flagship).
+      const redirectUrl = communitySlug
+        ? `${window.location.origin}/c/${communitySlug}`
+        : `${window.location.origin}/`;
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -66,6 +85,7 @@ export function JoinRequestForm() {
           }
         }
       });
+
 
       if (authError) {
         const msg = (authError.message || "").toLowerCase();
