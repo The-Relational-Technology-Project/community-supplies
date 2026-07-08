@@ -38,7 +38,9 @@ const JoinNotificationSchema = z.object({
   referralSource: z.string().trim().max(500).optional(),
   crossStreets: z.string().trim().max(200).optional(),
   phoneNumber: z.string().trim().max(30).regex(/^[\d\s\-\+\(\)]*$/).optional().nullable(),
+  customAnswer: z.string().trim().max(2000).optional().nullable(),
 });
+
 
 async function getStewardEmailsAndCommunity(communityId: string): Promise<{ emails: string[]; communityName: string; communitySlug: string }> {
   const { data: community } = await supabaseAdmin
@@ -92,7 +94,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const { communityId, name, email, referralSource, crossStreets, phoneNumber } = validationResult.data;
+    const { communityId, name, email, referralSource, crossStreets, phoneNumber, customAnswer } = validationResult.data;
 
     // This endpoint is callable without a user session (it fires during signup,
     // before email confirmation), so it cannot require a JWT. Instead, only send
@@ -128,12 +130,22 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // Look up the community's custom question so it can be shown next to the answer.
+    const { data: communityRow } = await supabaseAdmin
+      .from("communities")
+      .select("custom_join_question")
+      .eq("id", communityId)
+      .maybeSingle();
+    const customQuestion = (communityRow as any)?.custom_join_question as string | null;
+
     // Prefer the name on the stored request over the (client-supplied) body name.
     const safeName = escapeHtml(matchingRequest.name || name);
     const safeEmail = escapeHtml(email);
     const safeReferralSource = referralSource ? escapeHtml(referralSource) : null;
     const safeCrossStreets = crossStreets ? escapeHtml(crossStreets) : null;
     const safePhoneNumber = phoneNumber ? escapeHtml(phoneNumber) : null;
+    const safeCustomAnswer = customAnswer ? escapeHtml(customAnswer) : null;
+    const safeCustomQuestion = customQuestion ? escapeHtml(customQuestion) : null;
     const safeCommunityName = escapeHtml(communityName);
     const stewardUrl = communitySlug
       ? `https://communitysupplies.org/c/${encodeURIComponent(communitySlug)}/steward`
@@ -150,9 +162,11 @@ const handler = async (req: Request): Promise<Response> => {
         ${safeReferralSource ? `<p><strong>Referral Source:</strong> ${safeReferralSource}</p>` : ''}
         ${safeCrossStreets ? `<p><strong>Cross Streets:</strong> ${safeCrossStreets}</p>` : ''}
         ${safePhoneNumber ? `<p><strong>Phone:</strong> ${safePhoneNumber}</p>` : ''}
+        ${safeCustomAnswer && safeCustomQuestion ? `<p><strong>${safeCustomQuestion}</strong><br/>${safeCustomAnswer}</p>` : ''}
         <p>Check the <a href="${stewardUrl}">steward dashboard</a> for more details.</p>
       `,
     });
+
 
     return new Response(JSON.stringify(emailResponse), {
       status: 200,
