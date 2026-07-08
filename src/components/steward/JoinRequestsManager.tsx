@@ -38,12 +38,13 @@ export function JoinRequestsManager() {
     try {
       const { data, error } = await supabase
         .from('join_requests')
-        .select('id, name, email, intro, connection_context, community_id, status, requested_at, user_id')
+        .select('id, name, email, intro, connection_context, cross_streets, referral_source, custom_answer, community_id, status, requested_at, user_id')
         .eq('community_id', communityId)
         .order('requested_at', { ascending: false });
 
       if (error) throw error;
-      setRequests(data || []);
+      setRequests((data || []) as JoinRequest[]);
+
     } catch (error: any) {
       toast({
         title: "Error loading join requests",
