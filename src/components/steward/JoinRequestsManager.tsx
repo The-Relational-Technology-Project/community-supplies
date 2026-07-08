@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCommunity } from "@/contexts/CommunityContext";
-import { CheckCircle, XCircle, Clock } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+
 
 interface JoinRequest {
   id: string;
@@ -13,6 +14,9 @@ interface JoinRequest {
   email: string;
   intro: string;
   connection_context: string | null;
+  cross_streets: string | null;
+  referral_source: string | null;
+  custom_answer: string | null;
   community_id: string;
   status: 'pending' | 'rejected' | 'vouched' | 'approved';
   requested_at: string;
@@ -23,8 +27,11 @@ export function JoinRequestsManager() {
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [customQuestion, setCustomQuestion] = useState<string | null>(null);
   const { toast } = useToast();
   const { communityId } = useCommunity();
+
 
   const fetchRequests = async () => {
     if (!communityId) return;
