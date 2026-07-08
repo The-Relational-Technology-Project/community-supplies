@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +12,7 @@ import { useCommunity } from "@/contexts/CommunityContext";
 import { fileJoinRequest } from "@/lib/joinCommunity";
 import { CheckCircle2, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
+
 
 export function JoinRequestForm() {
   const [submitted, setSubmitted] = useState(false);
@@ -292,6 +294,22 @@ export function JoinRequestForm() {
               </div>
             </div>
           )}
+
+          {customQuestion && (
+            <div>
+              <Label htmlFor="customAnswer" className="text-sm sm:text-base">{customQuestion}</Label>
+              <Textarea
+                id="customAnswer"
+                value={customAnswer}
+                onChange={(e) => setCustomAnswer(e.target.value)}
+                required
+                rows={3}
+                className="text-base resize-none"
+              />
+            </div>
+          )}
+
+
           
           <div>
             <Label htmlFor="captcha" className="text-sm sm:text-base">What is {captchaQuestion.question}?</Label>
