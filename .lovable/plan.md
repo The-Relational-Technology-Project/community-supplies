@@ -1,48 +1,60 @@
-## 1. Move Sajni to Columbia City Neighbors Club
 
-Confirmed: profile `Sajni` / `sajniofficial@gmail.com` is on `sunset-richmond`, target is `columbia-city-neighbors-club` (auto-join). One-off UPDATE setting her `profiles.community_id` and `membership_status = 'active'`.
+## Issues from Caitlin's email + what's actually happening
 
-## 2. Stop defaulting communitysupplies.org to Sunset & Richmond
+### 1. Sign-up confirmation email lands people on Sunset & Richmond
 
-Today the root path silently treats Sunset as the default for everyone: anonymous visitors see the Sunset-branded hero/join CTA, and `CommunityContext` falls back to Sunset's UUID/slug whenever no profile community is found. That's what tripped up Sajni.
+**Root cause.** `AuthModal.handleSignup` calls `supabase.auth.signUp` with **no `emailRedirectTo`**, so Supabase falls back to the project's Site URL (the Sunset flagship URL) for the confirmation link. `JoinRequestForm` passes `${origin}/` — better, but still just dumps users at the site root, where the auth-driven redirect only works if their profile row exists *and* its community lookup succeeds. Any hiccup → Sunset fallback.
 
-### 2a. Generic landing for anonymous visitors at `/`
+**Fix.** Always set `emailRedirectTo: ${window.location.origin}/c/${communitySlug}` at signup time (both `AuthModal.handleSignup` and `JoinRequestForm`). Users then land on their actual community's page after confirming, and `JoinThisCommunity` / membership gate takes over.
 
-In `src/components/LandingPage.tsx`, the community-specific view is gated by `communitySlug !== 'sunset-richmond'`, so root visitors get the Sunset hero. Change root to a generic discovery view:
-- Keep the project pitch, `SpreadMap`, and `DiscoverableCommunitiesList` so visitors can find a community near them.
-- Replace the Sunset "Join" CTA with "Find your community" (discovery list) + "Start a new community" (`/start-community`).
-- Sign-in / sign-up modals stop implying Sunset.
+### 2. No way back from the steward dashboard
 
-The Sunset-specific landing (hero, member count, join form) stays reachable at `/c/sunset-richmond`, identical to every other community.
+Currently, on the in-app `?tab=steward` view, the only nav is the small community-name text in `CatalogHeader`. Not discoverable.
 
-### 2b. Sign-in / magic link from `/` lands you in your own community
+**Fix.** Add a small nav strip at the top of `StewardDashboard` with two obvious buttons: **"Back to community"** (→ `/c/<slug>`) and **"Your profile"** (→ `/profile`). Shown regardless of entry path (tab or `/steward` route).
 
-In `src/pages/Index.tsx`, once a logged-in user is resolved on `/` (no slug), `navigate('/c/<their-community-slug>', { replace: true })` using their profile community. To avoid bouncing users into Sunset by accident, add a `hasProfileCommunity` flag to `CommunityContext` set only when the profile lookup returned a real `communities` row (not the Sunset fallback). Only redirect when that flag is true.
+### 3. Ability to add a custom question to the join request
 
-Magic-link / password flows already return to `/`; the redirect carries them onward — no auth-flow changes.
+**Fix.**
+- Add nullable `custom_join_question TEXT` column to `communities`.
+- Add nullable `custom_answer TEXT` column to `join_requests`.
+- In `JoinRequestForm` and `AuthModal` signup flow, if the target community has a `custom_join_question`, render a required textarea with that label; pass through `fileJoinRequest`.
+- Show the Q&A in the expandable row of `JoinRequestsManager`.
+- Add a new "Join question" card to the steward dashboard (next to `JoinModeToggle`) where a steward can set/edit the question for their community.
 
-### 2c. Users with no community on `/`
+Example she wants: "What is a Columbia City Neighbors Club event you have attended?"
 
-A logged-in user without a profile community (mid-onboarding edge case) stays on `/` and sees the generic discovery + "Start a community" CTAs instead of being silently dropped into Sunset.
+### 4. Duplicate join requests & isopod.wispy triplicate
 
-## 3. Safety for existing Sunset members and Sunset's neighbors
+**What actually happened.** `isopod.wispy_9b@icloud.com` has **1 profile / 1 user_id** but **3 approved rows in `join_requests`**. The **members list is correct** (single row) — she is seeing the triplicates in the **Join Requests tab**, not Members. Still, we should prevent this and give her a way to clean it up.
 
-**Existing Sunset members revisiting communitysupplies.org:** safe. Their `profiles.community_id` points to Sunset, so step 2b auto-redirects them to `/c/sunset-richmond` — same library, same experience. The only visible change is the URL.
+**Fix.**
+- Add a partial unique index: `UNIQUE (email, community_id) WHERE status = 'pending'` on `join_requests`. In `fileJoinRequest`, catch the unique-violation and show "You already have a pending request for this community — a steward will review it soon."
+- Add a **"Dismiss"** action to non-pending rows in `JoinRequestsManager` that deletes the `join_requests` row (via a new `dismiss_join_request` SECURITY DEFINER RPC scoped to stewards of that community). Deleting a request row does NOT touch the applicant's profile / membership.
+- One-time data cleanup migration: delete the 2 older duplicate approved rows for isopod.wispy in CCNC, keeping the most recent.
 
-**Sunset's neighbors finding it from the root:** Sunset is currently `discoverable=false` with no `latitude`, `longitude`, or `public_location_label`, so it would NOT appear on the `SpreadMap` or `DiscoverableCommunitiesList`. To keep Sunset findable from the new generic landing:
-- Update the `sunset-richmond` row: `discoverable = true`, `public_location_label = 'Sunset & Richmond, San Francisco, CA'`, set `latitude`/`longitude` to a Sunset-area centroid (≈ 37.7599, -122.4836). Done as a one-off UPDATE alongside Sajni's fix.
-- Sunset will then show up on the map and in the discoverable list just like every other community.
+### 5. Not addressed (out of scope for this plan)
 
-## 4. Out of scope
+- Rate-limit already exists (`check_join_request_rate_limit`, 3/hr per email) — the isopod case slipped through because all 3 were within the hour and status wasn't checked. The new partial unique index closes that gap for pending rows.
+- Nothing else in her email requires a code change.
 
-- No change to `/c/sunset-richmond` itself.
-- No change to `DEFAULT_COMMUNITY_ID` used as the RPC fallback — only user-facing routing changes.
-- No change to other communities' landing pages.
+---
 
-## Technical notes
+## Files to change
 
-Files touched:
-- `src/contexts/CommunityContext.tsx` — add `hasProfileCommunity` flag.
-- `src/pages/Index.tsx` — redirect logged-in users on `/` to `/c/<their-slug>` when `hasProfileCommunity`.
-- `src/components/LandingPage.tsx` — render generic discovery view on `/`; community-specific view continues to render on `/c/:slug`.
-- One-off SQL: update Sajni's profile + flip Sunset to discoverable with lat/lng/label.
+- `src/components/auth/AuthModal.tsx` — add `emailRedirectTo`, custom question field
+- `src/components/community/JoinRequestForm.tsx` — fix `emailRedirectTo`, custom question field
+- `src/lib/joinCommunity.ts` — accept `customAnswer`, friendly duplicate error
+- `src/components/steward/StewardDashboard.tsx` — nav strip
+- `src/components/steward/JoinRequestsManager.tsx` — show custom Q&A, "Dismiss" button
+- New: `src/components/steward/CustomJoinQuestion.tsx` — steward-editable setting
+- Migration: add columns, partial unique index, `dismiss_join_request` RPC, isopod cleanup
+- `src/pages/Steward.tsx` — the existing `Back` button stays; nav strip inside dashboard covers the in-tab view
+
+## Reply to Caitlin (draft)
+
+After implementing, we can send her:
+1. Confirmation redirects now land on your community, not Sunset.
+2. Steward dashboard has "Back to community" and "Your profile" buttons.
+3. You can set a custom join question in the dashboard — try "What is a Columbia City Neighbors Club event you have attended?"
+4. Duplicate pending requests are now blocked; a "Dismiss" button lets you clean up extras. We already de-duplicated isopod.wispy's rows.
