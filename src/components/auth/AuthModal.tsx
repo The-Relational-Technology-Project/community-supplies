@@ -30,6 +30,8 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
   const [captchaQuestion, setCaptchaQuestion] = useState({ question: "", answer: 0 });
   const [loading, setLoading] = useState(false);
   const [useMagicLink, setUseMagicLink] = useState(false);
+  const [customAnswer, setCustomAnswer] = useState("");
+  const [customQuestion, setCustomQuestion] = useState<string | null>(null);
   const { toast } = useToast();
   const { communityId: contextCommunityId, communitySlug, communityName: contextCommunityName } = useCommunity();
 
@@ -54,6 +56,25 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
 
   const effectiveCommunityId = communityId || contextCommunityId;
   const effectiveCommunityName = communityName || contextCommunityName;
+
+  // Load target community's custom join question so we can render it in the signup flow.
+  useEffect(() => {
+    if (mode !== 'signup' || !effectiveCommunityId) return;
+    (async () => {
+      const { data } = await supabase
+        .from('communities')
+        .select('custom_join_question, join_mode')
+        .eq('id', effectiveCommunityId)
+        .maybeSingle();
+      // Only prompt for approval-required communities; auto-join skips review.
+      if ((data as any)?.join_mode === 'approval_required') {
+        setCustomQuestion((data as any)?.custom_join_question ?? null);
+      } else {
+        setCustomQuestion(null);
+      }
+    })();
+  }, [mode, effectiveCommunityId]);
+
 
   // After a successful login, if a community context is set and the user is not
   // already a member of it, try to join it (auto-join) or send a join request.
