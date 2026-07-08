@@ -334,6 +334,22 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
                       className="text-base resize-none"
                     />
                   </div>
+
+                  {customQuestion && (
+                    <div>
+                      <Label htmlFor="customAnswerModal" className="text-sm">{customQuestion}</Label>
+                      <Textarea
+                        id="customAnswerModal"
+                        value={customAnswer}
+                        onChange={(e) => setCustomAnswer(e.target.value)}
+                        rows={2}
+                        required
+                        className="text-base resize-none"
+                      />
+                    </div>
+                  )}
+
+
                   
                   {/* Honeypot field - hidden from users, only bots fill this */}
                   <div style={{ display: 'none' }}>
