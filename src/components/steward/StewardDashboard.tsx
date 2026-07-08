@@ -81,7 +81,7 @@ export function StewardDashboard() {
             Communities
           </TabsTrigger>
           <TabsTrigger value="neighbors" className="flex items-center gap-2">
-            <Link className="h-4 w-4" />
+            <LinkIcon className="h-4 w-4" />
             Neighbors
           </TabsTrigger>
         </TabsList>
