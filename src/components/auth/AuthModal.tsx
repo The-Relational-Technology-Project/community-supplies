@@ -25,6 +25,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [connectionContext, setConnectionContext] = useState("");
+  const [crossStreets, setCrossStreets] = useState("");
   const [honeypot, setHoneypot] = useState(""); // Bot detection
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [captchaQuestion, setCaptchaQuestion] = useState({ question: "", answer: 0 });
@@ -32,6 +33,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
   const [useMagicLink, setUseMagicLink] = useState(false);
   const [customAnswer, setCustomAnswer] = useState("");
   const [customQuestion, setCustomQuestion] = useState<string | null>(null);
+  const [targetJoinMode, setTargetJoinMode] = useState<string | null>(null);
   const { toast } = useToast();
   const { communityId: contextCommunityId, communitySlug, communityName: contextCommunityName } = useCommunity();
 
