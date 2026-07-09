@@ -25,6 +25,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [connectionContext, setConnectionContext] = useState("");
+  const [crossStreets, setCrossStreets] = useState("");
   const [honeypot, setHoneypot] = useState(""); // Bot detection
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [captchaQuestion, setCaptchaQuestion] = useState({ question: "", answer: 0 });
@@ -32,6 +33,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
   const [useMagicLink, setUseMagicLink] = useState(false);
   const [customAnswer, setCustomAnswer] = useState("");
   const [customQuestion, setCustomQuestion] = useState<string | null>(null);
+  const [targetJoinMode, setTargetJoinMode] = useState<string | null>(null);
   const { toast } = useToast();
   const { communityId: contextCommunityId, communitySlug, communityName: contextCommunityName } = useCommunity();
 
@@ -66,8 +68,10 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
         .select('custom_join_question, join_mode')
         .eq('id', effectiveCommunityId)
         .maybeSingle();
+      const jm = (data as any)?.join_mode ?? null;
+      setTargetJoinMode(jm);
       // Only prompt for approval-required communities; auto-join skips review.
-      if ((data as any)?.join_mode === 'approval_required') {
+      if (jm === 'approval_required') {
         setCustomQuestion((data as any)?.custom_join_question ?? null);
       } else {
         setCustomQuestion(null);
@@ -185,6 +189,22 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       setLoading(false);
       return;
     }
+
+    // For approval-required communities, enforce cross streets and (if set) the
+    // custom question. The Dialog doesn't wrap a <form>, so HTML `required`
+    // attributes never fire — validate here explicitly.
+    if (targetJoinMode === 'approval_required') {
+      if (!crossStreets.trim()) {
+        toast({ title: "Cross streets required", description: "Please tell your steward what two streets you live near.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+      if (customQuestion && !customAnswer.trim()) {
+        toast({ title: "Answer required", description: "Please answer the community's screening question.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+    }
     
     // Always tag the new user with the community they're signing up from.
     // Fall back to the URL-derived community context so callers that don't
@@ -259,6 +279,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
         name,
         email,
         intro: connectionContext || null,
+        crossStreets: crossStreets || null,
         referralSource: 'signup_form',
         customAnswer: customQuestion ? customAnswer : null,
       });
@@ -335,9 +356,27 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
                     />
                   </div>
 
+                  {targetJoinMode === 'approval_required' && (
+                    <div>
+                      <Label htmlFor="crossStreetsModal" className="text-sm">
+                        Cross streets <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="crossStreetsModal"
+                        value={crossStreets}
+                        onChange={(e) => setCrossStreets(e.target.value)}
+                        placeholder="e.g. 24th Ave & Noriega St"
+                        className="h-11 text-base"
+                        required
+                      />
+                    </div>
+                  )}
+
                   {customQuestion && (
                     <div>
-                      <Label htmlFor="customAnswerModal" className="text-sm">{customQuestion}</Label>
+                      <Label htmlFor="customAnswerModal" className="text-sm">
+                        {customQuestion} <span className="text-destructive">*</span>
+                      </Label>
                       <Textarea
                         id="customAnswerModal"
                         value={customAnswer}

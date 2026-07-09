@@ -297,7 +297,7 @@ export function JoinRequestForm() {
 
           {customQuestion && (
             <div>
-              <Label htmlFor="customAnswer" className="text-sm sm:text-base">{customQuestion}</Label>
+              <Label htmlFor="customAnswer" className="text-sm sm:text-base">{customQuestion} <span className="text-destructive">*</span></Label>
               <Textarea
                 id="customAnswer"
                 value={customAnswer}
