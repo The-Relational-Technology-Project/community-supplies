@@ -279,6 +279,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
         name,
         email,
         intro: connectionContext || null,
+        crossStreets: crossStreets || null,
         referralSource: 'signup_form',
         customAnswer: customQuestion ? customAnswer : null,
       });
