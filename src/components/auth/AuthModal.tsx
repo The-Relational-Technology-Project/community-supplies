@@ -68,8 +68,10 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
         .select('custom_join_question, join_mode')
         .eq('id', effectiveCommunityId)
         .maybeSingle();
+      const jm = (data as any)?.join_mode ?? null;
+      setTargetJoinMode(jm);
       // Only prompt for approval-required communities; auto-join skips review.
-      if ((data as any)?.join_mode === 'approval_required') {
+      if (jm === 'approval_required') {
         setCustomQuestion((data as any)?.custom_join_question ?? null);
       } else {
         setCustomQuestion(null);
