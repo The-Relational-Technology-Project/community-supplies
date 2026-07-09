@@ -189,6 +189,22 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       setLoading(false);
       return;
     }
+
+    // For approval-required communities, enforce cross streets and (if set) the
+    // custom question. The Dialog doesn't wrap a <form>, so HTML `required`
+    // attributes never fire — validate here explicitly.
+    if (targetJoinMode === 'approval_required') {
+      if (!crossStreets.trim()) {
+        toast({ title: "Cross streets required", description: "Please tell your steward what two streets you live near.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+      if (customQuestion && !customAnswer.trim()) {
+        toast({ title: "Answer required", description: "Please answer the community's screening question.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+    }
     
     // Always tag the new user with the community they're signing up from.
     // Fall back to the URL-derived community context so callers that don't
