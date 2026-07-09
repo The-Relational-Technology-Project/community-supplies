@@ -356,9 +356,27 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
                     />
                   </div>
 
+                  {targetJoinMode === 'approval_required' && (
+                    <div>
+                      <Label htmlFor="crossStreetsModal" className="text-sm">
+                        Cross streets <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="crossStreetsModal"
+                        value={crossStreets}
+                        onChange={(e) => setCrossStreets(e.target.value)}
+                        placeholder="e.g. 24th Ave & Noriega St"
+                        className="h-11 text-base"
+                        required
+                      />
+                    </div>
+                  )}
+
                   {customQuestion && (
                     <div>
-                      <Label htmlFor="customAnswerModal" className="text-sm">{customQuestion}</Label>
+                      <Label htmlFor="customAnswerModal" className="text-sm">
+                        {customQuestion} <span className="text-destructive">*</span>
+                      </Label>
                       <Textarea
                         id="customAnswerModal"
                         value={customAnswer}
