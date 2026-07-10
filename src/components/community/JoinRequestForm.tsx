@@ -45,6 +45,7 @@ export function JoinRequestForm() {
   // Load this community's optional custom join question.
   useEffect(() => {
     if (!communityId) return;
+    setQuestionLoaded(false);
     (async () => {
       const { data } = await supabase
         .from("communities")
@@ -52,8 +53,10 @@ export function JoinRequestForm() {
         .eq("id", communityId)
         .maybeSingle();
       setCustomQuestion((data as any)?.custom_join_question ?? null);
+      setQuestionLoaded(true);
     })();
   }, [communityId]);
+
 
 
   const handleSubmit = async (e: React.FormEvent) => {
