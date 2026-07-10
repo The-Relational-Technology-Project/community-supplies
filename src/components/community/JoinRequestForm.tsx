@@ -25,6 +25,7 @@ export function JoinRequestForm() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [customAnswer, setCustomAnswer] = useState("");
   const [customQuestion, setCustomQuestion] = useState<string | null>(null);
+  const [questionLoaded, setQuestionLoaded] = useState(false);
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [captchaQuestion, setCaptchaQuestion] = useState({ question: "", answer: 0 });
   const [loading, setLoading] = useState(false);
@@ -44,6 +45,7 @@ export function JoinRequestForm() {
   // Load this community's optional custom join question.
   useEffect(() => {
     if (!communityId) return;
+    setQuestionLoaded(false);
     (async () => {
       const { data } = await supabase
         .from("communities")
@@ -51,13 +53,26 @@ export function JoinRequestForm() {
         .eq("id", communityId)
         .maybeSingle();
       setCustomQuestion((data as any)?.custom_join_question ?? null);
+      setQuestionLoaded(true);
     })();
   }, [communityId]);
 
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Guard against race: the custom question loads async. If a user submits
+    // before it resolves, the textarea would never render and the answer
+    // would silently save as null. Block submit until we know for sure.
+    if (!questionLoaded) {
+      toast({
+        title: "One moment",
+        description: "Still loading the community's questions — please try again in a second.",
+      });
+      return;
+    }
+
     // Validate captcha
     if (parseInt(captchaAnswer) !== captchaQuestion.answer) {
       toast({
@@ -67,6 +82,7 @@ export function JoinRequestForm() {
       });
       return;
     }
+
 
     setLoading(true);
 
@@ -325,8 +341,8 @@ export function JoinRequestForm() {
             />
           </div>
           
-          <Button type="submit" disabled={loading} className="w-full h-11 sm:h-10 text-base mt-2">
-            {loading ? "Submitting..." : "Submit Request to Join"}
+          <Button type="submit" disabled={loading || !questionLoaded} className="w-full h-11 sm:h-10 text-base mt-2">
+            {loading ? "Submitting..." : !questionLoaded ? "Loading..." : "Submit Request to Join"}
           </Button>
         </form>
       </CardContent>
