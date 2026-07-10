@@ -341,8 +341,8 @@ export function JoinRequestForm() {
             />
           </div>
           
-          <Button type="submit" disabled={loading} className="w-full h-11 sm:h-10 text-base mt-2">
-            {loading ? "Submitting..." : "Submit Request to Join"}
+          <Button type="submit" disabled={loading || !questionLoaded} className="w-full h-11 sm:h-10 text-base mt-2">
+            {loading ? "Submitting..." : !questionLoaded ? "Loading..." : "Submit Request to Join"}
           </Button>
         </form>
       </CardContent>
