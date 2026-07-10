@@ -61,7 +61,18 @@ export function JoinRequestForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Guard against race: the custom question loads async. If a user submits
+    // before it resolves, the textarea would never render and the answer
+    // would silently save as null. Block submit until we know for sure.
+    if (!questionLoaded) {
+      toast({
+        title: "One moment",
+        description: "Still loading the community's questions — please try again in a second.",
+      });
+      return;
+    }
+
     // Validate captcha
     if (parseInt(captchaAnswer) !== captchaQuestion.answer) {
       toast({
@@ -71,6 +82,7 @@ export function JoinRequestForm() {
       });
       return;
     }
+
 
     setLoading(true);
 
