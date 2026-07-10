@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,9 +24,12 @@ export function JoinThisCommunity({
   const { user } = useAuth();
   const { toast } = useToast();
   const [joinMode, setJoinMode] = useState<"auto" | "approval_required" | null>(null);
+  const [customQuestion, setCustomQuestion] = useState<string | null>(null);
   const [currentCommunityName, setCurrentCommunityName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
+  const [crossStreets, setCrossStreets] = useState("");
+  const [customAnswer, setCustomAnswer] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -31,7 +37,7 @@ export function JoinThisCommunity({
       const [{ data: community }, { data: profile }] = await Promise.all([
         supabase
           .from("communities")
-          .select("join_mode")
+          .select("join_mode, custom_join_question")
           .eq("id", targetCommunityId)
           .maybeSingle(),
         user
@@ -44,6 +50,7 @@ export function JoinThisCommunity({
       ]);
       if (cancelled) return;
       setJoinMode(((community as any)?.join_mode as any) ?? "auto");
+      setCustomQuestion(((community as any)?.custom_join_question as string) ?? null);
       setCurrentCommunityName(((profile as any)?.communities?.name as string) ?? null);
 
       // Detect a pending request already on file for this community
@@ -84,14 +91,27 @@ export function JoinThisCommunity({
     onJoined();
   };
 
-  const handleRequestToJoin = async () => {
+  const handleRequestToJoin = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user) return;
+
+    if (!crossStreets.trim()) {
+      toast({ title: "Cross streets required", description: "Please tell your steward what two streets you live near.", variant: "destructive" });
+      return;
+    }
+    if (customQuestion && !customAnswer.trim()) {
+      toast({ title: "Answer required", description: "Please answer the community's screening question.", variant: "destructive" });
+      return;
+    }
+
     setSubmitting(true);
     const { error } = await fileJoinRequest({
       communityId: targetCommunityId,
       userId: user.id,
       name: user.user_metadata?.name ?? user.email ?? "",
       email: user.email ?? "",
+      crossStreets: crossStreets.trim(),
+      customAnswer: customQuestion ? customAnswer.trim() : null,
     });
     setSubmitting(false);
     if (error) {
@@ -152,19 +172,47 @@ export function JoinThisCommunity({
               get an email once it's approved.
             </p>
           ) : (
-            <>
-              <p className="text-sm text-muted-foreground text-center">
-                {targetCommunityName} requires steward approval. We'll send your request
-                using your existing account.
+            <form onSubmit={handleRequestToJoin} className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {targetCommunityName} requires steward approval. Answer a couple of quick
+                questions and we'll send your request.
               </p>
-              <Button
-                className="w-full"
-                onClick={handleRequestToJoin}
-                disabled={submitting}
-              >
+
+              <div>
+                <Label htmlFor="jtc-cross-streets" className="text-sm">
+                  Cross streets <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="jtc-cross-streets"
+                  value={crossStreets}
+                  onChange={(e) => setCrossStreets(e.target.value)}
+                  placeholder="e.g. 24th Ave & Noriega St"
+                  required
+                  className="h-11 text-base"
+                  autoComplete="street-address"
+                />
+              </div>
+
+              {customQuestion && (
+                <div>
+                  <Label htmlFor="jtc-custom-answer" className="text-sm">
+                    {customQuestion} <span className="text-destructive">*</span>
+                  </Label>
+                  <Textarea
+                    id="jtc-custom-answer"
+                    value={customAnswer}
+                    onChange={(e) => setCustomAnswer(e.target.value)}
+                    rows={3}
+                    required
+                    className="text-base resize-none"
+                  />
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting ? "Sending…" : `Request to join ${targetCommunityName}`}
               </Button>
-            </>
+            </form>
           )}
         </CardContent>
       </Card>
