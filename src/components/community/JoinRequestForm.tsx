@@ -25,6 +25,7 @@ export function JoinRequestForm() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [customAnswer, setCustomAnswer] = useState("");
   const [customQuestion, setCustomQuestion] = useState<string | null>(null);
+  const [questionLoaded, setQuestionLoaded] = useState(false);
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [captchaQuestion, setCaptchaQuestion] = useState({ question: "", answer: 0 });
   const [loading, setLoading] = useState(false);
