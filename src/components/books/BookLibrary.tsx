@@ -16,23 +16,24 @@ export function BookLibrary() {
   const { books, loading } = useBooks();
   const [searchQuery, setSearchQuery] = useState("");
   const [conditionFilter, setConditionFilter] = useState("all");
+  const [availabilityFilter, setAvailabilityFilter] = useState("all");
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
   const filteredBooks = useMemo(() => {
     return books.filter((book) => {
-      // Don't show lent out books
-      if (book.lentOut) return false;
-
       const matchesCondition = conditionFilter === "all" || book.condition === conditionFilter;
+      const matchesAvailability =
+        availabilityFilter === "all" ||
+        (availabilityFilter === "available" ? !book.lentOut : !!book.lentOut);
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch =
         searchQuery === "" ||
         book.title.toLowerCase().includes(searchLower) ||
         (book.author?.toLowerCase().includes(searchLower) ?? false);
 
-      return matchesCondition && matchesSearch;
+      return matchesCondition && matchesAvailability && matchesSearch;
     });
-  }, [books, conditionFilter, searchQuery]);
+  }, [books, conditionFilter, availabilityFilter, searchQuery]);
 
   if (loading) {
     return (
@@ -75,19 +76,34 @@ export function BookLibrary() {
             className="pl-10"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground">Condition:</label>
-          <Select value={conditionFilter} onValueChange={setConditionFilter}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="Any" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Any</SelectItem>
-              <SelectItem value="excellent">Excellent</SelectItem>
-              <SelectItem value="good">Good</SelectItem>
-              <SelectItem value="fair">Fair</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-muted-foreground">Condition:</label>
+            <Select value={conditionFilter} onValueChange={setConditionFilter}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Any" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any</SelectItem>
+                <SelectItem value="excellent">Excellent</SelectItem>
+                <SelectItem value="good">Good</SelectItem>
+                <SelectItem value="fair">Fair</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-muted-foreground">Availability:</label>
+            <Select value={availabilityFilter} onValueChange={setAvailabilityFilter}>
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="Any" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="unavailable">Lent out</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

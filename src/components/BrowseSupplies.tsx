@@ -50,13 +50,11 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
     if (isSpecialCategorySelected) return [];
     
     return supplies.filter((supply) => {
-      // Don't show items that are currently lent out
-      if (supply.lentOut) return false;
-      
       const matchesCategory = categoryFilter === "all" || supply.category === categoryFilter;
       const matchesCondition = conditionFilter === "all" || supply.condition === conditionFilter;
-      const matchesAvailability = availabilityFilter === "all" || 
-        (availabilityFilter === "available" ? supply.dateAvailable : !supply.dateAvailable);
+      const matchesAvailability =
+        availabilityFilter === "all" ||
+        (availabilityFilter === "available" ? !supply.lentOut : !!supply.lentOut);
       const matchesSearch = searchQuery === "" || 
         supply.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         supply.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
