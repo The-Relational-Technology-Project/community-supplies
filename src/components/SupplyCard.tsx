@@ -19,12 +19,21 @@ export function SupplyCard({ supply, onViewContact }: SupplyCardProps) {
   const photoUrl = supply.thumb_url || null;
   const hasPhotos = !!photoUrl || supply.images?.length || supply.image;
   const isGeneratingIllustration = hasPhotos && !supply.illustration_url && !photoUrl;
+  const isLentOut = !!supply.lentOut;
 
   return (
     <Card 
-      className="h-full hover:shadow-sm transition-shadow border-border cursor-pointer"
+      className={cn(
+        "h-full hover:shadow-sm transition-shadow border-border cursor-pointer relative",
+        isLentOut && "opacity-70"
+      )}
       onClick={() => onViewContact(supply)}
     >
+      {isLentOut && (
+        <div className="absolute top-2 right-2 z-10 bg-deep-brown/90 text-white text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-sm shadow-sm">
+          Lent out
+        </div>
+      )}
       <CardContent className="p-0">
         <div className="relative aspect-square bg-white flex items-center justify-center overflow-hidden border border-border">
           {supply.illustration_url ? (
