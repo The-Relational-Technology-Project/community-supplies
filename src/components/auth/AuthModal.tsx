@@ -10,6 +10,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { fileJoinRequest, autoJoinCommunity } from "@/lib/joinCommunity";
 
+type CommunityJoinSettings = {
+  join_mode: "auto" | "approval_required" | null;
+  custom_join_question: string | null;
+};
+
+type ProfileCommunity = {
+  community_id: string | null;
+};
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -34,6 +43,8 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
   const [customAnswer, setCustomAnswer] = useState("");
   const [customQuestion, setCustomQuestion] = useState<string | null>(null);
   const [targetJoinMode, setTargetJoinMode] = useState<string | null>(null);
+  const [communitySettingsLoaded, setCommunitySettingsLoaded] = useState(false);
+  const [communitySettingsError, setCommunitySettingsError] = useState<string | null>(null);
   const { toast } = useToast();
   const { communityId: contextCommunityId, communitySlug, communityName: contextCommunityName } = useCommunity();
 
@@ -62,21 +73,36 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
   // Load target community's custom join question so we can render it in the signup flow.
   useEffect(() => {
     if (mode !== 'signup' || !effectiveCommunityId) return;
+    let cancelled = false;
+    setCommunitySettingsLoaded(false);
+    setCommunitySettingsError(null);
+    setTargetJoinMode(null);
+    setCustomQuestion(null);
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('communities')
         .select('custom_join_question, join_mode')
         .eq('id', effectiveCommunityId)
         .maybeSingle();
-      const jm = (data as any)?.join_mode ?? null;
+      if (cancelled) return;
+      if (error || !data) {
+        setCommunitySettingsError("We couldn't load this community's join questions. Please refresh and try again.");
+        return;
+      }
+      const row = data as CommunityJoinSettings;
+      const jm = row.join_mode ?? null;
       setTargetJoinMode(jm);
       // Only prompt for approval-required communities; auto-join skips review.
       if (jm === 'approval_required') {
-        setCustomQuestion((data as any)?.custom_join_question ?? null);
+        setCustomQuestion(row.custom_join_question ?? null);
       } else {
         setCustomQuestion(null);
       }
+      setCommunitySettingsLoaded(true);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [mode, effectiveCommunityId]);
 
 
@@ -91,7 +117,8 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       .select("community_id")
       .eq("id", user.id)
       .maybeSingle();
-    if ((profile as any)?.community_id === effectiveCommunityId) return;
+    const profileRow = profile as ProfileCommunity | null;
+    if (profileRow?.community_id === effectiveCommunityId) return;
 
     const { data: community } = await supabase
       .from("communities")
@@ -99,7 +126,8 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       .eq("id", effectiveCommunityId)
       .maybeSingle();
 
-    if ((community as any)?.join_mode === "auto") {
+    const communityRow = community as Pick<CommunityJoinSettings, "join_mode"> | null;
+    if (communityRow?.join_mode === "auto") {
       const { error: rpcError } = await autoJoinCommunity(effectiveCommunityId);
       if (!rpcError) {
         toast({
@@ -108,22 +136,28 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
         });
       }
     } else {
-      // approval_required — file a pending join request and notify stewards.
-      await fileJoinRequest({
-        communityId: effectiveCommunityId,
-        userId: user.id,
-        name: user.user_metadata?.name ?? user.email ?? "",
-        email: user.email ?? "",
-      });
+      // approval_required — require the explicit join form path so we do not
+      // create a request missing cross streets or a custom-question answer.
       toast({
-        title: "Request sent",
-        description: `A ${effectiveCommunityName ?? "community"} steward will review your request.`,
+        title: `Request to join ${effectiveCommunityName ?? "this community"}`,
+        description: "Please answer the community questions on the Join screen before we send your request.",
       });
+      return;
     }
   };
 
   const handleLogin = async () => {
     setLoading(true);
+
+    if (mode === 'signup' && effectiveCommunityId && !communitySettingsLoaded) {
+      toast({
+        title: communitySettingsError ? "Questions didn't load" : "One moment",
+        description: communitySettingsError ?? "Still loading this community's questions — please try again in a second.",
+        variant: communitySettingsError ? "destructive" : "default",
+      });
+      setLoading(false);
+      return;
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       toast({ title: "Login failed", description: error.message, variant: "destructive" });
@@ -388,6 +422,12 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
                     </div>
                   )}
 
+                  {communitySettingsError && (
+                    <p className="text-sm text-destructive" role="alert">
+                      {communitySettingsError}
+                    </p>
+                  )}
+
 
                   
                   {/* Honeypot field - hidden from users, only bots fill this */}
@@ -469,10 +509,10 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
               ) : (
                 <Button 
                   onClick={mode === 'login' ? handleLogin : handleSignup} 
-                  disabled={loading} 
+                  disabled={loading || (mode === 'signup' && !!effectiveCommunityId && !communitySettingsLoaded)} 
                   className="w-full h-11"
                 >
-                  {loading ? "Loading..." : mode === 'login' ? 'Sign In' : 'Create Account'}
+                  {loading ? "Loading..." : mode === 'login' ? 'Sign In' : !communitySettingsLoaded && effectiveCommunityId ? 'Loading...' : 'Create Account'}
                 </Button>
               )}
               

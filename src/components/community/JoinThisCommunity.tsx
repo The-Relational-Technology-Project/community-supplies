@@ -10,6 +10,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { fileJoinRequest, autoJoinCommunity } from "@/lib/joinCommunity";
 import { Users } from "lucide-react";
 
+type CommunityJoinSettings = {
+  join_mode: "auto" | "approval_required" | null;
+  custom_join_question: string | null;
+};
+
+type ProfileWithCommunity = {
+  communities?: { name: string } | null;
+};
+
 interface JoinThisCommunityProps {
   targetCommunityId: string;
   targetCommunityName: string;
@@ -30,11 +39,17 @@ export function JoinThisCommunity({
   const [requestSent, setRequestSent] = useState(false);
   const [crossStreets, setCrossStreets] = useState("");
   const [customAnswer, setCustomAnswer] = useState("");
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setJoinMode(null);
+    setCustomQuestion(null);
+    setSettingsLoaded(false);
+    setSettingsError(null);
     (async () => {
-      const [{ data: community }, { data: profile }] = await Promise.all([
+      const [{ data: community, error: communityError }, { data: profile }] = await Promise.all([
         supabase
           .from("communities")
           .select("join_mode, custom_join_question")
@@ -46,12 +61,19 @@ export function JoinThisCommunity({
               .select("community_id, communities!inner(name)")
               .eq("id", user.id)
               .maybeSingle()
-          : Promise.resolve({ data: null } as any),
+          : Promise.resolve({ data: null, error: null }),
       ]);
       if (cancelled) return;
-      setJoinMode(((community as any)?.join_mode as any) ?? "auto");
-      setCustomQuestion(((community as any)?.custom_join_question as string) ?? null);
-      setCurrentCommunityName(((profile as any)?.communities?.name as string) ?? null);
+      if (communityError || !community) {
+        setSettingsError("We couldn't load this community's join questions. Please refresh and try again.");
+        return;
+      }
+      const communityRow = community as CommunityJoinSettings;
+      const profileRow = profile as ProfileWithCommunity | null;
+      setJoinMode(communityRow.join_mode ?? "auto");
+      setCustomQuestion(communityRow.custom_join_question ?? null);
+      setCurrentCommunityName(profileRow?.communities?.name ?? null);
+      setSettingsLoaded(true);
 
       // Detect a pending request already on file for this community
       if (user) {
@@ -94,6 +116,15 @@ export function JoinThisCommunity({
   const handleRequestToJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    if (!settingsLoaded) {
+      toast({
+        title: settingsError ? "Questions didn't load" : "One moment",
+        description: settingsError ?? "Still loading this community's questions — please try again in a second.",
+        variant: settingsError ? "destructive" : "default",
+      });
+      return;
+    }
 
     if (!crossStreets.trim()) {
       toast({ title: "Cross streets required", description: "Please tell your steward what two streets you live near.", variant: "destructive" });
@@ -150,7 +181,9 @@ export function JoinThisCommunity({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {joinMode === null ? (
+          {settingsError ? (
+            <p className="text-sm text-destructive text-center" role="alert">{settingsError}</p>
+          ) : joinMode === null ? (
             <p className="text-sm text-muted-foreground text-center">Loading…</p>
           ) : joinMode === "auto" ? (
             <>
@@ -209,8 +242,8 @@ export function JoinThisCommunity({
                 </div>
               )}
 
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? "Sending…" : `Request to join ${targetCommunityName}`}
+              <Button type="submit" className="w-full" disabled={submitting || !settingsLoaded}>
+                {submitting ? "Sending…" : !settingsLoaded ? "Loading…" : `Request to join ${targetCommunityName}`}
               </Button>
             </form>
           )}

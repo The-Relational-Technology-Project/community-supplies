@@ -13,6 +13,10 @@ import { fileJoinRequest } from "@/lib/joinCommunity";
 import { CheckCircle2, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 
+type CommunityQuestionRow = {
+  custom_join_question: string | null;
+};
+
 
 export function JoinRequestForm() {
   const [submitted, setSubmitted] = useState(false);
@@ -26,6 +30,7 @@ export function JoinRequestForm() {
   const [customAnswer, setCustomAnswer] = useState("");
   const [customQuestion, setCustomQuestion] = useState<string | null>(null);
   const [questionLoaded, setQuestionLoaded] = useState(false);
+  const [questionLoadError, setQuestionLoadError] = useState<string | null>(null);
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [captchaQuestion, setCaptchaQuestion] = useState({ question: "", answer: 0 });
   const [loading, setLoading] = useState(false);
@@ -45,16 +50,29 @@ export function JoinRequestForm() {
   // Load this community's optional custom join question.
   useEffect(() => {
     if (!communityId) return;
+    let cancelled = false;
     setQuestionLoaded(false);
+    setQuestionLoadError(null);
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("communities")
         .select("custom_join_question")
         .eq("id", communityId)
         .maybeSingle();
-      setCustomQuestion((data as any)?.custom_join_question ?? null);
+      if (cancelled) return;
+      if (error) {
+        setCustomQuestion(null);
+        setQuestionLoadError("We couldn't load this community's join questions. Please refresh and try again.");
+        setQuestionLoaded(false);
+        return;
+      }
+      const row = data as CommunityQuestionRow | null;
+      setCustomQuestion(row?.custom_join_question ?? null);
       setQuestionLoaded(true);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [communityId]);
 
 
@@ -67,8 +85,9 @@ export function JoinRequestForm() {
     // would silently save as null. Block submit until we know for sure.
     if (!questionLoaded) {
       toast({
-        title: "One moment",
-        description: "Still loading the community's questions — please try again in a second.",
+        title: questionLoadError ? "Questions didn't load" : "One moment",
+        description: questionLoadError ?? "Still loading the community's questions — please try again in a second.",
+        variant: questionLoadError ? "destructive" : "default",
       });
       return;
     }
@@ -325,6 +344,12 @@ export function JoinRequestForm() {
             </div>
           )}
 
+          {questionLoadError && (
+            <p className="text-sm text-destructive" role="alert">
+              {questionLoadError}
+            </p>
+          )}
+
 
           
           <div>
@@ -342,7 +367,7 @@ export function JoinRequestForm() {
           </div>
           
           <Button type="submit" disabled={loading || !questionLoaded} className="w-full h-11 sm:h-10 text-base mt-2">
-            {loading ? "Submitting..." : !questionLoaded ? "Loading..." : "Submit Request to Join"}
+            {loading ? "Submitting..." : questionLoadError ? "Questions unavailable" : !questionLoaded ? "Loading..." : "Submit Request to Join"}
           </Button>
         </form>
       </CardContent>
