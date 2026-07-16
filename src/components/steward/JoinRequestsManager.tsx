@@ -182,7 +182,7 @@ export function JoinRequestsManager() {
   const isApproved = (status: string) => status === 'approved' || status === 'vouched';
 
   const hasDetail = (r: JoinRequest) =>
-    !!(r.intro || r.connection_context || r.cross_streets || r.referral_source || r.custom_answer);
+    !!(customQuestion || r.intro || r.connection_context || r.cross_streets || r.referral_source || r.custom_answer);
 
   return (
     <Table>
@@ -275,10 +275,10 @@ export function JoinRequestsManager() {
                 <TableRow>
                   <TableCell colSpan={6} className="bg-muted/30">
                     <div className="space-y-2 py-2 text-sm">
-                      {customQuestion && request.custom_answer && (
+                      {customQuestion && (
                         <div>
                           <p className="text-xs font-medium text-muted-foreground">{customQuestion}</p>
-                          <p>{request.custom_answer}</p>
+                          <p>{request.custom_answer?.trim() || "No answer recorded"}</p>
                         </div>
                       )}
                       {request.intro && (
