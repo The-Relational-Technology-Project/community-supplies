@@ -82,7 +82,8 @@ export function JoinRequestsManager() {
       } as never);
       if (error) throw error;
 
-      const row = (Array.isArray(data) ? data[0] : data) as ApproveJoinRequestResult | null;
+      const rpcRows = (data ?? []) as ApproveJoinRequestResult[];
+      const row = Array.isArray(rpcRows) ? rpcRows[0] : null;
       const communityName = row?.community_name ?? undefined;
       const communitySlug = row?.community_slug ?? undefined;
 
