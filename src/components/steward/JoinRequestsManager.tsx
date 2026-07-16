@@ -23,6 +23,13 @@ interface JoinRequest {
   user_id: string | null;
 }
 
+type CustomQuestionRow = {
+  custom_join_question: string | null;
+};
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "Something went wrong.";
+
 export function JoinRequestsManager() {
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,10 +52,10 @@ export function JoinRequestsManager() {
       if (error) throw error;
       setRequests((data || []) as JoinRequest[]);
 
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error loading join requests",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {
@@ -65,9 +72,9 @@ export function JoinRequestsManager() {
       // another community (which the old client-side UPDATE couldn't do
       // because RLS on profiles evaluates against the row's current
       // community_id).
-      const { data, error } = await supabase.rpc('approve_join_request' as any, {
+      const { data, error } = await supabase.rpc('approve_join_request' as never, {
         p_request_id: request.id,
-      });
+      } as never);
       if (error) throw error;
 
       const row = Array.isArray(data) ? data[0] : data;
@@ -95,10 +102,10 @@ export function JoinRequestsManager() {
       });
 
       fetchRequests();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error approving request",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {
@@ -109,9 +116,9 @@ export function JoinRequestsManager() {
   const handleReject = async (request: JoinRequest) => {
     setProcessingId(request.id);
     try {
-      const { error } = await supabase.rpc('reject_join_request' as any, {
+      const { error } = await supabase.rpc('reject_join_request' as never, {
         p_request_id: request.id,
-      });
+      } as never);
       if (error) throw error;
 
       toast({
@@ -120,10 +127,10 @@ export function JoinRequestsManager() {
       });
 
       fetchRequests();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error rejecting request",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {
@@ -135,14 +142,14 @@ export function JoinRequestsManager() {
     if (!confirm(`Dismiss this duplicate request from ${request.name}? Their membership is not affected — only this extra row is removed.`)) return;
     setProcessingId(request.id);
     try {
-      const { error } = await supabase.rpc('dismiss_join_request' as any, {
+      const { error } = await supabase.rpc('dismiss_join_request' as never, {
         p_request_id: request.id,
-      });
+      } as never);
       if (error) throw error;
       toast({ title: "Dismissed", description: "The duplicate row was removed." });
       fetchRequests();
-    } catch (error: any) {
-      toast({ title: "Couldn't dismiss", description: error.message, variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Couldn't dismiss", description: getErrorMessage(error), variant: "destructive" });
     } finally {
       setProcessingId(null);
     }
@@ -156,7 +163,10 @@ export function JoinRequestsManager() {
         .select('custom_join_question')
         .eq('id', communityId)
         .maybeSingle()
-        .then(({ data }) => setCustomQuestion((data as any)?.custom_join_question ?? null));
+        .then(({ data }) => {
+          const row = data as CustomQuestionRow | null;
+          setCustomQuestion(row?.custom_join_question ?? null);
+        });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communityId]);

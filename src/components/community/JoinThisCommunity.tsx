@@ -10,6 +10,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { fileJoinRequest, autoJoinCommunity } from "@/lib/joinCommunity";
 import { Users } from "lucide-react";
 
+type CommunityJoinSettings = {
+  join_mode: "auto" | "approval_required" | null;
+  custom_join_question: string | null;
+};
+
+type ProfileWithCommunity = {
+  communities?: { name: string } | null;
+};
+
 interface JoinThisCommunityProps {
   targetCommunityId: string;
   targetCommunityName: string;
@@ -52,16 +61,18 @@ export function JoinThisCommunity({
               .select("community_id, communities!inner(name)")
               .eq("id", user.id)
               .maybeSingle()
-          : Promise.resolve({ data: null } as any),
+          : Promise.resolve({ data: null, error: null }),
       ]);
       if (cancelled) return;
       if (communityError || !community) {
         setSettingsError("We couldn't load this community's join questions. Please refresh and try again.");
         return;
       }
-      setJoinMode(((community as any)?.join_mode as any) ?? "auto");
-      setCustomQuestion(((community as any)?.custom_join_question as string) ?? null);
-      setCurrentCommunityName(((profile as any)?.communities?.name as string) ?? null);
+      const communityRow = community as CommunityJoinSettings;
+      const profileRow = profile as ProfileWithCommunity | null;
+      setJoinMode(communityRow.join_mode ?? "auto");
+      setCustomQuestion(communityRow.custom_join_question ?? null);
+      setCurrentCommunityName(profileRow?.communities?.name ?? null);
       setSettingsLoaded(true);
 
       // Detect a pending request already on file for this community

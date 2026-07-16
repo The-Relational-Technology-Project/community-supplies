@@ -13,6 +13,10 @@ import { fileJoinRequest } from "@/lib/joinCommunity";
 import { CheckCircle2, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 
+type CommunityQuestionRow = {
+  custom_join_question: string | null;
+};
+
 
 export function JoinRequestForm() {
   const [submitted, setSubmitted] = useState(false);
@@ -62,7 +66,8 @@ export function JoinRequestForm() {
         setQuestionLoaded(false);
         return;
       }
-      setCustomQuestion((data as any)?.custom_join_question ?? null);
+      const row = data as CommunityQuestionRow | null;
+      setCustomQuestion(row?.custom_join_question ?? null);
       setQuestionLoaded(true);
     })();
     return () => {

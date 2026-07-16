@@ -10,6 +10,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { fileJoinRequest, autoJoinCommunity } from "@/lib/joinCommunity";
 
+type CommunityJoinSettings = {
+  join_mode: "auto" | "approval_required" | null;
+  custom_join_question: string | null;
+};
+
+type ProfileCommunity = {
+  community_id: string | null;
+};
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -80,11 +89,12 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
         setCommunitySettingsError("We couldn't load this community's join questions. Please refresh and try again.");
         return;
       }
-      const jm = (data as any)?.join_mode ?? null;
+      const row = data as CommunityJoinSettings;
+      const jm = row.join_mode ?? null;
       setTargetJoinMode(jm);
       // Only prompt for approval-required communities; auto-join skips review.
       if (jm === 'approval_required') {
-        setCustomQuestion((data as any)?.custom_join_question ?? null);
+        setCustomQuestion(row.custom_join_question ?? null);
       } else {
         setCustomQuestion(null);
       }
@@ -107,7 +117,8 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       .select("community_id")
       .eq("id", user.id)
       .maybeSingle();
-    if ((profile as any)?.community_id === effectiveCommunityId) return;
+    const profileRow = profile as ProfileCommunity | null;
+    if (profileRow?.community_id === effectiveCommunityId) return;
 
     const { data: community } = await supabase
       .from("communities")
@@ -115,7 +126,8 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       .eq("id", effectiveCommunityId)
       .maybeSingle();
 
-    if ((community as any)?.join_mode === "auto") {
+    const communityRow = community as Pick<CommunityJoinSettings, "join_mode"> | null;
+    if (communityRow?.join_mode === "auto") {
       const { error: rpcError } = await autoJoinCommunity(effectiveCommunityId);
       if (!rpcError) {
         toast({
@@ -131,18 +143,6 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
         description: "Please answer the community questions on the Join screen before we send your request.",
       });
       return;
-      /*
-      await fileJoinRequest({
-        communityId: effectiveCommunityId,
-        userId: user.id,
-        name: user.user_metadata?.name ?? user.email ?? "",
-        email: user.email ?? "",
-      });
-      toast({
-        title: "Request sent",
-        description: `A ${effectiveCommunityName ?? "community"} steward will review your request.`,
-      });
-      */
     }
   };
 
