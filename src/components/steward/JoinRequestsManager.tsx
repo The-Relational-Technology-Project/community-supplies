@@ -27,6 +27,11 @@ type CustomQuestionRow = {
   custom_join_question: string | null;
 };
 
+type ApproveJoinRequestResult = {
+  community_name?: string | null;
+  community_slug?: string | null;
+};
+
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Something went wrong.";
 
@@ -77,9 +82,9 @@ export function JoinRequestsManager() {
       } as never);
       if (error) throw error;
 
-      const row = Array.isArray(data) ? data[0] : data;
-      const communityName = row?.community_name as string | undefined;
-      const communitySlug = row?.community_slug as string | undefined;
+      const row = (Array.isArray(data) ? data[0] : data) as ApproveJoinRequestResult | null;
+      const communityName = row?.community_name ?? undefined;
+      const communitySlug = row?.community_slug ?? undefined;
 
       try {
         if (communityName && communitySlug) {
