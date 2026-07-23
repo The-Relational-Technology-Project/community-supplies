@@ -1,34 +1,41 @@
-## What happened
+# Valerie's join issue — diagnosis + fix
 
-Caitlin's latest request came through without an answer because the public join form was trying to fetch `communities.custom_join_question` while the user was anonymous. The database currently allows anonymous users to read public community metadata like slug/name/join mode, but **not** the `custom_join_question` column. That request returns `401`, so the textarea never renders and the request is submitted with `custom_answer = null`.
+## What the data shows
 
-This explains Quiana's latest CCNC request:
-- `cross_streets` populated
-- `referral_source = community_member`
-- `custom_answer = null`
-- live preview shows the CCNC join form without the custom question
-- network trace shows `401` on `custom_join_question`
+Three auth accounts exist for Valerie:
 
-## Plan
+| Email | Profile community | Status |
+|---|---|---|
+| `vcsloane@yahoo.com` (the one she's writing from) | Sunset & Richmond SF | pending |
+| `vcsloane@rockisland.com` | Sunset & Richmond SF | pending |
+| `valerie.kamen84@gmail.com` | Hell's Kitchen | active |
 
-1. **Fix public read access for the question**
-   - Add a narrowly-scoped database migration granting anonymous read access to `communities.custom_join_question`.
-   - This is not PII; it is a steward-authored screening prompt already intended to be shown before signup.
-   - Keep existing RLS intact.
+**No join_requests rows exist for any of these emails.** She never made it through a CCNC-scoped join form — both `vcsloane@*` accounts were created against the bare domain (`/`), which pre-fix defaulted new signups to Sunset and left them `pending` with no request on file for stewards to approve.
 
-2. **Make the form fail closed if the question cannot load**
-   - Update `JoinRequestForm` so if the custom-question lookup errors, it does **not** silently proceed.
-   - Show a clear inline/error toast asking the user to retry, rather than submitting an incomplete application.
+That matches her symptoms exactly:
+- "Magic link is always SF" — her account's `community_id` is Sunset, so the post-login redirect resolves to `/c/sunset-richmond`. Magic links themselves are just email links; the destination is determined by the profile.
+- "Password reset doesn't arrive" — she likely signed up passwordless (magic link only), so `resetPasswordForEmail` for an account with no password can be silently dropped by Supabase's rate limiter, or she's typing an email variant she never actually registered.
+- Cookies/cache are **not** the problem. Clearing them won't change the server-side profile pinning.
 
-3. **Harden the logged-in join path the same way**
-   - Update `JoinThisCommunity` to track whether the community settings loaded successfully.
-   - For approval-required communities, do not allow submit until join mode + custom question have loaded.
+## Fix (data-only, no code changes)
 
-4. **Make Caitlin's steward view clearer**
-   - Update `JoinRequestsManager` so it always shows the custom question row in expanded details when a community has one.
-   - If the stored answer is missing, show “No answer recorded” instead of omitting the field entirely. This makes legacy broken requests obvious rather than invisible.
+1. Move `vcsloane@yahoo.com` profile → Columbia City Neighbors Club, set `membership_status = 'active'`, set `vouched_at = now()`.
+2. Same for `vcsloane@rockisland.com` (so whichever email she remembers works). If Caitlin would rather only admit one, we can skip the rockisland one — flag if so.
+3. Leave `valerie.kamen84@gmail.com` alone (active in Hell's Kitchen — unrelated).
+4. Reply to Caitlin: it's not a cache issue; Valerie's account was stuck on Sunset from a pre-fix signup. She's now moved to CCNC. She should sign in with `vcsloane@yahoo.com` (or `vcsloane@rockisland.com`) via magic link and will land in CCNC. If password reset still fails, that's because she never set a password — magic link is the correct path.
 
-5. **Verify**
-   - Re-open `/c/columbia-city-neighbors-club` anonymously and confirm the join dialog displays “What is a Columbia City Neighbors Club event you have attended?”
-   - Confirm the relevant Supabase request no longer returns `401`.
-   - Existing rows with `custom_answer = null` cannot be recovered, but new requests should capture the response.
+## Technical details
+
+Migration:
+```sql
+UPDATE public.profiles
+   SET community_id = '635e40a3-8446-4183-81e6-bce5f24b3ea2',
+       membership_status = 'active',
+       vouched_at = COALESCE(vouched_at, now())
+ WHERE id IN (
+   '56a53265-862d-448d-8bb1-f383fe9055d2', -- yahoo
+   '08c61860-e9aa-44ef-aa25-5435f89c3dbd'  -- rockisland
+ );
+```
+
+No app code changes — the earlier fixes (removed Sunset default for new signups, slug-scoped join flow, `emailRedirectTo` per community) already prevent this pattern going forward. This is cleanup for accounts stuck from before those landed.
