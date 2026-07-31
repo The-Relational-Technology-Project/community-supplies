@@ -277,6 +277,14 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
               {filteredSupplies.length === 0 ? (
                 <div className="text-center py-16">
                   <p className="text-lg text-muted-foreground">No supplies found matching your criteria.</p>
+                  {onRequestItem && (
+                    <div className="mt-4">
+                      <Button variant="outline" onClick={() => onRequestItem(searchQuery)}>
+                        <MessageSquarePlus className="mr-2 h-4 w-4" />
+                        Ask the community for this
+                      </Button>
+                    </div>
+                  )}
                   <CrossCommunityResults
                     results={crossResults}
                     isSearching={isCrossSearching}
