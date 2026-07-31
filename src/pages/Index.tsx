@@ -8,6 +8,8 @@ import { LandingPage } from "@/components/LandingPage";
 import { BrowseSupplies } from "@/components/BrowseSupplies";
 import { AddSupply } from "@/components/AddSupply";
 import { BulkAddSupplies } from "@/components/BulkAddSupplies";
+import { RequestBoard } from "@/components/requests/RequestBoard";
+import type { ItemRequest } from "@/hooks/useItemRequests";
 import { StewardOnboarding } from "@/components/community/StewardOnboarding";
 import { JoinThisCommunity } from "@/components/community/JoinThisCommunity";
 
