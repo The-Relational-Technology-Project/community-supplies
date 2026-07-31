@@ -1,6 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { CommunityOverview } from "./CommunityOverview";
 import { SupplyRequestsManager } from "./SupplyRequestsManager";
 import { JoinRequestsManager } from "./JoinRequestsManager";
@@ -8,11 +8,13 @@ import { JoinModeToggle } from "./JoinModeToggle";
 import { StewardWelcomeBatch } from "./StewardWelcomeBatch";
 import { CommunityAiSettings } from "./CommunityAiSettings";
 import { CustomJoinQuestion } from "./CustomJoinQuestion";
+import { RequestBoard } from "@/components/requests/RequestBoard";
 import { useCommunity } from "@/contexts/CommunityContext";
-import { Users, MessageSquare, UserPlus, ArrowLeft, User } from "lucide-react";
+import { Users, MessageSquare, MessageSquarePlus, UserPlus, ArrowLeft, User } from "lucide-react";
 
 export function CommunityStewardDashboard() {
   const { communitySlug } = useCommunity();
+  const navigate = useNavigate();
   const communityHome = communitySlug ? `/c/${communitySlug}` : "/";
   const profileHome = communitySlug ? `/c/${communitySlug}/profile` : "/profile";
   return (
