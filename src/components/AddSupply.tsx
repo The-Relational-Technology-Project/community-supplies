@@ -258,7 +258,21 @@ export function AddSupply() {
         }
       });
 
-      toast.success("Item added!");
+      // If this item was added in answer to a Request Board post, close the
+      // request and let the requester know.
+      if (fulfillRequest?.id) {
+        try {
+          await fulfillItemRequest(fulfillRequest.id, supplyId);
+          toast.success("Item added — the neighbor who asked has been notified!");
+        } catch (fulfillErr: any) {
+          console.error('[AddSupply] fulfill request failed', fulfillErr);
+          toast.message("Item added, but we couldn't mark the request as fulfilled.", {
+            description: fulfillErr?.message,
+          });
+        }
+      } else {
+        toast.success("Item added!");
+      }
 
       
       // Reset form but keep location data
