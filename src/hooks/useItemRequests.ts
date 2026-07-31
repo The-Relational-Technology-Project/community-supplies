@@ -96,14 +96,11 @@ export async function deleteItemRequest(requestId: string) {
  * requester. Safe to call after a successful supply insert.
  */
 export async function fulfillItemRequest(requestId: string, supplyId: string) {
-  const { data, error } = await supabase.rpc("fulfill_item_request", {
+  const { error } = await supabase.rpc("fulfill_item_request", {
     p_request_id: requestId,
     p_supply_id: supplyId,
   });
   if (error) throw error;
-
-  const row = Array.isArray(data) ? (data[0] as any) : (data as any);
-  if (!row?.requester_email) return;
 
   const { error: emailError } = await supabase.functions.invoke(
     "send-request-fulfilled",
