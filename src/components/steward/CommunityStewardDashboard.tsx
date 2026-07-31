@@ -52,6 +52,10 @@ export function CommunityStewardDashboard() {
             <MessageSquare className="h-4 w-4" />
             Supply Requests
           </TabsTrigger>
+          <TabsTrigger value="item-requests" className="gap-2">
+            <MessageSquarePlus className="h-4 w-4" />
+            Request Board
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="members">
           <CommunityOverview />
@@ -61,6 +65,12 @@ export function CommunityStewardDashboard() {
         </TabsContent>
         <TabsContent value="requests">
           <SupplyRequestsManager />
+        </TabsContent>
+        <TabsContent value="item-requests">
+          <RequestBoard
+            isSteward
+            onFulfill={() => navigate(`${communityHome}?tab=add`)}
+          />
         </TabsContent>
       </Tabs>
     </div>
