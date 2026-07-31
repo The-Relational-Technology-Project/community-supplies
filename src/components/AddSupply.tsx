@@ -337,6 +337,21 @@ export function AddSupply({ fulfillRequest = null, onDone }: AddSupplyProps = {}
           </p>
         </div>
 
+        {fulfillRequest && (
+          <div className="mb-6 border border-border bg-accent/10 rounded-sm p-4">
+            <p className="text-sm text-deep-brown">
+              You're answering a request for{" "}
+              <span className="font-semibold">{fulfillRequest.title}</span>. When
+              you save, the neighbor who asked gets an email.
+            </p>
+            {fulfillRequest.note && (
+              <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">
+                "{fulfillRequest.note}"
+              </p>
+            )}
+          </div>
+        )}
+
         {!showForm ? (
           <div className="bg-card border border-border rounded-sm p-12">
             <div className="text-center space-y-6">
