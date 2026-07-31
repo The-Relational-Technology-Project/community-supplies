@@ -12,8 +12,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { compressFile } from "@/lib/imageCompression";
 import { categories } from "@/data/categories";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { fulfillItemRequest, type ItemRequest } from "@/hooks/useItemRequests";
 
-export function AddSupply() {
+interface AddSupplyProps {
+  /** When set, this item is being shared in answer to a Request Board post. */
+  fulfillRequest?: Pick<ItemRequest, "id" | "title" | "category" | "note"> | null;
+  onDone?: () => void;
+}
+
+export function AddSupply({ fulfillRequest = null, onDone }: AddSupplyProps = {}) {
   const navigate = useNavigate();
   const { communityId, communitySlug, aiFeaturesEnabled } = useCommunity();
   const [user, setUser] = useState<any>(null);
