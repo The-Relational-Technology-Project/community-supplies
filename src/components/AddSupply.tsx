@@ -311,7 +311,11 @@ export function AddSupply({ fulfillRequest = null, onDone }: AddSupplyProps = {}
       setUploadedImage("");
       setShowForm(false);
       
-      navigate(`/c/${communitySlug}?tab=browse`);
+      if (onDone) {
+        onDone();
+      } else {
+        navigate(`/c/${communitySlug}?tab=browse`);
+      }
     } catch (error: any) {
       console.error('Error adding supply:', error);
       toast.error(error.message || "Failed to add item. Please try again.");
