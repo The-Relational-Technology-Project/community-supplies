@@ -746,6 +746,22 @@ export type Database = {
           intl_label: string
         }[]
       }
+      get_item_requests: {
+        Args: { p_community_id: string }
+        Returns: {
+          category: string
+          created_at: string
+          fulfilled_at: string
+          fulfilled_supply_id: string
+          fulfilled_supply_name: string
+          id: string
+          note: string
+          requester_id: string
+          requester_name: string
+          status: string
+          title: string
+        }[]
+      }
       get_public_illustrations:
         | {
             Args: never
