@@ -150,13 +150,39 @@ const Index = () => {
       case 'browse':
         return (
           <AuthGuard>
-            <BrowseSupplies searchQuery={searchQuery} />
+            <BrowseSupplies
+              searchQuery={searchQuery}
+              onRequestItem={(prefill) => {
+                setRequestPrefill(prefill);
+                setOpenNewRequest(true);
+                setActiveTab('requests');
+              }}
+            />
+          </AuthGuard>
+        );
+      case 'requests':
+        return (
+          <AuthGuard>
+            <RequestBoard
+              openNewOnMount={openNewRequest}
+              defaultTitle={requestPrefill}
+              onFulfill={(request) => {
+                setFulfillRequest(request);
+                setActiveTab('add');
+              }}
+            />
           </AuthGuard>
         );
       case 'add':
         return (
           <AuthGuard>
-            <AddSupply />
+            <AddSupply
+              fulfillRequest={fulfillRequest}
+              onDone={fulfillRequest ? () => {
+                setFulfillRequest(null);
+                setActiveTab('requests');
+              } : undefined}
+            />
           </AuthGuard>
         );
       case 'bulk-add':
