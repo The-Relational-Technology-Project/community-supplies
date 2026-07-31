@@ -760,6 +760,19 @@ export type Database = {
           title: string
         }[]
       }
+      get_my_community_location: {
+        Args: { p_community_id: string }
+        Returns: {
+          coarse_latitude: number
+          coarse_longitude: number
+          discoverable: boolean
+          join_mode: string
+          latitude: number
+          longitude: number
+          public_location_label: string
+          zip_code: string
+        }[]
+      }
       get_public_illustrations:
         | {
             Args: never
