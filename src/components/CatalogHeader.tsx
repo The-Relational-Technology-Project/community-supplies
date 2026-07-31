@@ -92,6 +92,9 @@ export const CatalogHeader = ({ onSearch, searchQuery = "", onNavigate }: Catalo
               <DropdownMenuItem onClick={() => onNavigate?.("bulk-add")}>
                 Bulk add
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onNavigate?.("requests")}>
+                Request Board
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           {user ? <UserProfile /> : <AuthButtons onSuccess={() => onNavigate?.('browse')} />}
@@ -110,6 +113,12 @@ export const CatalogHeader = ({ onSearch, searchQuery = "", onNavigate }: Catalo
             variant="outline"
           >
             Bulk Add
+          </Button>
+          <Button
+            onClick={() => onNavigate?.("requests")}
+            variant="ghost"
+          >
+            Requests
           </Button>
         </div>
 

@@ -686,8 +686,6 @@ export type Database = {
         Returns: {
           community_slug: string
           request_title: string
-          requester_email: string
-          requester_name: string
         }[]
       }
       get_anonymous_pins: {

@@ -8,6 +8,8 @@ import { LandingPage } from "@/components/LandingPage";
 import { BrowseSupplies } from "@/components/BrowseSupplies";
 import { AddSupply } from "@/components/AddSupply";
 import { BulkAddSupplies } from "@/components/BulkAddSupplies";
+import { RequestBoard } from "@/components/requests/RequestBoard";
+import type { ItemRequest } from "@/hooks/useItemRequests";
 import { StewardOnboarding } from "@/components/community/StewardOnboarding";
 import { JoinThisCommunity } from "@/components/community/JoinThisCommunity";
 
@@ -27,6 +29,9 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [membershipChecked, setMembershipChecked] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const [fulfillRequest, setFulfillRequest] = useState<ItemRequest | null>(null);
+  const [requestPrefill, setRequestPrefill] = useState("");
+  const [openNewRequest, setOpenNewRequest] = useState(false);
 
   // On root `/`: if the logged-in user has a real profile community, send them to /c/<slug>.
   // Skips the Sunset fallback (hasProfileCommunity is false in that case).
@@ -77,7 +82,7 @@ const Index = () => {
   // Read URL params once on mount
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['browse', 'add', 'bulk-add', 'steward'].includes(tabParam)) {
+    if (tabParam && ['browse', 'add', 'bulk-add', 'steward', 'requests'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
     const onboardingParam = searchParams.get('onboarding');
@@ -150,13 +155,39 @@ const Index = () => {
       case 'browse':
         return (
           <AuthGuard>
-            <BrowseSupplies searchQuery={searchQuery} />
+            <BrowseSupplies
+              searchQuery={searchQuery}
+              onRequestItem={(prefill) => {
+                setRequestPrefill(prefill);
+                setOpenNewRequest(true);
+                setActiveTab('requests');
+              }}
+            />
+          </AuthGuard>
+        );
+      case 'requests':
+        return (
+          <AuthGuard>
+            <RequestBoard
+              openNewOnMount={openNewRequest}
+              defaultTitle={requestPrefill}
+              onFulfill={(request) => {
+                setFulfillRequest(request);
+                setActiveTab('add');
+              }}
+            />
           </AuthGuard>
         );
       case 'add':
         return (
           <AuthGuard>
-            <AddSupply />
+            <AddSupply
+              fulfillRequest={fulfillRequest}
+              onDone={fulfillRequest ? () => {
+                setFulfillRequest(null);
+                setActiveTab('requests');
+              } : undefined}
+            />
           </AuthGuard>
         );
       case 'bulk-add':

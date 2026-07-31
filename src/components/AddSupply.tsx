@@ -12,8 +12,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { compressFile } from "@/lib/imageCompression";
 import { categories } from "@/data/categories";
 import { useCommunity } from "@/contexts/CommunityContext";
+import { fulfillItemRequest, type ItemRequest } from "@/hooks/useItemRequests";
 
-export function AddSupply() {
+interface AddSupplyProps {
+  /** When set, this item is being shared in answer to a Request Board post. */
+  fulfillRequest?: Pick<ItemRequest, "id" | "title" | "category" | "note"> | null;
+  onDone?: () => void;
+}
+
+export function AddSupply({ fulfillRequest = null, onDone }: AddSupplyProps = {}) {
   const navigate = useNavigate();
   const { communityId, communitySlug, aiFeaturesEnabled } = useCommunity();
   const [user, setUser] = useState<any>(null);
@@ -66,6 +73,17 @@ export function AddSupply() {
       }));
     }
   }, []);
+
+  // Sharing in answer to a request: skip the intro screen and prefill.
+  useEffect(() => {
+    if (!fulfillRequest) return;
+    setFormData(prev => ({
+      ...prev,
+      name: prev.name || fulfillRequest.title,
+      category: prev.category || fulfillRequest.category || "",
+    }));
+    setShowForm(true);
+  }, [fulfillRequest]);
 
   const openManualForm = async (publicUrl?: string) => {
     const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -258,7 +276,21 @@ export function AddSupply() {
         }
       });
 
-      toast.success("Item added!");
+      // If this item was added in answer to a Request Board post, close the
+      // request and let the requester know.
+      if (fulfillRequest?.id) {
+        try {
+          await fulfillItemRequest(fulfillRequest.id, supplyId);
+          toast.success("Item added — the neighbor who asked has been notified!");
+        } catch (fulfillErr: any) {
+          console.error('[AddSupply] fulfill request failed', fulfillErr);
+          toast.message("Item added, but we couldn't mark the request as fulfilled.", {
+            description: fulfillErr?.message,
+          });
+        }
+      } else {
+        toast.success("Item added!");
+      }
 
       
       // Reset form but keep location data
@@ -279,7 +311,11 @@ export function AddSupply() {
       setUploadedImage("");
       setShowForm(false);
       
-      navigate(`/c/${communitySlug}?tab=browse`);
+      if (onDone) {
+        onDone();
+      } else {
+        navigate(`/c/${communitySlug}?tab=browse`);
+      }
     } catch (error: any) {
       console.error('Error adding supply:', error);
       toast.error(error.message || "Failed to add item. Please try again.");
@@ -300,6 +336,21 @@ export function AddSupply() {
             Share an item with your neighbors
           </p>
         </div>
+
+        {fulfillRequest && (
+          <div className="mb-6 border border-border bg-accent/10 rounded-sm p-4">
+            <p className="text-sm text-deep-brown">
+              You're answering a request for{" "}
+              <span className="font-semibold">{fulfillRequest.title}</span>. When
+              you save, the neighbor who asked gets an email.
+            </p>
+            {fulfillRequest.note && (
+              <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">
+                "{fulfillRequest.note}"
+              </p>
+            )}
+          </div>
+        )}
 
         {!showForm ? (
           <div className="bg-card border border-border rounded-sm p-12">

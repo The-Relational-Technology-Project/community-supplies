@@ -5,7 +5,7 @@ import { SupplyCard } from "./SupplyCard";
 import { ContactModal } from "./ContactModal";
 import { Supply } from "@/types/supply";
 import { useSupplies } from "@/hooks/useSupplies";
-import { SlidersHorizontal, Search } from "lucide-react";
+import { SlidersHorizontal, Search, MessageSquarePlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CategorySidebar } from "./CategorySidebar";
 import { categories, isSpecialCategory } from "@/data/categories";
@@ -20,9 +20,11 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 
 interface BrowseSuppliesProps {
   searchQuery?: string;
+  /** Opens the Request Board's "post a request" flow, prefilled with the search text. */
+  onRequestItem?: (prefillTitle: string) => void;
 }
 
-export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppliesProps) {
+export function BrowseSupplies({ searchQuery: externalQuery = "", onRequestItem }: BrowseSuppliesProps) {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [conditionFilter, setConditionFilter] = useState("all");
   const [availabilityFilter, setAvailabilityFilter] = useState("all");
@@ -277,6 +279,14 @@ export function BrowseSupplies({ searchQuery: externalQuery = "" }: BrowseSuppli
               {filteredSupplies.length === 0 ? (
                 <div className="text-center py-16">
                   <p className="text-lg text-muted-foreground">No supplies found matching your criteria.</p>
+                  {onRequestItem && (
+                    <div className="mt-4">
+                      <Button variant="outline" onClick={() => onRequestItem(searchQuery)}>
+                        <MessageSquarePlus className="mr-2 h-4 w-4" />
+                        Ask the community for this
+                      </Button>
+                    </div>
+                  )}
                   <CrossCommunityResults
                     results={crossResults}
                     isSearching={isCrossSearching}
