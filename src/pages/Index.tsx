@@ -29,6 +29,9 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [membershipChecked, setMembershipChecked] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const [fulfillRequest, setFulfillRequest] = useState<ItemRequest | null>(null);
+  const [requestPrefill, setRequestPrefill] = useState("");
+  const [openNewRequest, setOpenNewRequest] = useState(false);
 
   // On root `/`: if the logged-in user has a real profile community, send them to /c/<slug>.
   // Skips the Sunset fallback (hasProfileCommunity is false in that case).
