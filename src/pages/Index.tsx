@@ -82,7 +82,7 @@ const Index = () => {
   // Read URL params once on mount
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['browse', 'add', 'bulk-add', 'steward'].includes(tabParam)) {
+    if (tabParam && ['browse', 'add', 'bulk-add', 'steward', 'requests'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
     const onboardingParam = searchParams.get('onboarding');
