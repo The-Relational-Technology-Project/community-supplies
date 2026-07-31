@@ -245,6 +245,80 @@ export type Database = {
         }
         Relationships: []
       }
+      item_requests: {
+        Row: {
+          category: string | null
+          community_id: string
+          created_at: string
+          fulfilled_at: string | null
+          fulfilled_by: string | null
+          fulfilled_supply_id: string | null
+          id: string
+          note: string | null
+          requester_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          community_id: string
+          created_at?: string
+          fulfilled_at?: string | null
+          fulfilled_by?: string | null
+          fulfilled_supply_id?: string | null
+          id?: string
+          note?: string | null
+          requester_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          community_id?: string
+          created_at?: string
+          fulfilled_at?: string | null
+          fulfilled_by?: string | null
+          fulfilled_supply_id?: string | null
+          id?: string
+          note?: string | null
+          requester_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_requests_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_requests_fulfilled_by_fkey"
+            columns: ["fulfilled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_requests_fulfilled_supply_id_fkey"
+            columns: ["fulfilled_supply_id"]
+            isOneToOne: false
+            referencedRelation: "supplies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       join_requests: {
         Row: {
           community_id: string
@@ -606,6 +680,15 @@ export type Database = {
       dismiss_join_request: {
         Args: { p_request_id: string }
         Returns: undefined
+      }
+      fulfill_item_request: {
+        Args: { p_request_id: string; p_supply_id: string }
+        Returns: {
+          community_slug: string
+          request_title: string
+          requester_email: string
+          requester_name: string
+        }[]
       }
       get_anonymous_pins: {
         Args: never
