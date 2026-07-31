@@ -74,6 +74,17 @@ export function AddSupply({ fulfillRequest = null, onDone }: AddSupplyProps = {}
     }
   }, []);
 
+  // Sharing in answer to a request: skip the intro screen and prefill.
+  useEffect(() => {
+    if (!fulfillRequest) return;
+    setFormData(prev => ({
+      ...prev,
+      name: prev.name || fulfillRequest.title,
+      category: prev.category || fulfillRequest.category || "",
+    }));
+    setShowForm(true);
+  }, [fulfillRequest]);
+
   const openManualForm = async (publicUrl?: string) => {
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
