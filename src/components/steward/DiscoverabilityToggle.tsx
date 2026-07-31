@@ -33,17 +33,18 @@ export function DiscoverabilityToggle() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("communities")
-        .select("discoverable, latitude, longitude, coarse_latitude, coarse_longitude, public_location_label, join_mode")
-        .eq("id", communityId)
-        .maybeSingle();
-      if (data) {
-        setRow(data as CommunityRow);
-        setLabel(data.public_location_label ?? "");
+      // Precise coordinates are steward-only; read them through the
+      // security-definer RPC instead of the public communities columns.
+      const { data } = await supabase.rpc("get_my_community_location", {
+        p_community_id: communityId,
+      });
+      const row = (Array.isArray(data) ? data[0] : data) as CommunityRow | undefined;
+      if (row) {
+        setRow(row);
+        setLabel(row.public_location_label ?? "");
         // Pre-fill lat/lng from existing precise OR fall back to coarse (city centroid)
-        setLat(String(data.latitude ?? data.coarse_latitude ?? ""));
-        setLng(String(data.longitude ?? data.coarse_longitude ?? ""));
+        setLat(String(row.latitude ?? row.coarse_latitude ?? ""));
+        setLng(String(row.longitude ?? row.coarse_longitude ?? ""));
       }
       setLoading(false);
     })();
