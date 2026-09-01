@@ -1,19 +1,21 @@
-# Fix community discovery + add Request Board notifications
+# Fix the join link + add Request Board notifications
 
-Two separate problems from Karen's note.
+Two separate problems from Karen's note. Elon Community Church UCC stays private (`discoverable = false` in the database, 7 members, join mode "auto") — their own invite link is the way in, so the fix is making that link hold.
 
-## 1. People can't find Elon Community Church UCC
+## 1. Joining by Elon's own link keeps landing people in Sunset
 
-Confirmed in the database: the Elon community has `discoverable = false` (it has 7 members, join mode "auto"). Almost every community except Sunset & Richmond is set to hidden, because discoverability is off by default and stewards never see a prompt to turn it on.
+Two confirmed causes in the code:
 
-Also, when a signed-out visitor is on the root site with no community of their own, the app silently falls back to the Sunset & Richmond community as its context. So any join-ish action taken from the root lands them in Sunset.
+- **Magic-link sign-in throws away the community.** The "Email me a magic link" flow sends the login email with no return address, so Supabase sends the person to the site root instead of back to `/c/elon-community-church-ucc`. Sign-up already passes the community-scoped return address; magic link does not.
+- **The root page silently pretends you're in Sunset.** When there's no community in the URL and the visitor has no community of their own, the app falls back to the Sunset & Richmond community as its context. That's the "just seeing the Sunset and Richmond group" report.
 
 What to build:
 
-- **Find-a-community search on the root landing page.** A search box that matches community name and area label, so someone typing "Elon" gets there even if they don't have the link. Results link to `/c/<slug>`.
-- **Stop the silent Sunset fallback.** When there's no slug in the URL and the visitor has no community, treat the community as "none" instead of Sunset. Root-page join/post actions then point at the find-a-community search rather than at Sunset.
-- **Steward nudge.** In the steward dashboard, when a community is hidden, show a clear card: "Neighbors can't find this community by searching — turn on discovery so people who don't have your link can find you." One click to enable (existing discoverability toggle).
-- Turn discovery on for Elon Community Church UCC directly (Karen's ask), leaving other communities to their stewards.
+- Pass the community-scoped return address on magic-link sign-in, matching sign-up, so the link brings people back to the community page they started from.
+- Remember the community someone arrived through (in browser storage) so an email round-trip that loses the URL still returns them to the right place.
+- Stop the silent Sunset fallback: with no community in the URL and no community on the profile, the context is "none," and the root page shows a neutral welcome with "have an invite link?" guidance instead of Sunset's library and join button.
+- On a community page, if a signed-in visitor's profile belongs to a different community, show a clear "Join Elon Community Church UCC" prompt on that page rather than quietly showing them their other community — this is the existing join/switch flow, just made visible in the wrong-community case.
+
 
 ## 2. Nobody sees new requests
 
