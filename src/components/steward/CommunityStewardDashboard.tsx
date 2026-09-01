@@ -39,7 +39,9 @@ export function CommunityStewardDashboard() {
         <JoinModeToggle />
         <CustomJoinQuestion />
         <CommunityAiSettings />
+        <RequestNotificationSettings />
         <StewardWelcomeBatch />
+
       </div>
       <Tabs defaultValue="members" className="space-y-4">
         <TabsList>
