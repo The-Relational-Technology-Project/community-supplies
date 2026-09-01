@@ -36,8 +36,9 @@ Members get a one-click "turn these off for me" link in every email (per-member 
 - New edge function `send-request-posted`: JWT-verified, takes the request id, loads the request and community server-side, exits early unless mode is `each`, fetches active non-opted-out member emails with the service role, sends via Resend using the existing branded template pattern (batched BCC-free individual sends like `send-bulk-supply-notification`). Called from `createItemRequest` after a successful insert; failures are logged, never block posting.
 - New edge function `send-request-digest`: iterates communities with mode `weekly`, gathers open requests from the last 7 days, sends one email per member. Scheduled weekly with pg_cron + pg_net.
 - New unauthenticated edge function (or token link) `request-emails-unsubscribe` for the opt-out link, keyed by a signed profile token so no login is required.
-- Discovery search: extend the existing `get_discoverable_communities` security-definer RPC usage with a name/label filter client-side (list is small), reusing `useDiscoverableCommunities`.
-- `CommunityContext`: drop `DEFAULT_COMMUNITY_ID/SLUG` fallback for the no-slug, no-profile case; expose `communityId: null` and let root-page components branch on it. Slug routes are unaffected.
+- `AuthModal.handleMagicLink`: pass `emailRedirectTo` built from `communitySlug` (same expression sign-up already uses); persist the arrival slug in `sessionStorage`/`localStorage` and use it as the fallback when the URL has none.
+- `CommunityContext`: drop the `DEFAULT_COMMUNITY_ID/SLUG` fallback for the no-slug, no-profile case; expose a null community and let root-page components branch on it. Slug routes are unaffected. Discoverability stays off for Elon — nothing about `get_discoverable_communities` changes.
+
 
 ## Not included
 
