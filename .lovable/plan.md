@@ -1,55 +1,44 @@
-# Request Board
+# Fix community discovery + add Request Board notifications
 
-Let members post "I'm looking for ___" when the library doesn't have it, and let neighbors answer by adding that item — with an email back to the requester.
+Two separate problems from Karen's note.
 
-## Flow
+## 1. People can't find Elon Community Church UCC
 
-```text
-Member searches "lawn mower" -> no results
-  -> "Ask the community for this" button (also in main nav)
-  -> Request post: item wanted, why/when needed, optional notes
-Request Board tab: open requests, newest first
-  -> Neighbor clicks "I have this"
-     -> normal Add Item flow, pre-filled with the requested name,
-        tagged as fulfilling that request
-     -> on save: request marked "fulfilled", requester emailed with a
-        link to the new item + who to contact
-  -> Requester can close their own request anytime ("Found it")
-```
+Confirmed in the database: the Elon community has `discoverable = false` (it has 7 members, join mode "auto"). Almost every community except Sunset & Richmond is set to hidden, because discoverability is off by default and stewards never see a prompt to turn it on.
 
-## What gets built
+Also, when a signed-out visitor is on the root site with no community of their own, the app silently falls back to the Sunset & Richmond community as its context. So any join-ish action taken from the root lands them in Sunset.
 
-**Request Board tab** (new tab in the catalog header, next to Browse)
-- List of open requests scoped to the community: item wanted, requester first name, date, optional note.
-- Filters: Open / Fulfilled / Mine.
-- Empty state encouraging the first request.
+What to build:
 
-**Post a request**
-- Small form: what you're looking for, category (optional), note about when/why.
-- Entry points: the Request Board, plus a "Nobody's shared one yet — ask the community" prompt on empty search results in Browse.
+- **Find-a-community search on the root landing page.** A search box that matches community name and area label, so someone typing "Elon" gets there even if they don't have the link. Results link to `/c/<slug>`.
+- **Stop the silent Sunset fallback.** When there's no slug in the URL and the visitor has no community, treat the community as "none" instead of Sunset. Root-page join/post actions then point at the find-a-community search rather than at Sunset.
+- **Steward nudge.** In the steward dashboard, when a community is hidden, show a clear card: "Neighbors can't find this community by searching — turn on discovery so people who don't have your link can find you." One click to enable (existing discoverability toggle).
+- Turn discovery on for Elon Community Church UCC directly (Karen's ask), leaving other communities to their stewards.
 
-**Fulfilling a request**
-- "I have this" on a request opens the existing Add Item flow with `name` pre-filled and the request ID carried through.
-- On successful save, the request is linked to the new supply and marked fulfilled.
-- Alternative on the same card: "Already in the library" to link an existing item you own, so we don't force a duplicate listing.
+## 2. Nobody sees new requests
 
-**Notifications**
-- Email to the requester when their request is fulfilled: item name, illustration/photo, and a link straight to the item in their community library.
-- Optional (recommend including): a light weekly digest is *not* part of this — just the direct fulfillment email, to keep noise low.
+Add per-community, steward-controlled notification settings for the Request Board. **Off by default** — no change in behavior for existing communities until a steward opts in.
 
-**Steward controls**
-- New "Requests" tab in the steward dashboard to view and remove inappropriate/stale requests.
+Steward dashboard gets a "Request Board notifications" card with three options:
+
+- **Off** (default) — no emails.
+- **Notify on each request** — when a member posts a request, every active member of that community gets one email: what's wanted, the note, who asked (first name), and a button to open the Request Board.
+- **Weekly digest** — one email per week listing that week's still-open requests. Skipped entirely when there are no open requests, so quiet weeks stay quiet.
+
+Members get a one-click "turn these off for me" link in every email (per-member opt-out, stored on the profile). Stewards see a note that members can opt out.
 
 ## Technical details
 
-- New table `public.item_requests`: `community_id`, `requester_id`, `title`, `category`, `note`, `status` (open/fulfilled/closed), `fulfilled_supply_id`, `fulfilled_by`, `fulfilled_at`, timestamps + update trigger.
-- GRANTs to `authenticated` and `service_role`; RLS: active members of the community can read and insert; requester can update/close their own; stewards of that community can update/delete. No `anon` access.
-- Fulfillment is a `SECURITY DEFINER` RPC (`fulfill_item_request`) so the status flip is atomic and can't be spoofed for another community's request.
-- Email sent by a new edge function `send-request-fulfilled` (Resend, same branded template pattern as `send-contact-message`), JWT-verified, recipient email looked up server-side from `profiles` — never passed from the client.
-- `AddSupply.tsx` accepts an optional `fulfillRequestId` prop; after insert it calls the RPC and invokes the email function.
-- Frontend: `src/components/requests/RequestBoard.tsx`, `RequestCard.tsx`, `NewRequestDialog.tsx`, `src/hooks/useItemRequests.ts` (TanStack Query, community-scoped key), plus a `requests` case in `Index.tsx` and a nav entry in `CatalogHeader.tsx`.
+- `communities`: add `request_notify_mode text not null default 'off'` (`off` | `each` | `weekly`).
+- `profiles`: add `request_emails_opt_out boolean not null default false`.
+- New edge function `send-request-posted`: JWT-verified, takes the request id, loads the request and community server-side, exits early unless mode is `each`, fetches active non-opted-out member emails with the service role, sends via Resend using the existing branded template pattern (batched BCC-free individual sends like `send-bulk-supply-notification`). Called from `createItemRequest` after a successful insert; failures are logged, never block posting.
+- New edge function `send-request-digest`: iterates communities with mode `weekly`, gathers open requests from the last 7 days, sends one email per member. Scheduled weekly with pg_cron + pg_net.
+- New unauthenticated edge function (or token link) `request-emails-unsubscribe` for the opt-out link, keyed by a signed profile token so no login is required.
+- Discovery search: extend the existing `get_discoverable_communities` security-definer RPC usage with a name/label filter client-side (list is small), reusing `useDiscoverableCommunities`.
+- `CommunityContext`: drop `DEFAULT_COMMUNITY_ID/SLUG` fallback for the no-slug, no-profile case; expose `communityId: null` and let root-page components branch on it. Slug routes are unaffected.
 
 ## Not included
 
-- Cross-community request broadcasting (fits the federated-search work later).
-- In-app notification center — email only for now.
+- Cross-community request broadcasting.
+- In-app notification center or push notifications.
+- Per-member frequency choice beyond on/off (mode is set by the steward).
