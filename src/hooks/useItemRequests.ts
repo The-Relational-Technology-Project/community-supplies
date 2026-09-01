@@ -60,14 +60,31 @@ export async function createItemRequest(input: {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("You must be signed in to post a request.");
 
-  const { error } = await supabase.from("item_requests").insert({
-    community_id: input.communityId,
-    requester_id: user.id,
-    title: input.title.trim(),
-    category: input.category || null,
-    note: input.note?.trim() || null,
-  });
+  const { data: created, error } = await supabase
+    .from("item_requests")
+    .insert({
+      community_id: input.communityId,
+      requester_id: user.id,
+      title: input.title.trim(),
+      category: input.category || null,
+      note: input.note?.trim() || null,
+    })
+    .select("id")
+    .single();
   if (error) throw error;
+
+  // Tell the community, if their steward turned request emails on. The edge
+  // function decides (and skips) based on the community's setting — a failure
+  // here must never block the request from being posted.
+  try {
+    const { error: notifyError } = await supabase.functions.invoke("send-request-posted", {
+      body: { requestId: created.id },
+    });
+    if (notifyError) console.error("[requests] notification failed", notifyError);
+  } catch (e) {
+    console.error("[requests] notification failed", e);
+  }
+
 }
 
 export async function closeItemRequest(requestId: string) {

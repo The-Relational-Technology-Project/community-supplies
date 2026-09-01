@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, User } from "lucide-react";
@@ -23,7 +24,9 @@ export default function Profile() {
     email: "",
     zip_code: "",
     intro_text: "",
+    request_emails_opt_out: false,
   });
+
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -58,7 +61,9 @@ export default function Profile() {
             email: profile.email || user.email || "",
             zip_code: profile.zip_code || "",
             intro_text: profile.intro_text || "",
+            request_emails_opt_out: Boolean((profile as any).request_emails_opt_out),
           });
+
         }
       } catch (error: any) {
         console.error('Error:', error);
@@ -97,9 +102,11 @@ export default function Profile() {
           email: formData.email.trim(),
           zip_code: formData.zip_code.trim(),
           intro_text: formData.intro_text.trim(),
+          request_emails_opt_out: formData.request_emails_opt_out,
           updated_at: new Date().toISOString()
-        })
+        } as any)
         .eq('id', user.id);
+
 
       if (error) throw error;
 
@@ -220,7 +227,24 @@ export default function Profile() {
                     A brief introduction that other community members can see
                   </p>
                 </div>
+
+                <div className="flex items-start gap-3 rounded-md border p-3">
+                  <Checkbox
+                    id="request_emails"
+                    checked={!formData.request_emails_opt_out}
+                    onCheckedChange={(checked) =>
+                      setFormData(prev => ({ ...prev, request_emails_opt_out: checked !== true }))
+                    }
+                  />
+                  <Label htmlFor="request_emails" className="font-normal cursor-pointer">
+                    <span className="block font-medium">Email me about Request Board posts</span>
+                    <span className="block text-xs text-muted-foreground mt-1">
+                      Only sends if your community's steward has request emails turned on.
+                    </span>
+                  </Label>
+                </div>
               </div>
+
 
               <Button 
                 type="submit" 

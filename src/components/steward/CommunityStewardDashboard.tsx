@@ -8,6 +8,7 @@ import { JoinModeToggle } from "./JoinModeToggle";
 import { StewardWelcomeBatch } from "./StewardWelcomeBatch";
 import { CommunityAiSettings } from "./CommunityAiSettings";
 import { CustomJoinQuestion } from "./CustomJoinQuestion";
+import { RequestNotificationSettings } from "./RequestNotificationSettings";
 import { RequestBoard } from "@/components/requests/RequestBoard";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { Users, MessageSquare, MessageSquarePlus, UserPlus, ArrowLeft, User } from "lucide-react";
@@ -38,7 +39,9 @@ export function CommunityStewardDashboard() {
         <JoinModeToggle />
         <CustomJoinQuestion />
         <CommunityAiSettings />
+        <RequestNotificationSettings />
         <StewardWelcomeBatch />
+
       </div>
       <Tabs defaultValue="members" className="space-y-4">
         <TabsList>
