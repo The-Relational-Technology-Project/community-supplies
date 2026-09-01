@@ -60,7 +60,9 @@ export default function Profile() {
             email: profile.email || user.email || "",
             zip_code: profile.zip_code || "",
             intro_text: profile.intro_text || "",
+            request_emails_opt_out: Boolean((profile as any).request_emails_opt_out),
           });
+
         }
       } catch (error: any) {
         console.error('Error:', error);
