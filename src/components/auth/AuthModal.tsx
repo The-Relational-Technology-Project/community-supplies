@@ -171,10 +171,20 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
 
   const handleMagicLink = async () => {
     setLoading(true);
-    
+
+    // Bring people back to the community they started from — without this the
+    // magic link drops them on the site root (which used to mean Sunset).
+    const returnSlug = isSlugRoute ? communitySlug : getRememberedCommunitySlug();
+
     const { error } = await supabase.auth.signInWithOtp({
-      email
+      email,
+      options: {
+        emailRedirectTo: returnSlug
+          ? `${window.location.origin}/c/${returnSlug}`
+          : window.location.origin,
+      },
     });
+
     
     if (error) {
       toast({ title: "Failed to send magic link", description: error.message, variant: "destructive" });
