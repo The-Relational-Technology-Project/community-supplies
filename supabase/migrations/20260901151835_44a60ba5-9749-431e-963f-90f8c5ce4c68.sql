@@ -1,0 +1,1 @@
+GRANT SELECT (request_notify_mode) ON public.communities TO authenticated;
