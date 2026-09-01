@@ -263,9 +263,11 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       metadata.community_id = effectiveCommunityIdForSignup;
     }
     // Land the confirmed user on THEIR community, not the project Site URL.
-    const emailRedirectTo = communitySlug
-      ? `${window.location.origin}/c/${communitySlug}`
+    const signupSlug = isSlugRoute ? communitySlug : getRememberedCommunitySlug();
+    const emailRedirectTo = signupSlug
+      ? `${window.location.origin}/c/${signupSlug}`
       : `${window.location.origin}/`;
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
