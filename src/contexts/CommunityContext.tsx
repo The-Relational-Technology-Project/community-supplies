@@ -6,6 +6,27 @@ const DEFAULT_COMMUNITY_ID = "a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4";
 const DEFAULT_COMMUNITY_SLUG = "sunset-richmond";
 const DEFAULT_COMMUNITY_NAME = "Sunset & Richmond SF";
 
+/** Slug of the last community page the visitor actually landed on. Used to send
+ *  people back to the right community after an email round-trip (magic link,
+ *  confirmation) drops the URL. */
+const LAST_SLUG_KEY = "cs:last-community-slug";
+
+export function rememberCommunitySlug(slug: string) {
+  try {
+    localStorage.setItem(LAST_SLUG_KEY, slug);
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
+}
+
+export function getRememberedCommunitySlug(): string | null {
+  try {
+    return localStorage.getItem(LAST_SLUG_KEY);
+  } catch {
+    return null;
+  }
+}
+
 interface CommunityContextType {
   communityId: string;
   communitySlug: string;
@@ -29,6 +50,7 @@ const CommunityContext = createContext<CommunityContextType>({
   isSlugRoute: false,
   hasProfileCommunity: false,
 });
+
 
 
 export function useCommunity() {
@@ -79,6 +101,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           hasProfileCommunity: false,
         });
       } else {
+        rememberCommunitySlug(data.slug);
         setCommunity({
           communityId: data.id,
           communitySlug: data.slug,
@@ -90,6 +113,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           hasProfileCommunity: false,
         });
       }
+
 
     })();
 

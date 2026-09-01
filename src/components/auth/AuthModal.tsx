@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useCommunity } from "@/contexts/CommunityContext";
+import { useCommunity, getRememberedCommunitySlug } from "@/contexts/CommunityContext";
 import { fileJoinRequest, autoJoinCommunity } from "@/lib/joinCommunity";
 
 type CommunityJoinSettings = {
@@ -46,7 +46,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
   const [communitySettingsLoaded, setCommunitySettingsLoaded] = useState(false);
   const [communitySettingsError, setCommunitySettingsError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { communityId: contextCommunityId, communitySlug, communityName: contextCommunityName } = useCommunity();
+  const { communityId: contextCommunityId, communitySlug, communityName: contextCommunityName, isSlugRoute } = useCommunity();
 
   // Keep internal mode in sync if the parent reopens the modal in a different mode
   useEffect(() => {
@@ -171,10 +171,20 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
 
   const handleMagicLink = async () => {
     setLoading(true);
-    
+
+    // Bring people back to the community they started from — without this the
+    // magic link drops them on the site root (which used to mean Sunset).
+    const returnSlug = isSlugRoute ? communitySlug : getRememberedCommunitySlug();
+
     const { error } = await supabase.auth.signInWithOtp({
-      email
+      email,
+      options: {
+        emailRedirectTo: returnSlug
+          ? `${window.location.origin}/c/${returnSlug}`
+          : window.location.origin,
+      },
     });
+
     
     if (error) {
       toast({ title: "Failed to send magic link", description: error.message, variant: "destructive" });
@@ -253,9 +263,11 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       metadata.community_id = effectiveCommunityIdForSignup;
     }
     // Land the confirmed user on THEIR community, not the project Site URL.
-    const emailRedirectTo = communitySlug
-      ? `${window.location.origin}/c/${communitySlug}`
+    const signupSlug = isSlugRoute ? communitySlug : getRememberedCommunitySlug();
+    const emailRedirectTo = signupSlug
+      ? `${window.location.origin}/c/${signupSlug}`
       : `${window.location.origin}/`;
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

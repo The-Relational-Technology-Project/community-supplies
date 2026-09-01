@@ -118,6 +118,7 @@ export type Database = {
           longitude: number | null
           name: string
           public_location_label: string | null
+          request_notify_mode: string
           slug: string
           updated_at: string
           zip_code: string | null
@@ -138,6 +139,7 @@ export type Database = {
           longitude?: number | null
           name: string
           public_location_label?: string | null
+          request_notify_mode?: string
           slug: string
           updated_at?: string
           zip_code?: string | null
@@ -158,6 +160,7 @@ export type Database = {
           longitude?: number | null
           name?: string
           public_location_label?: string | null
+          request_notify_mode?: string
           slug?: string
           updated_at?: string
           zip_code?: string | null
@@ -407,6 +410,7 @@ export type Database = {
           intro_text: string | null
           membership_status: Database["public"]["Enums"]["membership_status"]
           name: string
+          request_emails_opt_out: boolean
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
           vouched_at: string | null
@@ -421,6 +425,7 @@ export type Database = {
           intro_text?: string | null
           membership_status?: Database["public"]["Enums"]["membership_status"]
           name: string
+          request_emails_opt_out?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           vouched_at?: string | null
@@ -435,6 +440,7 @@ export type Database = {
           intro_text?: string | null
           membership_status?: Database["public"]["Enums"]["membership_status"]
           name?: string
+          request_emails_opt_out?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           vouched_at?: string | null

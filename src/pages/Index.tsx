@@ -15,7 +15,8 @@ import { JoinThisCommunity } from "@/components/community/JoinThisCommunity";
 
 import { StewardDashboard } from "@/components/steward/StewardDashboard";
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import { useCommunity } from "@/contexts/CommunityContext";
+import { useCommunity, getRememberedCommunitySlug } from "@/contexts/CommunityContext";
+import { NoCommunityHome } from "@/components/community/NoCommunityHome";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,14 +35,22 @@ const Index = () => {
   const [openNewRequest, setOpenNewRequest] = useState(false);
 
   // On root `/`: if the logged-in user has a real profile community, send them to /c/<slug>.
-  // Skips the Sunset fallback (hasProfileCommunity is false in that case).
+  // Otherwise fall back to the last community page they actually landed on, so an
+  // email round-trip (magic link / confirmation) doesn't strand them on the root.
   useEffect(() => {
     if (isSlugRoute) return;
     if (!isReady || communityLoading) return;
-    if (user && hasProfileCommunity && communitySlug) {
+    if (!user) return;
+    if (hasProfileCommunity && communitySlug) {
       navigate(`/c/${communitySlug}`, { replace: true });
+      return;
+    }
+    const remembered = getRememberedCommunitySlug();
+    if (!hasProfileCommunity && remembered) {
+      navigate(`/c/${remembered}`, { replace: true });
     }
   }, [isSlugRoute, isReady, communityLoading, user?.id, hasProfileCommunity, communitySlug, navigate]);
+
 
 
 
@@ -117,6 +126,13 @@ const Index = () => {
   if (!user) {
     return <LandingPage onTabChange={setActiveTab} />;
   }
+
+  // Signed in at the root with no community of their own: never fall back to the
+  // flagship community's library — point them at their invite link instead.
+  if (!isSlugRoute && !hasProfileCommunity) {
+    return <NoCommunityHome />;
+  }
+
 
   // On /c/:slug, if logged-in user isn't a member of this community,
   // offer to switch/join instead of dumping them on the public landing.
