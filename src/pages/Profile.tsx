@@ -226,7 +226,24 @@ export default function Profile() {
                     A brief introduction that other community members can see
                   </p>
                 </div>
+
+                <div className="flex items-start gap-3 rounded-md border p-3">
+                  <Checkbox
+                    id="request_emails"
+                    checked={!formData.request_emails_opt_out}
+                    onCheckedChange={(checked) =>
+                      setFormData(prev => ({ ...prev, request_emails_opt_out: checked !== true }))
+                    }
+                  />
+                  <Label htmlFor="request_emails" className="font-normal cursor-pointer">
+                    <span className="block font-medium">Email me about Request Board posts</span>
+                    <span className="block text-xs text-muted-foreground mt-1">
+                      Only sends if your community's steward has request emails turned on.
+                    </span>
+                  </Label>
+                </div>
               </div>
+
 
               <Button 
                 type="submit" 
