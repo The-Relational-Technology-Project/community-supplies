@@ -15,7 +15,8 @@ import { JoinThisCommunity } from "@/components/community/JoinThisCommunity";
 
 import { StewardDashboard } from "@/components/steward/StewardDashboard";
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import { useCommunity } from "@/contexts/CommunityContext";
+import { useCommunity, getRememberedCommunitySlug } from "@/contexts/CommunityContext";
+import { NoCommunityHome } from "@/components/community/NoCommunityHome";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
