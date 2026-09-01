@@ -127,6 +127,13 @@ const Index = () => {
     return <LandingPage onTabChange={setActiveTab} />;
   }
 
+  // Signed in at the root with no community of their own: never fall back to the
+  // flagship community's library — point them at their invite link instead.
+  if (!isSlugRoute && !hasProfileCommunity) {
+    return <NoCommunityHome />;
+  }
+
+
   // On /c/:slug, if logged-in user isn't a member of this community,
   // offer to switch/join instead of dumping them on the public landing.
   if (isSlugRoute && !isMember) {
