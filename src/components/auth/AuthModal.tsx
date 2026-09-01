@@ -46,7 +46,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
   const [communitySettingsLoaded, setCommunitySettingsLoaded] = useState(false);
   const [communitySettingsError, setCommunitySettingsError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { communityId: contextCommunityId, communitySlug, communityName: contextCommunityName } = useCommunity();
+  const { communityId: contextCommunityId, communitySlug, communityName: contextCommunityName, isSlugRoute } = useCommunity();
 
   // Keep internal mode in sync if the parent reopens the modal in a different mode
   useEffect(() => {
