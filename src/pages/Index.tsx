@@ -34,14 +34,22 @@ const Index = () => {
   const [openNewRequest, setOpenNewRequest] = useState(false);
 
   // On root `/`: if the logged-in user has a real profile community, send them to /c/<slug>.
-  // Skips the Sunset fallback (hasProfileCommunity is false in that case).
+  // Otherwise fall back to the last community page they actually landed on, so an
+  // email round-trip (magic link / confirmation) doesn't strand them on the root.
   useEffect(() => {
     if (isSlugRoute) return;
     if (!isReady || communityLoading) return;
-    if (user && hasProfileCommunity && communitySlug) {
+    if (!user) return;
+    if (hasProfileCommunity && communitySlug) {
       navigate(`/c/${communitySlug}`, { replace: true });
+      return;
+    }
+    const remembered = getRememberedCommunitySlug();
+    if (!hasProfileCommunity && remembered) {
+      navigate(`/c/${remembered}`, { replace: true });
     }
   }, [isSlugRoute, isReady, communityLoading, user?.id, hasProfileCommunity, communitySlug, navigate]);
+
 
 
 
