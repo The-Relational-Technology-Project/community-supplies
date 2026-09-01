@@ -101,9 +101,11 @@ export default function Profile() {
           email: formData.email.trim(),
           zip_code: formData.zip_code.trim(),
           intro_text: formData.intro_text.trim(),
+          request_emails_opt_out: formData.request_emails_opt_out,
           updated_at: new Date().toISOString()
-        })
+        } as any)
         .eq('id', user.id);
+
 
       if (error) throw error;
 
