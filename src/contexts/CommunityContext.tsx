@@ -101,6 +101,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           hasProfileCommunity: false,
         });
       } else {
+        rememberCommunitySlug(data.slug);
         setCommunity({
           communityId: data.id,
           communitySlug: data.slug,
@@ -112,6 +113,7 @@ export function CommunityProvider({ children, slug }: CommunityProviderProps) {
           hasProfileCommunity: false,
         });
       }
+
 
     })();
 
