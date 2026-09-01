@@ -17,15 +17,26 @@ serve(async (req: Request): Promise<Response> => {
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
   try {
-    const cronSecret = Deno.env.get("CRON_SECRET");
-    if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
-      return json({ error: "Unauthorized" }, 401);
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    // The scheduled job passes a token stored in a server-only table; a manual
+    // run can use the CRON_SECRET env var instead.
+    const provided = req.headers.get("x-cron-secret") ?? "";
+    const { data: cronRow } = await supabase
+      .from("internal_secrets")
+      .select("value")
+      .eq("key", "request_digest_cron_token")
+      .maybeSingle();
+    const envSecret = Deno.env.get("CRON_SECRET");
+    const valid =
+      (!!provided && provided === cronRow?.value) ||
+      (!!provided && !!envSecret && provided === envSecret);
+    if (!valid) return json({ error: "Unauthorized" }, 401);
+
+
     const projectUrl = Deno.env.get("SUPABASE_URL")!;
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
