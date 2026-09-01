@@ -248,6 +248,24 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_secrets: {
+        Row: {
+          created_at: string
+          key: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          value?: string
+        }
+        Relationships: []
+      }
       item_requests: {
         Row: {
           category: string | null
@@ -863,6 +881,7 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      run_request_digest: { Args: never; Returns: undefined }
       search_supplies_public:
         | { Args: { search_query: string }; Returns: number }
         | {
