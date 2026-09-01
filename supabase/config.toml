@@ -50,3 +50,11 @@ verify_jwt = false
 
 [functions.send-request-fulfilled]
 verify_jwt = true
+[functions.send-request-posted]
+verify_jwt = true
+
+[functions.send-request-digest]
+verify_jwt = false
+
+[functions.request-emails-unsubscribe]
+verify_jwt = false
