@@ -23,7 +23,9 @@ export default function Profile() {
     email: "",
     zip_code: "",
     intro_text: "",
+    request_emails_opt_out: false,
   });
+
 
   useEffect(() => {
     const fetchProfile = async () => {
