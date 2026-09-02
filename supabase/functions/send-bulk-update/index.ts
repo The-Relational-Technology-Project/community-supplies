@@ -1,5 +1,5 @@
 const serve = Deno.serve;
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
+import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { z } from "npm:zod@3.23.8";
 

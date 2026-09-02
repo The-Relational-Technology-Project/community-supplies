@@ -1,6 +1,6 @@
 const serve = Deno.serve;
 import { Resend } from "npm:resend@2.0.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
+import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 import { z } from "npm:zod@3.23.8";
 import { escapeHtml, emailShell, ctaButton, requestCardHtml, sendInBatches } from "../_shared/requestEmail.ts";
 import { makeUnsubscribeToken, unsubscribeUrl } from "../_shared/unsubscribeToken.ts";
