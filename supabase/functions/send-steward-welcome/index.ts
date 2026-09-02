@@ -1,6 +1,6 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+const serve = Deno.serve;
+import { createClient } from "npm:@supabase/supabase-js@2.58.0";
+import { z } from "npm:zod@3.23.8";
 
 const ALLOWED_ORIGINS = [
   "https://communitysupplies.org",
