@@ -9,6 +9,7 @@ import { StewardWelcomeBatch } from "./StewardWelcomeBatch";
 import { CommunityAiSettings } from "./CommunityAiSettings";
 import { CustomJoinQuestion } from "./CustomJoinQuestion";
 import { RequestNotificationSettings } from "./RequestNotificationSettings";
+import { ExportCommunityData } from "./ExportCommunityData";
 import { RequestBoard } from "@/components/requests/RequestBoard";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { Users, MessageSquare, MessageSquarePlus, UserPlus, ArrowLeft, User } from "lucide-react";
@@ -40,6 +41,7 @@ export function CommunityStewardDashboard() {
         <CustomJoinQuestion />
         <CommunityAiSettings />
         <RequestNotificationSettings />
+        <ExportCommunityData />
         <StewardWelcomeBatch />
 
       </div>
