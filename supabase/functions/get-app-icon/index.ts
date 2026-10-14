@@ -37,8 +37,18 @@ serve(async (req) => {
       return new Response("Icon not found", { status: 404, headers: corsHeaders });
     }
 
-    const base64Data = data.illustration_url.replace(/^data:image\/\w+;base64,/, "");
-    const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    // Illustrations live in Storage as public URLs; older rows held a base64 data URL.
+    let imageBuffer: Uint8Array;
+    if (/^https?:\/\//.test(data.illustration_url)) {
+      const res = await fetch(data.illustration_url);
+      if (!res.ok) {
+        return new Response("Icon not found", { status: 404, headers: corsHeaders });
+      }
+      imageBuffer = new Uint8Array(await res.arrayBuffer());
+    } else {
+      const base64Data = data.illustration_url.replace(/^data:image\/\w+;base64,/, "");
+      imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    }
 
     return new Response(imageBuffer, {
       headers: {
