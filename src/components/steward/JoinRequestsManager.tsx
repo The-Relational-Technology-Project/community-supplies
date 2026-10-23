@@ -17,6 +17,7 @@ interface JoinRequest {
   cross_streets: string | null;
   referral_source: string | null;
   custom_answer: string | null;
+  agreement_accepted_at?: string | null;
   community_id: string;
   status: 'pending' | 'rejected' | 'vouched' | 'approved';
   requested_at: string;
@@ -50,7 +51,7 @@ export function JoinRequestsManager() {
     try {
       const { data, error } = await supabase
         .from('join_requests')
-        .select('id, name, email, intro, connection_context, cross_streets, referral_source, custom_answer, community_id, status, requested_at, user_id')
+        .select('id, name, email, intro, connection_context, cross_streets, referral_source, custom_answer, agreement_accepted_at, community_id, status, requested_at, user_id')
         .eq('community_id', communityId)
         .order('requested_at', { ascending: false });
 
@@ -198,7 +199,7 @@ export function JoinRequestsManager() {
   const isApproved = (status: string) => status === 'approved' || status === 'vouched';
 
   const hasDetail = (r: JoinRequest) =>
-    !!(customQuestion || r.intro || r.connection_context || r.cross_streets || r.referral_source || r.custom_answer);
+    !!(customQuestion || r.intro || r.connection_context || r.cross_streets || r.referral_source || r.custom_answer || r.agreement_accepted_at);
 
   return (
     <Table>
@@ -291,6 +292,11 @@ export function JoinRequestsManager() {
                 <TableRow>
                   <TableCell colSpan={6} className="bg-muted/30">
                     <div className="space-y-2 py-2 text-sm">
+                      {request.agreement_accepted_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Agreed to member agreement on {new Date(request.agreement_accepted_at).toLocaleDateString()}
+                        </p>
+                      )}
                       {customQuestion && (
                         <div>
                           <p className="text-xs font-medium text-muted-foreground">{customQuestion}</p>
