@@ -15,6 +15,8 @@ export interface FileJoinRequestParams {
   referralSource?: string | null;
   phoneNumber?: string | null;
   customAnswer?: string | null;
+  /** True when the applicant checked the community's member agreement. */
+  agreementAccepted?: boolean;
 }
 
 /**
@@ -38,6 +40,7 @@ export async function fileJoinRequest(
     referral_source: params.referralSource ?? null,
     phone_number: params.phoneNumber ?? null,
     custom_answer: params.customAnswer ?? null,
+    agreement_accepted_at: params.agreementAccepted ? new Date().toISOString() : null,
   } as any);
 
   if (error) {
