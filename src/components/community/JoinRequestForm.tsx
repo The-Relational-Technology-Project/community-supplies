@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { fileJoinRequest } from "@/lib/joinCommunity";
 import { CheckCircle2, Mail } from "lucide-react";
+import { MemberAgreement, useMemberAgreement, recordAgreementAcceptance } from "@/components/community/MemberAgreement";
 import { Link } from "react-router-dom";
 
 type CommunityQuestionRow = {
@@ -36,6 +37,8 @@ export function JoinRequestForm() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { communityId, communitySlug, communityName } = useCommunity();
+  const agreement = useMemberAgreement(communityId);
+  const [agreed, setAgreed] = useState(false);
 
   // Generate math captcha when component mounts
   useEffect(() => {
@@ -89,6 +92,11 @@ export function JoinRequestForm() {
         description: questionLoadError ?? "Still loading the community's questions — please try again in a second.",
         variant: questionLoadError ? "destructive" : "default",
       });
+      return;
+    }
+
+    if (agreement.text && !agreed) {
+      toast({ title: "Agreement required", description: "Please read and agree to the member agreement.", variant: "destructive" });
       return;
     }
 
@@ -168,6 +176,7 @@ export function JoinRequestForm() {
         referralSource,
         phoneNumber: referralSource === 'other' ? phoneNumber : null,
         customAnswer: customQuestion ? customAnswer : null,
+        agreementAccepted: !!agreement.text && agreed,
       });
 
 
@@ -366,6 +375,10 @@ export function JoinRequestForm() {
             />
           </div>
           
+          {agreement.text && (
+            <MemberAgreement text={agreement.text} accepted={agreed} onAcceptedChange={setAgreed} idPrefix="jrf" />
+          )}
+
           <Button type="submit" disabled={loading || !questionLoaded} className="w-full h-11 sm:h-10 text-base mt-2">
             {loading ? "Submitting..." : questionLoadError ? "Questions unavailable" : !questionLoaded ? "Loading..." : "Submit Request to Join"}
           </Button>
