@@ -116,6 +116,7 @@ export type Database = {
           join_mode: string
           latitude: number | null
           longitude: number | null
+          member_agreement: string | null
           name: string
           public_location_label: string | null
           request_notify_mode: string
@@ -137,6 +138,7 @@ export type Database = {
           join_mode?: string
           latitude?: number | null
           longitude?: number | null
+          member_agreement?: string | null
           name: string
           public_location_label?: string | null
           request_notify_mode?: string
@@ -158,6 +160,7 @@ export type Database = {
           join_mode?: string
           latitude?: number | null
           longitude?: number | null
+          member_agreement?: string | null
           name?: string
           public_location_label?: string | null
           request_notify_mode?: string
@@ -342,6 +345,7 @@ export type Database = {
       }
       join_requests: {
         Row: {
+          agreement_accepted_at: string | null
           community_id: string
           connection_context: string | null
           cross_streets: string | null
@@ -360,6 +364,7 @@ export type Database = {
           voucher_id: string | null
         }
         Insert: {
+          agreement_accepted_at?: string | null
           community_id: string
           connection_context?: string | null
           cross_streets?: string | null
@@ -378,6 +383,7 @@ export type Database = {
           voucher_id?: string | null
         }
         Update: {
+          agreement_accepted_at?: string | null
           community_id?: string
           connection_context?: string | null
           cross_streets?: string | null
@@ -421,6 +427,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          agreement_accepted_at: string | null
           community_id: string
           created_at: string
           email: string
@@ -436,6 +443,7 @@ export type Database = {
           zip_code: string | null
         }
         Insert: {
+          agreement_accepted_at?: string | null
           community_id: string
           created_at?: string
           email: string
@@ -451,6 +459,7 @@ export type Database = {
           zip_code?: string | null
         }
         Update: {
+          agreement_accepted_at?: string | null
           community_id?: string
           created_at?: string
           email?: string
@@ -680,6 +689,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_member_agreement: { Args: never; Returns: undefined }
       approve_join_request: {
         Args: { p_request_id: string }
         Returns: {
