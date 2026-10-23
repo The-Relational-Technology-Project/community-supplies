@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCommunity, getRememberedCommunitySlug } from "@/contexts/CommunityContext";
 import { fileJoinRequest, autoJoinCommunity } from "@/lib/joinCommunity";
+import { MemberAgreement, useMemberAgreement, recordAgreementAcceptance } from "@/components/community/MemberAgreement";
 
 type CommunityJoinSettings = {
   join_mode: "auto" | "approval_required" | null;
@@ -68,6 +69,8 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
 
 
   const effectiveCommunityId = communityId || contextCommunityId;
+  const agreement = useMemberAgreement(effectiveCommunityId);
+  const [agreed, setAgreed] = useState(false);
   const effectiveCommunityName = communityName || contextCommunityName;
 
   // Load target community's custom join question so we can render it in the signup flow.
@@ -234,6 +237,12 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       return;
     }
 
+    if (agreement.text && !agreed) {
+      toast({ title: "Agreement required", description: "Please read and agree to the member agreement.", variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+
     // For approval-required communities, enforce cross streets and (if set) the
     // custom question. The Dialog doesn't wrap a <form>, so HTML `required`
     // attributes never fire — validate here explicitly.
@@ -268,6 +277,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
       ? `${window.location.origin}/c/${signupSlug}`
       : `${window.location.origin}/`;
 
+    if (agreement.text && agreed) metadata.agreement_accepted_at = new Date().toISOString();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -328,6 +338,7 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
         crossStreets: crossStreets || null,
         referralSource: 'signup_form',
         customAnswer: customQuestion ? customAnswer : null,
+        agreementAccepted: !!agreement.text && agreed,
       });
 
       if (jrError) {
@@ -432,6 +443,10 @@ export function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess, commu
                         className="text-base resize-none"
                       />
                     </div>
+                  )}
+
+                  {agreement.text && (
+                    <MemberAgreement text={agreement.text} accepted={agreed} onAcceptedChange={setAgreed} idPrefix="modal" />
                   )}
 
                   {communitySettingsError && (

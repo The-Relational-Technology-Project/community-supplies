@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { fileJoinRequest, autoJoinCommunity } from "@/lib/joinCommunity";
 import { Users } from "lucide-react";
+import { MemberAgreement, useMemberAgreement, recordAgreementAcceptance } from "@/components/community/MemberAgreement";
 
 type CommunityJoinSettings = {
   join_mode: "auto" | "approval_required" | null;
@@ -39,6 +40,8 @@ export function JoinThisCommunity({
   const [requestSent, setRequestSent] = useState(false);
   const [crossStreets, setCrossStreets] = useState("");
   const [customAnswer, setCustomAnswer] = useState("");
+  const agreement = useMemberAgreement(targetCommunityId);
+  const [agreed, setAgreed] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
@@ -95,8 +98,13 @@ export function JoinThisCommunity({
   }, [targetCommunityId, user?.id]);
 
   const handleAutoJoin = async () => {
+    if (agreement.text && !agreed) {
+      toast({ title: "Agreement required", description: "Please read and agree to the member agreement.", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     const { error } = await autoJoinCommunity(targetCommunityId);
+    if (!error && agreement.text) await recordAgreementAcceptance();
     setSubmitting(false);
     if (error) {
       toast({
@@ -135,6 +143,10 @@ export function JoinThisCommunity({
       return;
     }
 
+    if (agreement.text && !agreed) {
+      toast({ title: "Agreement required", description: "Please read and agree to the member agreement.", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     const { error } = await fileJoinRequest({
       communityId: targetCommunityId,
@@ -143,6 +155,7 @@ export function JoinThisCommunity({
       email: user.email ?? "",
       crossStreets: crossStreets.trim(),
       customAnswer: customQuestion ? customAnswer.trim() : null,
+      agreementAccepted: !!agreement.text && agreed,
     });
     setSubmitting(false);
     if (error) {
@@ -191,6 +204,9 @@ export function JoinThisCommunity({
                 {targetCommunityName} is open to join. Switching will move your account into
                 this community.
               </p>
+              {agreement.text && (
+                <MemberAgreement text={agreement.text} accepted={agreed} onAcceptedChange={setAgreed} idPrefix="jtc-auto" />
+              )}
               <Button
                 className="w-full"
                 onClick={handleAutoJoin}
@@ -240,6 +256,10 @@ export function JoinThisCommunity({
                     className="text-base resize-none"
                   />
                 </div>
+              )}
+
+              {agreement.text && (
+                <MemberAgreement text={agreement.text} accepted={agreed} onAcceptedChange={setAgreed} idPrefix="jtc" />
               )}
 
               <Button type="submit" className="w-full" disabled={submitting || !settingsLoaded}>

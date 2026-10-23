@@ -10,6 +10,8 @@ import { CommunityAiSettings } from "./CommunityAiSettings";
 import { CustomJoinQuestion } from "./CustomJoinQuestion";
 import { RequestNotificationSettings } from "./RequestNotificationSettings";
 import { ExportCommunityData } from "./ExportCommunityData";
+import { InviteNeighborsButton } from "./InviteNeighborsButton";
+import { MemberAgreementSettings } from "./MemberAgreementSettings";
 import { RequestBoard } from "@/components/requests/RequestBoard";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { Users, MessageSquare, MessageSquarePlus, UserPlus, ArrowLeft, User } from "lucide-react";
@@ -35,10 +37,14 @@ export function CommunityStewardDashboard() {
           </Link>
         </Button>
       </div>
-      <h1 className="text-2xl font-serif font-bold text-deep-brown mb-6">Steward Dashboard</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-serif font-bold text-deep-brown">Steward Dashboard</h1>
+        <InviteNeighborsButton />
+      </div>
       <div className="mb-6 space-y-6">
         <JoinModeToggle />
         <CustomJoinQuestion />
+        <MemberAgreementSettings />
         <CommunityAiSettings />
         <RequestNotificationSettings />
         <ExportCommunityData />
