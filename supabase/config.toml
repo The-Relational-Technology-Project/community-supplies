@@ -58,3 +58,6 @@ verify_jwt = false
 
 [functions.request-emails-unsubscribe]
 verify_jwt = false
+
+[functions.backfill-image-thumbnails]
+verify_jwt = false

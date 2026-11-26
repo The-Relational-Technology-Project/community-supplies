@@ -4,7 +4,7 @@ import { Supply } from "@/types/supply";
 import { MapPin } from "lucide-react";
 import { categories } from "@/data/categories";
 import { cn } from "@/lib/utils";
-import { getOptimizedImageUrl } from "@/lib/imageUrl";
+import { getThumbnailUrl, fallbackToOriginalImage } from "@/lib/imageUrl";
 
 interface SupplyCardProps {
   supply: Supply;
@@ -48,10 +48,11 @@ export function SupplyCard({ supply, onViewContact }: SupplyCardProps) {
                 </p>
               </div>
               <img 
-                src={getOptimizedImageUrl(supply.illustration_url, { width: 400, quality: 70 })}
+                src={getThumbnailUrl(supply.illustration_url)}
                 alt={supply.name}
                 loading="lazy"
                 onLoad={() => setImageLoaded(true)}
+                onError={(event) => fallbackToOriginalImage(event.currentTarget, supply.illustration_url)}
                 className={cn(
                   "w-full h-full object-contain p-3 transition-opacity duration-300",
                   imageLoaded ? "opacity-100" : "opacity-0"
@@ -69,10 +70,11 @@ export function SupplyCard({ supply, onViewContact }: SupplyCardProps) {
                 </p>
               </div>
               <img
-                src={getOptimizedImageUrl(photoUrl, { width: 400, quality: 70 })}
+                src={getThumbnailUrl(photoUrl)}
                 alt={supply.name}
                 loading="lazy"
                 onLoad={() => setImageLoaded(true)}
+                onError={(event) => fallbackToOriginalImage(event.currentTarget, photoUrl)}
                 className={cn(
                   "w-full h-full object-contain p-3 transition-opacity duration-300",
                   imageLoaded ? "opacity-100" : "opacity-0"

@@ -13,7 +13,7 @@ import { CommunityHero } from "./community/CommunityHero";
 import { JoinRequestForm } from "./community/JoinRequestForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
-import { getOptimizedImageUrl } from "@/lib/imageUrl";
+import { getThumbnailUrl, fallbackToOriginalImage } from "@/lib/imageUrl";
 
 interface LandingPageProps {
   onTabChange: (tab: string) => void;
@@ -237,7 +237,8 @@ export function LandingPage({ onTabChange }: LandingPageProps) {
                     className="aspect-square bg-white border border-border rounded-sm overflow-hidden flex items-center justify-center"
                   >
                     <img
-                      src={getOptimizedImageUrl(url, { width: 300, quality: 70 })}
+                      src={getThumbnailUrl(url)}
+                      onError={(event) => fallbackToOriginalImage(event.currentTarget, url)}
                       alt=""
                       className="w-full h-full object-contain p-3"
                       loading="lazy"

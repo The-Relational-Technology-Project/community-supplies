@@ -1,0 +1,3 @@
+# Architecture rules
+- Catalog thumbnails use immutable sibling files named `<original-path>.thumb.jpg` in the existing image bucket; generate them once on upload/backfill and serve ordinary object URLs, so browsing never invokes paid image transformations. Keep original URLs in item records for detail views and fall back to originals if a thumbnail is missing.
+- Image processing in hosted functions must use WebAssembly-only codecs, not native FFI; maintenance conversion is restricted to the private scheduler credential and one image per invocation to bound resource usage.

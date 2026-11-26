@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { HouseRules } from "@/components/HouseRules";
 import { supabase } from "@/integrations/supabase/client";
 import { compressFile } from "@/lib/imageCompression";
+import { uploadSupplyImage } from "@/lib/uploadSupplyImage";
 import { categories } from "@/data/categories";
 import { useCommunity } from "@/contexts/CommunityContext";
 
@@ -135,12 +136,8 @@ export function BulkAddSupplies() {
       let uploadedOk = false;
 
       try {
-        const { error: uploadError } = await supabase.storage
-          .from('supply-images')
-          .upload(storagePath, item.blob, { contentType: 'image/jpeg' });
-        if (uploadError) throw uploadError;
+        publicUrl = await uploadSupplyImage(storagePath, item.blob);
         uploadedOk = true;
-        publicUrl = supabase.storage.from('supply-images').getPublicUrl(storagePath).data.publicUrl;
 
         const { data, error } = await supabase.functions.invoke('draft-item-from-image', {
           body: { imageUrl: publicUrl }
@@ -204,11 +201,7 @@ export function BulkAddSupplies() {
       const item = images[i];
       const storagePath = `${user.id}/${crypto.randomUUID()}.jpg`;
       try {
-        const { error: uploadError } = await supabase.storage
-          .from('supply-images')
-          .upload(storagePath, item.blob, { contentType: 'image/jpeg' });
-        if (uploadError) throw uploadError;
-        const publicUrl = supabase.storage.from('supply-images').getPublicUrl(storagePath).data.publicUrl;
+        const publicUrl = await uploadSupplyImage(storagePath, item.blob);
         results.push({
           storagePath,
           publicUrl,

@@ -1,19 +1,7 @@
 const serve = Deno.serve;
-import { createClient } from 'npm:@supabase/supabase-js@2.58.0';
-
-const ALLOWED_ORIGINS = [
-  "https://communitysupplies.org",
-  "https://sunset-block-party-supplies.lovable.app",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".lovable.app");
-  return {
-    "Access-Control-Allow-Origin": allowed ? origin : ALLOWED_ORIGINS[0],
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  };
-}
+import { createClient } from 'npm:@supabase/supabase-js@2.119.2';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { createImageThumbnail } from '../_shared/imageThumbnail.ts';
 
 // Decode a data: URL and upload it to the supply-images bucket. Returns the public URL.
 // If the input isn't a data URL, returns it unchanged.
@@ -33,24 +21,32 @@ async function uploadDataUrlToStorage(
   let ext = contentType.split('/')[1]?.split('+')[0] || 'png';
   if (ext === 'jpeg') ext = 'jpg';
   const path = `${ownerId}/illustration/${supplyId}-${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from('supply-images').upload(path, bytes, { contentType, upsert: false });
+  const { error } = await supabase.storage.from('supply-images').upload(path, bytes, { contentType, upsert: false, cacheControl: '31536000' });
   if (error) {
     console.error('Storage upload failed for illustration:', error.message);
     throw new Error('Failed to store illustration in bucket');
+  }
+  try {
+    const thumbnail = await createImageThumbnail(bytes);
+    const { error: thumbnailError } = await supabase.storage.from('supply-images').upload(`${path}.thumb.jpg`, thumbnail, {
+      contentType: 'image/jpeg', cacheControl: '31536000', upsert: false,
+    });
+    if (thumbnailError) throw thumbnailError;
+  } catch (thumbnailError) {
+    console.error('Thumbnail failed; original illustration remains available:', thumbnailError);
   }
   return supabase.storage.from('supply-images').getPublicUrl(path).data.publicUrl;
 }
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
-
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !supabaseKey) throw new Error('Storage configuration missing');
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const authHeader = req.headers.get('Authorization');
@@ -235,7 +231,6 @@ CRITICAL FRAMING: Output a square 1:1 aspect ratio image. The entire object must
 
   } catch (error) {
     console.error('Error in generate-illustration:', error);
-    const corsHeaders = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error occurred' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

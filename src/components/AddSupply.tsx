@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { HouseRules } from "@/components/HouseRules";
 import { supabase } from "@/integrations/supabase/client";
 import { compressFile } from "@/lib/imageCompression";
+import { uploadSupplyImage } from "@/lib/uploadSupplyImage";
 import { categories } from "@/data/categories";
 import { useCommunity } from "@/contexts/CommunityContext";
 import { fulfillItemRequest, type ItemRequest } from "@/hooks/useItemRequests";
@@ -117,14 +118,13 @@ export function AddSupply({ fulfillRequest = null, onDone }: AddSupplyProps = {}
     }
     const compressed = await compressFile(file);
     const storagePath = `${currentUserId}/${crypto.randomUUID()}.jpg`;
-    const { error: uploadError } = await supabase.storage
-      .from('supply-images')
-      .upload(storagePath, compressed.blob, { contentType: 'image/jpeg' });
-    if (uploadError) {
+    let publicUrl: string;
+    try {
+      publicUrl = await uploadSupplyImage(storagePath, compressed.blob);
+    } catch {
       URL.revokeObjectURL(compressed.previewUrl);
       throw new Error("Couldn't upload your photo. Please check your connection and try again.");
     }
-    const publicUrl = supabase.storage.from('supply-images').getPublicUrl(storagePath).data.publicUrl;
     return { publicUrl, previewUrl: compressed.previewUrl };
   };
 

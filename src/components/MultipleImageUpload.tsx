@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
-import { compressFileToDataUrl } from "@/lib/imageCompression";
+import { compressFile } from "@/lib/imageCompression";
+import { uploadSupplyImage } from "@/lib/uploadSupplyImage";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface MultipleImageUploadProps {
   onImagesChange: (images: string[]) => void;
@@ -33,16 +36,23 @@ export function MultipleImageUpload({
     setCompressing(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Please sign in to upload photos.");
       const newImages: string[] = [];
       for (let i = 0; i < filesToProcess; i++) {
-        const compressed = await compressFileToDataUrl(files[i]);
-        newImages.push(compressed);
+        const compressed = await compressFile(files[i]);
+        try {
+          newImages.push(await uploadSupplyImage(`${user.id}/${crypto.randomUUID()}.jpg`, compressed.blob));
+        } finally {
+          URL.revokeObjectURL(compressed.previewUrl);
+        }
       }
       const updatedImages = [...images, ...newImages];
       setImages(updatedImages);
       onImagesChange(updatedImages);
     } catch (error) {
       console.error('Failed to compress images:', error);
+      toast.error(error instanceof Error ? error.message : "Couldn't upload your photos. Please try again.");
     } finally {
       setCompressing(false);
       if (fileInputRef.current) {
